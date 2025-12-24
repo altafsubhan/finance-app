@@ -139,7 +139,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     // Update rows with validation errors
     setNewTransactionRows(prev => prev.map(r => {
       const errorRow = rowsWithErrors.find(e => e.row.id === r.id);
-      return { ...r, error: errorRow?.error };
+      return { ...r, error: errorRow?.error ?? undefined };
     }));
 
     // Filter out rows with errors
