@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Transaction, Category } from '@/types/database';
 import TransactionForm from '@/components/TransactionForm';
 import TransactionList from '@/components/TransactionList';
@@ -28,31 +28,7 @@ export default function TransactionsPage() {
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
   const [loadingTransactions, setLoadingTransactions] = useState(false);
 
-  // Load categories only once on mount
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const categoriesRes = await fetch('/api/categories', {
-          credentials: 'include',
-        });
-        if (categoriesRes.ok) {
-          const categoriesData = await categoriesRes.json();
-          setCategories(categoriesData);
-        }
-      } catch (error) {
-        console.error('Failed to load categories:', error);
-      }
-    };
-    loadCategories();
-    loadTransactions();
-  }, []);
-
-  // Reload transactions when filters change
-  useEffect(() => {
-    loadTransactions();
-  }, [selectedYear, selectedMonth, selectedQuarter, selectedCategory, selectedPaymentMethod, selectedCategoryType, selectedPaidBy]);
-
-  const loadTransactions = async () => {
+  const loadTransactions = useCallback(async () => {
     try {
       setLoadingTransactions(true);
       
@@ -81,7 +57,30 @@ export default function TransactionsPage() {
     } finally {
       setLoadingTransactions(false);
     }
-  };
+  }, [selectedYear, selectedMonth, selectedQuarter, selectedCategory, selectedPaymentMethod, selectedCategoryType, selectedPaidBy]);
+
+  // Load categories only once on mount
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const categoriesRes = await fetch('/api/categories', {
+          credentials: 'include',
+        });
+        if (categoriesRes.ok) {
+          const categoriesData = await categoriesRes.json();
+          setCategories(categoriesData);
+        }
+      } catch (error) {
+        console.error('Failed to load categories:', error);
+      }
+    };
+    loadCategories();
+  }, []);
+
+  // Reload transactions when filters change
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
 
   const loadData = async () => {
     await loadTransactions();
