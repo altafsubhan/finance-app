@@ -51,6 +51,39 @@ export default function EditableCategoryCell({
     }
   };
 
+  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newCategoryId = e.target.value;
+    setSelectedCategoryId(newCategoryId);
+    
+    if (newCategoryId === currentCategoryId) {
+      setIsEditing(false);
+      return;
+    }
+
+    // Save immediately on change
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/transactions/${transactionId}/quick-update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ category_id: newCategoryId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update category');
+      }
+
+      setIsEditing(false);
+      onUpdate(newCategoryId);
+    } catch (error) {
+      alert('Failed to update category');
+      setSelectedCategoryId(currentCategoryId);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCancel = () => {
     setSelectedCategoryId(currentCategoryId);
     setIsEditing(false);
@@ -119,14 +152,12 @@ export default function EditableCategoryCell({
       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
         <select
           value={selectedCategoryId}
-          onChange={(e) => setSelectedCategoryId(e.target.value)}
+          onChange={handleChange}
           autoFocus
           disabled={loading}
           className="px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          onBlur={handleSave}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSave();
             if (e.key === 'Escape') handleCancel();
           }}
         >

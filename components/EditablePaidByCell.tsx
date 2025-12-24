@@ -50,6 +50,39 @@ export default function EditablePaidByCell({
     }
   };
 
+  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newPaidBy = (e.target.value as PaidBy || null);
+    setSelectedPaidBy(newPaidBy);
+    
+    if (newPaidBy === currentPaidBy) {
+      setIsEditing(false);
+      return;
+    }
+
+    // Save immediately on change
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/transactions/${transactionId}/quick-update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ paid_by: newPaidBy }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update paid by');
+      }
+
+      setIsEditing(false);
+      onUpdate(newPaidBy);
+    } catch (error) {
+      alert('Failed to update paid by');
+      setSelectedPaidBy(currentPaidBy);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCancel = () => {
     setSelectedPaidBy(currentPaidBy);
     setIsEditing(false);
@@ -121,14 +154,12 @@ export default function EditablePaidByCell({
       <div onClick={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
         <select
           value={selectedPaidBy || ''}
-          onChange={(e) => setSelectedPaidBy(e.target.value as PaidBy || null)}
+          onChange={handleChange}
           autoFocus
           disabled={loading}
           className="px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          onBlur={handleSave}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSave();
             if (e.key === 'Escape') handleCancel();
           }}
         >
