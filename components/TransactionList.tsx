@@ -414,10 +414,10 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
+                    <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Payment Method</th>
                     <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                     <th className="px-2 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Amount</th>
-                    <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Category</th>
-                    <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Payment Method</th>
+                    <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Category</th>
                     <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Date</th>
                     <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Paid By</th>
                     <th className="hidden md:table-cell px-3 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Actions</th>
@@ -782,6 +782,17 @@ function TransactionTable({
                 className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
             </th>
+            <th className="px-1 md:px-6 py-1.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+              <button
+                onClick={() => onSort('payment_method')}
+                className="flex items-center gap-1 hover:text-gray-700"
+              >
+                Payment Method
+                {sortField === 'payment_method' && (
+                  <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
+            </th>
             <th className="px-1 md:px-6 py-1.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <button
                 onClick={() => onSort('description')}
@@ -804,24 +815,13 @@ function TransactionTable({
                 )}
               </button>
             </th>
-            <th className="px-1 md:px-6 py-1.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+            <th className="px-1 md:px-6 py-1.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
               <button
                 onClick={() => onSort('category')}
                 className="flex items-center gap-1 hover:text-gray-700"
               >
                 Category
                 {sortField === 'category' && (
-                  <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                )}
-              </button>
-            </th>
-            <th className="px-1 md:px-6 py-1.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-              <button
-                onClick={() => onSort('payment_method')}
-                className="flex items-center gap-1 hover:text-gray-700"
-              >
-                Payment Method
-                {sortField === 'payment_method' && (
                   <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                 )}
               </button>
@@ -860,7 +860,7 @@ function TransactionTable({
             return (
               <tr 
                 key={transaction.id} 
-                className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''} ${isSelectionMode ? 'cursor-pointer' : ''}`}
+                className={`${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
                 style={{ 
                   WebkitUserSelect: 'none', 
                   userSelect: 'none',
@@ -881,13 +881,16 @@ function TransactionTable({
                     className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                 </td>
+                <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500 w-28">
+                  {transaction.payment_method}
+                </td>
                 <td className="px-1 md:px-6 py-2 md:py-4 text-sm text-gray-900 break-words">
                   {transaction.description}
                 </td>
                 <td className={`px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm font-bold text-right text-gray-900 w-24 ${getPaidByColor(transaction.paid_by)}`}>
                   ${parseFloat(transaction.amount.toString()).toFixed(2)}
                 </td>
-                <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500 w-32">
+                <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500 w-28">
                   <div className="flex items-center">
                     <EditableCategoryCell
                       transactionId={transaction.id}
@@ -896,9 +899,6 @@ function TransactionTable({
                       onUpdate={onUpdate ? (categoryId: string) => onUpdate(transaction.id, { category_id: categoryId }) : () => {}}
                     />
                   </div>
-                </td>
-                <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500 w-32">
-                  {transaction.payment_method}
                 </td>
                 <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-900 w-32">
                   {transaction.date ? format(new Date(transaction.date), 'MMM dd, yyyy') : '—'}

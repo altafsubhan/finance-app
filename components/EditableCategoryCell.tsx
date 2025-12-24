@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Category } from '@/types/database';
 
 interface EditableCategoryCellProps {
@@ -19,6 +19,8 @@ export default function EditableCategoryCell({
   const [isEditing, setIsEditing] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState(currentCategoryId);
   const [loading, setLoading] = useState(false);
+  const editTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
   const handleSave = async () => {
     if (selectedCategoryId === currentCategoryId) {
@@ -54,6 +56,62 @@ export default function EditableCategoryCell({
     setIsEditing(false);
   };
 
+  const handleStartEdit = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    
+    // Clear any existing timer
+    if (editTimerRef.current) {
+      clearTimeout(editTimerRef.current);
+      editTimerRef.current = null;
+    }
+
+    // Store touch position if it's a touch event
+    if ('touches' in e && e.touches.length > 0) {
+      touchStartPosRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+      };
+    }
+
+    // Set a delay before activating edit mode (300ms)
+    editTimerRef.current = setTimeout(() => {
+      setIsEditing(true);
+      editTimerRef.current = null;
+    }, 300);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // If user moves finger significantly, cancel the edit timer
+    if (touchStartPosRef.current && e.touches.length > 0) {
+      const deltaX = Math.abs(e.touches[0].clientX - touchStartPosRef.current.x);
+      const deltaY = Math.abs(e.touches[0].clientY - touchStartPosRef.current.y);
+      
+      // If moved more than 10px, cancel edit
+      if (deltaX > 10 || deltaY > 10) {
+        if (editTimerRef.current) {
+          clearTimeout(editTimerRef.current);
+          editTimerRef.current = null;
+        }
+        touchStartPosRef.current = null;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    // Clear position on touch end
+    touchStartPosRef.current = null;
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // For mouse clicks, activate immediately (no delay needed)
+    if (editTimerRef.current) {
+      clearTimeout(editTimerRef.current);
+      editTimerRef.current = null;
+    }
+    setIsEditing(true);
+  };
+
   const currentCategory = categories.find(c => c.id === currentCategoryId);
 
   if (isEditing) {
@@ -85,14 +143,10 @@ export default function EditableCategoryCell({
   return (
     <div 
       className="flex items-center cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
-      onClick={(e) => {
-        e.stopPropagation();
-        setIsEditing(true);
-      }}
-      onTouchStart={(e) => {
-        e.stopPropagation();
-        setIsEditing(true);
-      }}
+      onClick={handleClick}
+      onTouchStart={handleStartEdit}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       title="Click to edit"
     >
       {currentCategory?.name || 'Unknown'}

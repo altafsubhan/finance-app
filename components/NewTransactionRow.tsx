@@ -102,13 +102,18 @@ export default function NewTransactionRow({ row, categories, onChange, onCancel,
   return (
     <tr className="bg-green-50">
       <td className="px-6 py-4 whitespace-nowrap">
-        <input
-          type="date"
-          value={row.date}
-          onChange={(e) => handleDateChange(e.target.value)}
-          className="w-32 px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Date"
-        />
+        <select
+          value={row.payment_method}
+          onChange={(e) => handleFieldChange('payment_method', e.target.value)}
+          className="w-40 px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Payment method</option>
+          {PAYMENT_METHODS.map((method) => (
+            <option key={method} value={method}>
+              {method}
+            </option>
+          ))}
+        </select>
       </td>
       <td className="px-6 py-4">
         <input
@@ -117,6 +122,16 @@ export default function NewTransactionRow({ row, categories, onChange, onCancel,
           onChange={(e) => handleFieldChange('description', e.target.value)}
           className="w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Description"
+        />
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-right">
+        <input
+          type="number"
+          step="0.01"
+          value={row.amount}
+          onChange={(e) => handleFieldChange('amount', e.target.value)}
+          className="w-32 px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right"
+          placeholder="Amount"
         />
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
@@ -134,27 +149,12 @@ export default function NewTransactionRow({ row, categories, onChange, onCancel,
         </select>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <select
-          value={row.payment_method}
-          onChange={(e) => handleFieldChange('payment_method', e.target.value)}
-          className="w-40 px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Payment method</option>
-          {PAYMENT_METHODS.map((method) => (
-            <option key={method} value={method}>
-              {method}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-right">
         <input
-          type="number"
-          step="0.01"
-          value={row.amount}
-          onChange={(e) => handleFieldChange('amount', e.target.value)}
-          className="w-24 px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right"
-          placeholder="0.00"
+          type="date"
+          value={row.date}
+          onChange={(e) => handleDateChange(e.target.value)}
+          className="w-32 px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Date"
         />
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
