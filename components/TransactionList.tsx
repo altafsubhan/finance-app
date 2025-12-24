@@ -45,6 +45,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [newTransactionRows, setNewTransactionRows] = useState<NewTransactionRowState[]>([]);
   const [savingRows, setSavingRows] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   // Validate a single row
   const validateRow = (row: NewTransactionRowState): string | null => {
