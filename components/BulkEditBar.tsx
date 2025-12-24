@@ -6,20 +6,24 @@ import { PAYMENT_METHODS, PAID_BY_OPTIONS } from '@/lib/constants';
 
 interface BulkEditBarProps {
   selectedCount: number;
+  selectedIds: string[];
   categories: Category[];
   onBulkUpdate: (updates: {
     category_id?: string;
     payment_method?: PaymentMethod;
     paid_by?: PaidBy;
   }) => Promise<void>;
+  onBulkDelete: (ids: string[]) => Promise<void>;
+  onBulkEdit: (transactionId: string) => void;
   onCancel: () => void;
 }
 
-export default function BulkEditBar({ selectedCount, categories, onBulkUpdate, onCancel }: BulkEditBarProps) {
+export default function BulkEditBar({ selectedCount, selectedIds, categories, onBulkUpdate, onBulkDelete, onBulkEdit, onCancel }: BulkEditBarProps) {
   const [categoryId, setCategoryId] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [paidBy, setPaidBy] = useState<PaidBy | ''>('');
   const [loading, setLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleApply = async () => {
@@ -54,6 +58,30 @@ export default function BulkEditBar({ selectedCount, categories, onBulkUpdate, o
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${selectedCount} transaction${selectedCount !== 1 ? 's' : ''}?`)) {
+      return;
+    }
+
+    setDeleteLoading(true);
+    setError(null);
+
+    try {
+      await onBulkDelete(selectedIds);
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete transactions');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleEdit = () => {
+    // Edit the first selected transaction (should only be called when one is selected)
+    if (selectedIds.length === 1) {
+      onBulkEdit(selectedIds[0]);
+    }
+  };
+
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 safe-area-inset-bottom">
       <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-4">
@@ -62,10 +90,25 @@ export default function BulkEditBar({ selectedCount, categories, onBulkUpdate, o
             <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
               {selectedCount} transaction{selectedCount !== 1 ? 's' : ''} selected
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {error && (
                 <span className="text-xs text-red-600">{error}</span>
               )}
+              {selectedCount === 1 && (
+                <button
+                  onClick={handleEdit}
+                  className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap"
+                >
+                  Edit
+                </button>
+              )}
+              <button
+                onClick={handleDelete}
+                disabled={deleteLoading}
+                className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                {deleteLoading ? 'Deleting...' : 'Delete'}
+              </button>
               <button
                 onClick={onCancel}
                 className="px-3 py-1.5 text-sm text-gray-700 hover:text-gray-900 whitespace-nowrap"

@@ -422,6 +422,7 @@ export default function TransactionsPage() {
         {selectedTransactionIds.size > 0 && (
           <BulkEditBar
             selectedCount={selectedTransactionIds.size}
+            selectedIds={Array.from(selectedTransactionIds)}
             categories={categories}
             onBulkUpdate={async (updates) => {
               const response = await fetch('/api/transactions/bulk-update', {
@@ -441,6 +442,32 @@ export default function TransactionsPage() {
 
               setSelectedTransactionIds(new Set());
               loadData();
+            }}
+            onBulkDelete={async (ids: string[]) => {
+              // Delete all selected transactions in parallel
+              const deletePromises = ids.map(id =>
+                fetch(`/api/transactions/${id}`, {
+                  method: 'DELETE',
+                  credentials: 'include',
+                })
+              );
+
+              const results = await Promise.all(deletePromises);
+              const failed = results.filter(r => !r.ok);
+
+              if (failed.length > 0) {
+                throw new Error(`Failed to delete ${failed.length} transaction${failed.length > 1 ? 's' : ''}`);
+              }
+
+              setSelectedTransactionIds(new Set());
+              loadData();
+            }}
+            onBulkEdit={(transactionId: string) => {
+              const transaction = transactions.find(t => t.id === transactionId);
+              if (transaction) {
+                handleEdit(transaction);
+                setSelectedTransactionIds(new Set());
+              }
             }}
             onCancel={() => setSelectedTransactionIds(new Set())}
           />
