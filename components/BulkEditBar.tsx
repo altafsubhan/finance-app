@@ -102,7 +102,7 @@ export default function BulkEditBar({ selectedCount, categories, onBulkUpdate, o
                 <label htmlFor="bulk-paid-by" className="sr-only">Paid By</label>
                 <select
                   id="bulk-paid-by"
-                  value={paidBy}
+                  value={paidBy || ''}
                   onChange={(e) => setPaidBy(e.target.value as PaidBy || '')}
                   className="px-3 py-2 text-sm border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
