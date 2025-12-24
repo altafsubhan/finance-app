@@ -106,24 +106,26 @@ export default function TransactionsPage() {
   return (
     <main className={`min-h-screen p-4 sm:p-8 bg-gray-50 ${selectedTransactionIds.size > 0 ? 'pb-32' : ''}`}>
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-8 gap-3">
-          <h1 className="text-2xl sm:text-4xl font-bold">Transactions</h1>
-          {!showForm && !showCSVImport && !showScreenshotImport && (
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => setShowScreenshotImport(true)}
-                className="bg-purple-600 text-white px-3 py-2 text-sm sm:px-4 sm:py-2 rounded-lg hover:bg-purple-700 whitespace-nowrap"
-              >
-                Import Screenshot
-              </button>
-              <button
-                onClick={() => setShowCSVImport(true)}
-                className="bg-green-600 text-white px-3 py-2 text-sm sm:px-4 sm:py-2 rounded-lg hover:bg-green-700 whitespace-nowrap"
-              >
-                Import CSV
-              </button>
-            </div>
-          )}
+        <div className="flex flex-col mb-4 sm:mb-8 gap-2 sm:gap-3">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+            <h1 className="text-2xl sm:text-4xl font-bold">Transactions</h1>
+            {!showForm && !showCSVImport && !showScreenshotImport && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowScreenshotImport(true)}
+                  className="bg-purple-600 text-white px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm rounded-lg hover:bg-purple-700 whitespace-nowrap flex-1 sm:flex-none"
+                >
+                  Import Screenshot
+                </button>
+                <button
+                  onClick={() => setShowCSVImport(true)}
+                  className="bg-green-600 text-white px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm rounded-lg hover:bg-green-700 whitespace-nowrap flex-1 sm:flex-none"
+                >
+                  Import CSV
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {showForm && (

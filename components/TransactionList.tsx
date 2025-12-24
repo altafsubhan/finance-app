@@ -678,11 +678,19 @@ function TransactionTable({
       newSelection.delete(id);
     }
     onSelectionChange(newSelection);
+    
+    // Exit selection mode if no items are selected
+    if (newSelection.size === 0) {
+      setIsSelectionMode(false);
+    }
   };
 
   const handleTouchStart = (e: React.TouchEvent, transactionId: string) => {
     // Only enable touch-and-hold on mobile
     if (window.innerWidth >= 768) return;
+
+    // Prevent text selection
+    e.preventDefault();
 
     const touch = e.touches[0];
     touchStartRef.current = {
@@ -690,6 +698,13 @@ function TransactionTable({
       x: touch.clientX,
       y: touch.clientY,
     };
+
+    // If already in selection mode, toggle immediately on touch start
+    if (isSelectionMode) {
+      const isSelected = selectedIds.has(transactionId);
+      handleSelectOne(transactionId, !isSelected);
+      return;
+    }
 
     // Start timer for touch-and-hold
     touchHoldTimerRef.current = setTimeout(() => {
@@ -703,38 +718,13 @@ function TransactionTable({
   const handleTouchEnd = (e: React.TouchEvent, transactionId: string) => {
     if (window.innerWidth >= 768) return;
 
+    // Prevent text selection
+    e.preventDefault();
+
     // Clear the timer if it hasn't fired yet
     if (touchHoldTimerRef.current) {
       clearTimeout(touchHoldTimerRef.current);
       touchHoldTimerRef.current = null;
-
-      // If we didn't enter selection mode, check if this was a tap (not a drag)
-      if (touchStartRef.current && touchStartRef.current.id === transactionId) {
-        const touch = e.changedTouches[0];
-        const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
-        const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
-        
-        // If moved less than 10px, treat as tap
-        if (deltaX < 10 && deltaY < 10) {
-          if (isSelectionMode) {
-            // In selection mode, toggle selection on tap
-            const isSelected = selectedIds.has(transactionId);
-            handleSelectOne(transactionId, !isSelected);
-          }
-        }
-      }
-    } else if (isSelectionMode) {
-      // If we're in selection mode and timer already fired, toggle on tap
-      const touch = e.changedTouches[0];
-      if (touchStartRef.current && touchStartRef.current.id === transactionId) {
-        const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
-        const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
-        
-        if (deltaX < 10 && deltaY < 10) {
-          const isSelected = selectedIds.has(transactionId);
-          handleSelectOne(transactionId, !isSelected);
-        }
-      }
     }
 
     touchStartRef.current = null;
@@ -779,7 +769,7 @@ function TransactionTable({
                 className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
             </th>
-            <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-1 md:px-6 py-1.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <button
                 onClick={() => onSort('description')}
                 className="flex items-center gap-1 hover:text-gray-700"
@@ -790,7 +780,7 @@ function TransactionTable({
                 )}
               </button>
             </th>
-            <th className="px-2 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+            <th className="px-1 md:px-6 py-1.5 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
               <button
                 onClick={() => onSort('amount')}
                 className="flex items-center gap-1 hover:text-gray-700 ml-auto"
@@ -801,7 +791,7 @@ function TransactionTable({
                 )}
               </button>
             </th>
-            <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+            <th className="px-1 md:px-6 py-1.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
               <button
                 onClick={() => onSort('category')}
                 className="flex items-center gap-1 hover:text-gray-700"
@@ -812,7 +802,7 @@ function TransactionTable({
                 )}
               </button>
             </th>
-            <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+            <th className="px-1 md:px-6 py-1.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
               <button
                 onClick={() => onSort('payment_method')}
                 className="flex items-center gap-1 hover:text-gray-700"
@@ -823,7 +813,7 @@ function TransactionTable({
                 )}
               </button>
             </th>
-            <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+            <th className="px-1 md:px-6 py-1.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
               <button
                 onClick={() => onSort('date')}
                 className="flex items-center gap-1 hover:text-gray-700"
@@ -834,7 +824,7 @@ function TransactionTable({
                 )}
               </button>
             </th>
-            <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+            <th className="px-1 md:px-6 py-1.5 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
               <button
                 onClick={() => onSort('paid_by')}
                 className="flex items-center gap-1 hover:text-gray-700"
@@ -871,13 +861,13 @@ function TransactionTable({
                     className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                 </td>
-                <td className="px-2 md:px-6 py-3 md:py-4 text-sm text-gray-900 break-words">
+                <td className="px-1 md:px-6 py-2 md:py-4 text-sm text-gray-900 break-words">
                   {transaction.description}
                 </td>
-                <td className={`px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm font-bold text-right text-gray-900 w-24 ${getPaidByColor(transaction.paid_by)}`}>
+                <td className={`px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm font-bold text-right text-gray-900 w-24 ${getPaidByColor(transaction.paid_by)}`}>
                   ${parseFloat(transaction.amount.toString()).toFixed(2)}
                 </td>
-                <td className="px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500 w-32">
+                <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500 w-32">
                   <div className="flex items-center">
                     <EditableCategoryCell
                       transactionId={transaction.id}
@@ -887,13 +877,13 @@ function TransactionTable({
                     />
                   </div>
                 </td>
-                <td className="px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500 w-32">
+                <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500 w-32">
                   {transaction.payment_method}
                 </td>
-                <td className="px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-900 w-32">
+                <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-900 w-32">
                   {transaction.date ? format(new Date(transaction.date), 'MMM dd, yyyy') : '—'}
                 </td>
-                <td className="px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500 w-28">
+                <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500 w-28">
                     <EditablePaidByCell
                       transactionId={transaction.id}
                       currentPaidBy={transaction.paid_by}
