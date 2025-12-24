@@ -27,6 +27,7 @@ export default function TransactionsPage() {
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>('');
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   const loadTransactions = useCallback(async () => {
     try {
@@ -59,7 +60,7 @@ export default function TransactionsPage() {
     }
   }, [selectedYear, selectedMonth, selectedQuarter, selectedCategory, selectedPaymentMethod, selectedCategoryType, selectedPaidBy]);
 
-  // Load categories only once on mount
+  // Load categories and transactions on mount
   useEffect(() => {
     const loadCategories = async () => {
       try {
@@ -74,13 +75,23 @@ export default function TransactionsPage() {
         console.error('Failed to load categories:', error);
       }
     };
-    loadCategories();
+    
+    const initialLoad = async () => {
+      setInitialLoading(true);
+      await loadCategories();
+      await loadTransactions();
+      setInitialLoading(false);
+    };
+    
+    initialLoad();
   }, []);
 
-  // Reload transactions when filters change
+  // Reload transactions when filters change (but not on initial mount)
   useEffect(() => {
-    loadTransactions();
-  }, [loadTransactions]);
+    if (!initialLoading) {
+      loadTransactions();
+    }
+  }, [loadTransactions, initialLoading]);
 
   const loadData = async () => {
     await loadTransactions();
@@ -114,9 +125,9 @@ export default function TransactionsPage() {
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
-  if (loading) {
+  if (initialLoading) {
     return (
-      <main className="min-h-screen p-8">
+      <main className="min-h-screen p-1 sm:p-4 lg:p-8 bg-gray-50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-12">Loading...</div>
         </div>
