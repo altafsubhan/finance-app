@@ -291,7 +291,13 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
             }
           }
           
-          description = description.replace(/[✓✔✅@]/g, '').replace(/[>→]/g, '').replace(/\s+/g, ' ').trim();
+          // Clean up description: remove UI elements and weird prefix characters
+        description = description
+          .replace(/^[®¢%9$C\s]+/g, '') // Remove weird prefix characters at the start (®¢, %¢, 9¢, $C, etc.)
+          .replace(/[✓✔✅@]/g, '') // Checkmarks and @ symbols
+          .replace(/[>→]/g, '') // Arrows
+          .replace(/\s+/g, ' ') // Multiple spaces
+          .trim();
           
           if (description.length >= 3) {
             transactions.push({
@@ -322,7 +328,13 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         description = description.replace(/:/g, '').trim();
         
         // Clean up
-        description = description.replace(/[✓✔✅@]/g, '').replace(/[>→]/g, '').replace(/\s+/g, ' ').trim();
+        // Clean up description: remove UI elements and weird prefix characters
+        description = description
+          .replace(/^[®¢%9$C\s]+/g, '') // Remove weird prefix characters at the start (®¢, %¢, 9¢, $C, etc.)
+          .replace(/[✓✔✅@]/g, '') // Checkmarks and @ symbols
+          .replace(/[>→]/g, '') // Arrows
+          .replace(/\s+/g, ' ') // Multiple spaces
+          .trim();
         
         if (description.length >= 3 && description.toLowerCase() !== 'pending') {
           transactions.push({
@@ -380,7 +392,13 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
           }
         }
         
-        description = description.replace(/[✓✔✅@]/g, '').replace(/[>→]/g, '').replace(/\s+/g, ' ').trim();
+        // Clean up description: remove UI elements and weird prefix characters
+        description = description
+          .replace(/^[®¢%9$C\s]+/g, '') // Remove weird prefix characters at the start (®¢, %¢, 9¢, $C, etc.)
+          .replace(/[✓✔✅@]/g, '') // Checkmarks and @ symbols
+          .replace(/[>→]/g, '') // Arrows
+          .replace(/\s+/g, ' ') // Multiple spaces
+          .trim();
         
         // Only skip if description is too short or suspicious (not just checking length >= 3)
         if (description.length >= 3 && !description.match(/^\d+$/)) {
@@ -758,17 +776,17 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Date</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 w-32">Date</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Description</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Category</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Amount</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Actions</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-24">Amount</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 w-20">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {preview.map((row) => (
                       <tr key={row.id}>
-                        <td className="px-4 py-2 text-sm">
+                        <td className="px-3 py-2 text-sm w-32">
                           <input
                             type="date"
                             value={row.date}
@@ -798,12 +816,12 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
                             ))}
                           </select>
                         </td>
-                        <td className="px-4 py-2 text-sm text-right">
+                        <td className="px-3 py-2 text-sm text-right w-24">
                           <input
                             type="text"
                             value={row.amount}
                             onChange={(e) => handlePreviewEdit(row.id, 'amount', e.target.value)}
-                            className="w-24 px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right"
+                            className="w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right"
                           />
                         </td>
                         <td className="px-4 py-2 text-sm">
