@@ -13,7 +13,6 @@ import { format, startOfYear, endOfYear } from 'date-fns';
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showCSVImport, setShowCSVImport] = useState(false);
   const [showScreenshotImport, setShowScreenshotImport] = useState(false);
