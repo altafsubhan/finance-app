@@ -853,7 +853,7 @@ function TransactionTable({
             </th>
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="bg-white divide-y divide-gray-200" style={{ WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}>
           {transactions.map((transaction) => {
             const categoryType = getCategoryType(transaction.category_id);
             const isSelected = selectedIds.has(transaction.id);
@@ -861,9 +861,16 @@ function TransactionTable({
               <tr 
                 key={transaction.id} 
                 className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''} ${isSelectionMode ? 'cursor-pointer' : ''}`}
+                style={{ 
+                  WebkitUserSelect: 'none', 
+                  userSelect: 'none',
+                  WebkitTouchCallout: 'none',
+                  touchAction: 'manipulation'
+                }}
                 onTouchStart={(e) => handleTouchStart(e, transaction.id)}
                 onTouchEnd={(e) => handleTouchEnd(e, transaction.id)}
                 onTouchMove={handleTouchMove}
+                onContextMenu={(e) => e.preventDefault()}
                 onClick={(e) => handleRowClick(e, transaction.id)}
               >
                 <td className="hidden md:table-cell px-2 md:px-6 py-3 md:py-4 whitespace-nowrap">
