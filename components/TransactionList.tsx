@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Transaction, Category, PaidBy } from '@/types/database';
 import { format } from 'date-fns';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
@@ -46,6 +46,13 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
   const [newTransactionRows, setNewTransactionRows] = useState<NewTransactionRowState[]>([]);
   const [savingRows, setSavingRows] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+
+  // Exit selection mode when no items are selected
+  useEffect(() => {
+    if (selectedIds.size === 0) {
+      setIsSelectionMode(false);
+    }
+  }, [selectedIds]);
 
   // Validate a single row
   const validateRow = (row: NewTransactionRowState): string | null => {
