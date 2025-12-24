@@ -308,7 +308,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     return (
       <div className="space-y-8">
         {groupedTransactions.monthly.length > 0 && (
-          <div className="bg-white border rounded-lg p-6">
+          <div className="bg-white border rounded-lg p-2 sm:p-4 lg:p-6">
             <div className="flex items-center mb-4">
               <h3 className="text-xl font-semibold text-gray-900">Monthly Expenses</h3>
               <span className="ml-2 px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-800">
@@ -335,7 +335,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
         )}
 
         {groupedTransactions.quarterly.length > 0 && (
-          <div className="bg-white border rounded-lg p-6">
+          <div className="bg-white border rounded-lg p-2 sm:p-4 lg:p-6">
             <div className="flex items-center mb-4">
               <h3 className="text-xl font-semibold text-gray-900">Quarterly Expenses</h3>
               <span className="ml-2 px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-800">
@@ -362,7 +362,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
         )}
 
         {groupedTransactions.yearly.length > 0 && (
-          <div className="bg-white border rounded-lg p-6">
+          <div className="bg-white border rounded-lg p-2 sm:p-4 lg:p-6">
             <div className="flex items-center mb-4">
               <h3 className="text-xl font-semibold text-gray-900">Yearly Expenses</h3>
               <span className="ml-2 px-2 py-1 text-xs font-medium rounded bg-orange-100 text-orange-800">
@@ -474,7 +474,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
   // Render single table if filter is set
   return (
     <div>
-      <div className="bg-white border rounded-lg p-6">
+      <div className="bg-white border rounded-lg p-2 sm:p-4 lg:p-6">
         <TransactionTable 
           transactions={displayTransactions}
           categories={categories}
@@ -696,8 +696,11 @@ function TransactionTable({
     // Only enable touch-and-hold on mobile
     if (window.innerWidth >= 768) return;
 
-    // Prevent text selection
+    // Prevent text selection and context menu
     e.preventDefault();
+    if (e.cancelable) {
+      e.stopPropagation();
+    }
 
     const touch = e.touches[0];
     touchStartRef.current = {
@@ -725,8 +728,11 @@ function TransactionTable({
   const handleTouchEnd = (e: React.TouchEvent, transactionId: string) => {
     if (window.innerWidth >= 768) return;
 
-    // Prevent text selection
+    // Prevent text selection and context menu
     e.preventDefault();
+    if (e.cancelable) {
+      e.stopPropagation();
+    }
 
     // Clear the timer if it hasn't fired yet
     if (touchHoldTimerRef.current) {

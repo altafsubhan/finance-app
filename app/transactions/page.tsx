@@ -104,7 +104,7 @@ export default function TransactionsPage() {
   }
 
   return (
-    <main className={`min-h-screen p-4 sm:p-8 bg-gray-50 ${selectedTransactionIds.size > 0 ? 'pb-32' : ''}`}>
+    <main className={`min-h-screen p-1 sm:p-4 lg:p-8 bg-gray-50 ${selectedTransactionIds.size > 0 ? 'pb-32' : ''}`}>
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col mb-4 sm:mb-8 gap-2 sm:gap-3">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
