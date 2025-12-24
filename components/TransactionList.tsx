@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Transaction, Category, PaidBy } from '@/types/database';
 import { format } from 'date-fns';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
@@ -400,12 +400,12 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="hidden md:table-cell px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Date</th>
                     <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                    <th className="px-2 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Amount</th>
                     <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Category</th>
                     <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Payment Method</th>
-                    <th className="px-2 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Amount</th>
-                    <th className="hidden md:table-cell px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Paid By</th>
+                    <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Date</th>
+                    <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Paid By</th>
                     <th className="hidden md:table-cell px-3 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Actions</th>
                   </tr>
                 </thead>
@@ -572,7 +572,9 @@ function TransactionTable({
   onSelectionChange,
   sortField,
   sortDirection,
-  onSort
+  onSort,
+  isSelectionMode,
+  setIsSelectionMode
 }: {
   transactions: Transaction[];
   categories: Category[];
@@ -586,7 +588,12 @@ function TransactionTable({
   sortField: SortField;
   sortDirection: SortDirection;
   onSort: (field: SortField) => void;
+  isSelectionMode: boolean;
+  setIsSelectionMode: (value: boolean) => void;
 }) {
+  const touchHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
+
   const getCategoryName = (categoryId: string) => {
     return categories.find(c => c.id === categoryId)?.name || 'Unknown';
   };
@@ -664,6 +671,86 @@ function TransactionTable({
     onSelectionChange(newSelection);
   };
 
+  const handleTouchStart = (e: React.TouchEvent, transactionId: string) => {
+    // Only enable touch-and-hold on mobile
+    if (window.innerWidth >= 768) return;
+
+    const touch = e.touches[0];
+    touchStartRef.current = {
+      id: transactionId,
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+
+    // Start timer for touch-and-hold
+    touchHoldTimerRef.current = setTimeout(() => {
+      setIsSelectionMode(true);
+      // Select this row when entering selection mode
+      handleSelectOne(transactionId, true);
+      touchHoldTimerRef.current = null;
+    }, 500); // 500ms hold time
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent, transactionId: string) => {
+    if (window.innerWidth >= 768) return;
+
+    // Clear the timer if it hasn't fired yet
+    if (touchHoldTimerRef.current) {
+      clearTimeout(touchHoldTimerRef.current);
+      touchHoldTimerRef.current = null;
+
+      // If we didn't enter selection mode, check if this was a tap (not a drag)
+      if (touchStartRef.current && touchStartRef.current.id === transactionId) {
+        const touch = e.changedTouches[0];
+        const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
+        const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
+        
+        // If moved less than 10px, treat as tap
+        if (deltaX < 10 && deltaY < 10) {
+          if (isSelectionMode) {
+            // In selection mode, toggle selection on tap
+            const isSelected = selectedIds.has(transactionId);
+            handleSelectOne(transactionId, !isSelected);
+          }
+        }
+      }
+    } else if (isSelectionMode) {
+      // If we're in selection mode and timer already fired, toggle on tap
+      const touch = e.changedTouches[0];
+      if (touchStartRef.current && touchStartRef.current.id === transactionId) {
+        const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
+        const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
+        
+        if (deltaX < 10 && deltaY < 10) {
+          const isSelected = selectedIds.has(transactionId);
+          handleSelectOne(transactionId, !isSelected);
+        }
+      }
+    }
+
+    touchStartRef.current = null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (window.innerWidth >= 768) return;
+
+    // If user moves finger, cancel the hold timer
+    if (touchHoldTimerRef.current) {
+      clearTimeout(touchHoldTimerRef.current);
+      touchHoldTimerRef.current = null;
+    }
+  };
+
+  const handleRowClick = (e: React.MouseEvent, transactionId: string) => {
+    // On mobile, if in selection mode, treat click as toggle
+    if (window.innerWidth < 768 && isSelectionMode) {
+      e.preventDefault();
+      e.stopPropagation();
+      const isSelected = selectedIds.has(transactionId);
+      handleSelectOne(transactionId, !isSelected);
+    }
+  };
+
   const allSelected = transactions.length > 0 && transactions.every(t => selectedIds.has(t.id));
   const someSelected = transactions.some(t => selectedIds.has(t.id));
 
@@ -672,7 +759,7 @@ function TransactionTable({
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-2 md:px-6 py-2 md:py-3 text-left">
+            <th className="hidden md:table-cell px-2 md:px-6 py-2 md:py-3 text-left">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -683,17 +770,6 @@ function TransactionTable({
                 className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
             </th>
-            <th className="hidden md:table-cell px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-              <button
-                onClick={() => onSort('date')}
-                className="flex items-center gap-1 hover:text-gray-700"
-              >
-                Date
-                {sortField === 'date' && (
-                  <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                )}
-              </button>
-            </th>
             <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <button
                 onClick={() => onSort('description')}
@@ -701,6 +777,17 @@ function TransactionTable({
               >
                 Description
                 {sortField === 'description' && (
+                  <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
+            </th>
+            <th className="px-2 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+              <button
+                onClick={() => onSort('amount')}
+                className="flex items-center gap-1 hover:text-gray-700 ml-auto"
+              >
+                Amount
+                {sortField === 'amount' && (
                   <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                 )}
               </button>
@@ -727,18 +814,18 @@ function TransactionTable({
                 )}
               </button>
             </th>
-            <th className="px-2 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+            <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
               <button
-                onClick={() => onSort('amount')}
-                className="flex items-center gap-1 hover:text-gray-700 ml-auto"
+                onClick={() => onSort('date')}
+                className="flex items-center gap-1 hover:text-gray-700"
               >
-                Amount
-                {sortField === 'amount' && (
+                Date
+                {sortField === 'date' && (
                   <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                 )}
               </button>
             </th>
-            <th className="hidden md:table-cell px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+            <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
               <button
                 onClick={() => onSort('paid_by')}
                 className="flex items-center gap-1 hover:text-gray-700"
@@ -759,8 +846,15 @@ function TransactionTable({
             const categoryType = getCategoryType(transaction.category_id);
             const isSelected = selectedIds.has(transaction.id);
             return (
-              <tr key={transaction.id} className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
-                <td className="px-2 md:px-6 py-3 md:py-4 whitespace-nowrap">
+              <tr 
+                key={transaction.id} 
+                className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''} ${isSelectionMode ? 'cursor-pointer' : ''}`}
+                onTouchStart={(e) => handleTouchStart(e, transaction.id)}
+                onTouchEnd={(e) => handleTouchEnd(e, transaction.id)}
+                onTouchMove={handleTouchMove}
+                onClick={(e) => handleRowClick(e, transaction.id)}
+              >
+                <td className="hidden md:table-cell px-2 md:px-6 py-3 md:py-4 whitespace-nowrap">
                   <input
                     type="checkbox"
                     checked={isSelected}
@@ -768,11 +862,11 @@ function TransactionTable({
                     className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                 </td>
-                <td className="hidden md:table-cell px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-900 w-32">
-                  {transaction.date ? format(new Date(transaction.date), 'MMM dd, yyyy') : '—'}
-                </td>
                 <td className="px-2 md:px-6 py-3 md:py-4 text-sm text-gray-900 break-words">
                   {transaction.description}
+                </td>
+                <td className={`px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm font-bold text-right text-gray-900 w-24 ${getPaidByColor(transaction.paid_by)}`}>
+                  ${parseFloat(transaction.amount.toString()).toFixed(2)}
                 </td>
                 <td className="px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500 w-32">
                   <div className="flex items-center">
@@ -787,10 +881,10 @@ function TransactionTable({
                 <td className="px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500 w-32">
                   {transaction.payment_method}
                 </td>
-                <td className={`px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm font-bold text-right text-gray-900 w-24 ${getPaidByColor(transaction.paid_by)}`}>
-                  ${parseFloat(transaction.amount.toString()).toFixed(2)}
+                <td className="px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-900 w-32">
+                  {transaction.date ? format(new Date(transaction.date), 'MMM dd, yyyy') : '—'}
                 </td>
-                <td className="hidden md:table-cell px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500 w-28">
+                <td className="px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500 w-28">
                     <EditablePaidByCell
                       transactionId={transaction.id}
                       currentPaidBy={transaction.paid_by}

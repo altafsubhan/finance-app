@@ -55,85 +55,84 @@ export default function BulkEditBar({ selectedCount, categories, onBulkUpdate, o
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-900">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 safe-area-inset-bottom">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
               {selectedCount} transaction{selectedCount !== 1 ? 's' : ''} selected
             </span>
-            
-            <div className="flex items-center gap-4">
-              <div>
-                <label htmlFor="bulk-category" className="sr-only">Category</label>
-                <select
-                  id="bulk-category"
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className="px-3 py-2 text-sm border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">-- Category (optional) --</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name} ({cat.type})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="bulk-payment-method" className="sr-only">Payment Method</label>
-                <select
-                  id="bulk-payment-method"
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod | '')}
-                  className="px-3 py-2 text-sm border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">-- Payment Method (optional) --</option>
-                  {PAYMENT_METHODS.map((method) => (
-                    <option key={method} value={method}>
-                      {method}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="bulk-paid-by" className="sr-only">Paid By</label>
-                <select
-                  id="bulk-paid-by"
-                  value={paidBy || ''}
-                  onChange={(e) => setPaidBy(e.target.value as PaidBy || '')}
-                  className="px-3 py-2 text-sm border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">-- Paid By (optional) --</option>
-                  {PAID_BY_OPTIONS.map((option) => (
-                    <option key={option.value || 'null'} value={option.value || ''}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="flex items-center gap-2">
+              {error && (
+                <span className="text-xs text-red-600">{error}</span>
+              )}
+              <button
+                onClick={onCancel}
+                className="px-3 py-1.5 text-sm text-gray-700 hover:text-gray-900 whitespace-nowrap"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApply}
+                disabled={loading}
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                {loading ? 'Updating...' : 'Apply'}
+              </button>
             </div>
           </div>
+          
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex-1 min-w-[140px]">
+              <label htmlFor="bulk-category" className="sr-only">Category</label>
+              <select
+                id="bulk-category"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="w-full px-2 py-1.5 text-sm border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Category (optional)</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name} ({cat.type})
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div className="flex items-center gap-2">
-            {error && (
-              <span className="text-sm text-red-600">{error}</span>
-            )}
-            <button
-              onClick={onCancel}
-              className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleApply}
-              disabled={loading}
-              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Updating...' : 'Apply to Selected'}
-            </button>
+            <div className="flex-1 min-w-[140px]">
+              <label htmlFor="bulk-payment-method" className="sr-only">Payment Method</label>
+              <select
+                id="bulk-payment-method"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod | '')}
+                className="w-full px-2 py-1.5 text-sm border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Payment Method</option>
+                {PAYMENT_METHODS.map((method) => (
+                  <option key={method} value={method}>
+                    {method}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex-1 min-w-[120px]">
+              <label htmlFor="bulk-paid-by" className="sr-only">Paid By</label>
+              <select
+                id="bulk-paid-by"
+                value={paidBy || ''}
+                onChange={(e) => setPaidBy(e.target.value as PaidBy || '')}
+                className="w-full px-2 py-1.5 text-sm border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Paid By</option>
+                {PAID_BY_OPTIONS.map((option) => (
+                  <option key={option.value || 'null'} value={option.value || ''}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
