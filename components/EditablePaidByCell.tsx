@@ -80,6 +80,7 @@ export default function EditablePaidByCell({
           </option>
         ))}
       </select>
+      </div>
     );
   }
 
