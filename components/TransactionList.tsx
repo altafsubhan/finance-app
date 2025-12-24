@@ -481,6 +481,8 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
           sortField={sortField}
           sortDirection={sortDirection}
           onSort={handleSort}
+          isSelectionMode={isSelectionMode}
+          setIsSelectionMode={setIsSelectionMode}
         />
       </div>
 
