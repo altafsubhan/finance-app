@@ -167,7 +167,7 @@ export default function BudgetsPage() {
         {budgets.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-600 mb-4">No budgets set for {selectedYear}.</p>
-            <p className="text-gray-500">Click "Add Budget" to create your first budget.</p>
+            <p className="text-gray-500">Click &quot;Add Budget&quot; to create your first budget.</p>
           </div>
         ) : (
           <div className="bg-white border rounded-lg overflow-hidden">
