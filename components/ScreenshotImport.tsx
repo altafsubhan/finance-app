@@ -158,13 +158,15 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
     return null;
   };
 
-  // Helper to check if text looks like a balance (typically large amounts close to transaction amounts)
+  // Helper to check if text looks like a balance (typically large amounts that are running totals)
+  // Be conservative - only flag obvious balances, not just "larger than previous transaction"
   const looksLikeBalance = (amountStr: string, prevAmountStr: string | null): boolean => {
     if (!prevAmountStr) return false;
     const amount = Math.abs(parseFloat(amountStr));
     const prevAmount = Math.abs(parseFloat(prevAmountStr));
-    // If amount is significantly larger (likely a running balance) or very close (within $1000), might be balance
-    return amount > prevAmount * 1.5 || (amount > 500 && Math.abs(amount - prevAmount) < 1000);
+    // Only flag as balance if amount is VERY large (> $1000) - these are likely running balances
+    // Don't flag smaller amounts just because they're larger than previous - those are just larger transactions
+    return amount > 1000;
   };
 
   // Helper to check if text is a continuation (phone, URL, short location code)
@@ -344,17 +346,13 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
       }
       
       // Pattern 3: Regular merchant + amount line (with current date set)
+      // In this format (merchant + amount under date header), amounts are transactions, not balances
+      // So we don't need balance detection here - all amounts should be treated as transactions
       if (lineAmount && !parsedDate && currentDate && !pendingAmount) {
         // Extract merchant name by removing amount - match $X.XX or X.XX with decimal
         let description = line.replace(/([-])?\$(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g, '')
           .replace(/([-])?(\d{1,3}(?:,\d{3})*\.\d{2,})/g, '').trim();
         description = description.replace(/:/g, '').trim();
-        
-        // Check if this might be a balance (skip it)
-        const prevTransaction = transactions.length > 0 ? transactions[transactions.length - 1] : null;
-        if (prevTransaction && looksLikeBalance(lineAmount, prevTransaction.amount)) {
-          continue; // Skip balance lines
-        }
         
         // Collect continuation lines
         let j = i + 1;
@@ -373,7 +371,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
             break;
           }
           
-          // If it's a continuation, add it
+          // If it's a continuation (phone, URL, location), add it
           if (isContinuation(nextLine) || nextLine.length < 30) {
             description += ' ' + nextLine;
             j++;
@@ -384,7 +382,8 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         
         description = description.replace(/[✓✔✅@]/g, '').replace(/[>→]/g, '').replace(/\s+/g, ' ').trim();
         
-        if (description.length >= 3) {
+        // Only skip if description is too short or suspicious (not just checking length >= 3)
+        if (description.length >= 3 && !description.match(/^\d+$/)) {
           transactions.push({
             id: `screenshot-${Date.now()}-${transactions.length}`,
             date: currentDate,
