@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const year = searchParams.get('year');
     const month = searchParams.get('month');
+    const quarter = searchParams.get('quarter');
     const categoryId = searchParams.get('category_id');
     const paymentMethod = searchParams.get('payment_method');
 
@@ -24,12 +25,18 @@ export async function GET(request: NextRequest) {
       `)
       .eq('user_id', user.id)
       .order('year', { ascending: false })
+      .order('quarter', { ascending: false, nullsFirst: false })
       .order('month', { ascending: false, nullsFirst: false })
       .order('date', { ascending: false, nullsFirst: true });
 
     // Filter by year (using year field)
     if (year) {
       query = query.eq('year', parseInt(year));
+    }
+
+    // Filter by quarter (using quarter field)
+    if (quarter) {
+      query = query.eq('quarter', parseInt(quarter));
     }
 
     // Filter by month (using month field)

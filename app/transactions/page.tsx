@@ -20,33 +20,51 @@ export default function TransactionsPage() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [selectedQuarter, setSelectedQuarter] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [selectedCategoryType, setSelectedCategoryType] = useState<'monthly' | 'quarterly' | 'yearly' | ''>('');
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>('');
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
 
+  // Load categories only once on mount
   useEffect(() => {
-    loadData();
-  }, [selectedYear, selectedMonth, selectedCategory, selectedPaymentMethod, selectedCategoryType, selectedPaidBy]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      
-      // Load categories
-      const categoriesRes = await fetch('/api/categories', {
-        credentials: 'include',
-      });
-      if (categoriesRes.ok) {
-        const categoriesData = await categoriesRes.json();
-        setCategories(categoriesData);
+    const loadCategories = async () => {
+      try {
+        const categoriesRes = await fetch('/api/categories', {
+          credentials: 'include',
+        });
+        if (categoriesRes.ok) {
+          const categoriesData = await categoriesRes.json();
+          setCategories(categoriesData);
+        }
+      } catch (error) {
+        console.error('Failed to load categories:', error);
       }
+    };
+    loadCategories();
+    loadTransactions();
+  }, []);
 
+  // Reload transactions when filters change
+  useEffect(() => {
+    loadTransactions();
+  }, [selectedYear, selectedMonth, selectedQuarter, selectedCategory, selectedPaymentMethod, selectedCategoryType, selectedPaidBy]);
+
+  const loadTransactions = async () => {
+    try {
+      setLoadingTransactions(true);
+      
       // Load transactions
       const params = new URLSearchParams();
       params.append('year', selectedYear.toString());
-      if (selectedMonth) params.append('month', selectedMonth);
+      if (selectedMonth && selectedCategoryType === 'monthly') {
+        params.append('month', selectedMonth);
+      }
+      if (selectedQuarter && selectedCategoryType === 'quarterly') {
+        params.append('quarter', selectedQuarter);
+      }
       if (selectedCategory) params.append('category_id', selectedCategory);
       if (selectedPaymentMethod) params.append('payment_method', selectedPaymentMethod);
       if (selectedPaidBy) params.append('paid_by', selectedPaidBy);
@@ -59,10 +77,14 @@ export default function TransactionsPage() {
         setTransactions(transactionsData);
       }
     } catch (error) {
-      console.error('Failed to load data:', error);
+      console.error('Failed to load transactions:', error);
     } finally {
-      setLoading(false);
+      setLoadingTransactions(false);
     }
+  };
+
+  const loadData = async () => {
+    await loadTransactions();
   };
 
   const handleSuccess = () => {
@@ -215,32 +237,19 @@ export default function TransactionsPage() {
           </div>
 
           <div>
-            <label htmlFor="month" className="block text-sm font-medium mb-1">
-              Month
-            </label>
-            <select
-              id="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Months</option>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                <option key={month} value={month}>
-                  {new Date(2000, month - 1).toLocaleString('default', { month: 'long' })}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
             <label htmlFor="category_type" className="block text-sm font-medium mb-1">
               Category Type
             </label>
             <select
               id="category_type"
               value={selectedCategoryType}
-              onChange={(e) => setSelectedCategoryType(e.target.value as 'monthly' | 'quarterly' | 'yearly' | '')}
+              onChange={(e) => {
+                const newType = e.target.value as 'monthly' | 'quarterly' | 'yearly' | '';
+                setSelectedCategoryType(newType);
+                // Clear period-specific filters when changing category type
+                setSelectedMonth('');
+                setSelectedQuarter('');
+              }}
               className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Types</option>
@@ -249,6 +258,58 @@ export default function TransactionsPage() {
               <option value="yearly">Yearly</option>
             </select>
           </div>
+
+          {selectedCategoryType === 'monthly' && (
+            <div>
+              <label htmlFor="month" className="block text-sm font-medium mb-1">
+                Month
+              </label>
+              <select
+                id="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Months</option>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                  <option key={month} value={month}>
+                    {new Date(2000, month - 1).toLocaleString('default', { month: 'long' })}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {selectedCategoryType === 'quarterly' && (
+            <div>
+              <label htmlFor="quarter" className="block text-sm font-medium mb-1">
+                Quarter
+              </label>
+              <select
+                id="quarter"
+                value={selectedQuarter}
+                onChange={(e) => setSelectedQuarter(e.target.value)}
+                className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Quarters</option>
+                <option value="1">Q1 (Jan-Mar)</option>
+                <option value="2">Q2 (Apr-Jun)</option>
+                <option value="3">Q3 (Jul-Sep)</option>
+                <option value="4">Q4 (Oct-Dec)</option>
+              </select>
+            </div>
+          )}
+
+          {selectedCategoryType === 'yearly' && (
+            <div>
+              <label htmlFor="year_only" className="block text-sm font-medium mb-1">
+                Year
+              </label>
+              <div className="px-4 py-2 border rounded-lg bg-gray-100 text-gray-500">
+                {selectedYear} (All transactions for this year)
+              </div>
+            </div>
+          )}
 
           <div>
             <label htmlFor="category" className="block text-sm font-medium mb-1">
@@ -319,29 +380,35 @@ export default function TransactionsPage() {
           </div>
           </div>
 
-        <TransactionList
-          transactions={transactions}
-          categories={categories}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          categoryTypeFilter={selectedCategoryType}
-          onUpdate={handleTransactionUpdate}
-          selectedIds={selectedTransactionIds}
-          onSelectionChange={setSelectedTransactionIds}
-          onAddTransaction={async (data) => {
-            const response = await fetch('/api/transactions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify(data),
-            });
+        {loadingTransactions ? (
+          <div className="bg-white border rounded-lg p-8 text-center">
+            <div className="text-gray-500">Loading transactions...</div>
+          </div>
+        ) : (
+          <TransactionList
+            transactions={transactions}
+            categories={categories}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            categoryTypeFilter={selectedCategoryType}
+            onUpdate={handleTransactionUpdate}
+            selectedIds={selectedTransactionIds}
+            onSelectionChange={setSelectedTransactionIds}
+            onAddTransaction={async (data) => {
+              const response = await fetch('/api/transactions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(data),
+              });
 
-            if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || 'Failed to add transaction');
-            }
-          }}
-        />
+              if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to add transaction');
+              }
+            }}
+          />
+        )}
 
         {selectedTransactionIds.size > 0 && (
           <BulkEditBar
