@@ -60,18 +60,20 @@ export default function EditablePaidByCell({
 
   if (isEditing) {
     return (
-      <select
-        value={selectedPaidBy || ''}
-        onChange={(e) => setSelectedPaidBy(e.target.value as PaidBy || null)}
-        autoFocus
-        disabled={loading}
-        className="px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        onBlur={handleSave}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') handleSave();
-          if (e.key === 'Escape') handleCancel();
-        }}
-      >
+      <div onClick={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+        <select
+          value={selectedPaidBy || ''}
+          onChange={(e) => setSelectedPaidBy(e.target.value as PaidBy || null)}
+          autoFocus
+          disabled={loading}
+          className="px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          onBlur={handleSave}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSave();
+            if (e.key === 'Escape') handleCancel();
+          }}
+        >
         {PAID_BY_OPTIONS.map((option) => (
           <option key={option.value || 'null'} value={option.value || ''}>
             {option.label}
@@ -84,7 +86,14 @@ export default function EditablePaidByCell({
   return (
     <div 
       className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded inline-block"
-      onClick={() => setIsEditing(true)}
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsEditing(true);
+      }}
+      onTouchStart={(e) => {
+        e.stopPropagation();
+        setIsEditing(true);
+      }}
       title="Click to edit"
     >
       {getPaidByLabel(currentPaidBy)}
