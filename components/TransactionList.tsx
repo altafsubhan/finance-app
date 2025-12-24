@@ -164,10 +164,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
       // Remove all saved rows
       setNewTransactionRows(prev => prev.filter(r => !validRows.find(vr => vr.id === r.id)));
       
-      // Optionally refresh the transaction list
-      if (onUpdate) {
-        onUpdate();
-      }
+      // Note: Parent component should handle refreshing the list when new transactions are added
     } catch (err: any) {
       // If there's an error, we can't easily tell which row failed with Promise.all
       // So we'll just show a general error
