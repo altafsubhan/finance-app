@@ -104,10 +104,10 @@ export default function TransactionsPage() {
   }
 
   return (
-    <main className={`min-h-screen p-8 bg-gray-50 ${selectedTransactionIds.size > 0 ? 'pb-32' : ''}`}>
+    <main className={`min-h-screen p-4 sm:p-8 bg-gray-50 ${selectedTransactionIds.size > 0 ? 'pb-32' : ''}`}>
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">Transactions</h1>
+        <div className="flex justify-between items-center mb-4 sm:mb-8">
+          <h1 className="text-2xl sm:text-4xl font-bold">Transactions</h1>
           {!showForm && !showCSVImport && !showScreenshotImport && (
             <div className="flex gap-2">
               <button

@@ -400,13 +400,13 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid By</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="hidden md:table-cell px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Date</th>
+                    <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                    <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Category</th>
+                    <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Payment Method</th>
+                    <th className="px-2 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Amount</th>
+                    <th className="hidden md:table-cell px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Paid By</th>
+                    <th className="hidden md:table-cell px-3 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -672,7 +672,7 @@ function TransactionTable({
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-6 py-3 text-left">
+            <th className="px-2 md:px-6 py-2 md:py-3 text-left">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -680,10 +680,10 @@ function TransactionTable({
                   if (input) input.indeterminate = someSelected && !allSelected;
                 }}
                 onChange={(e) => handleSelectAll(e.target.checked)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="hidden md:table-cell px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
               <button
                 onClick={() => onSort('date')}
                 className="flex items-center gap-1 hover:text-gray-700"
@@ -694,7 +694,7 @@ function TransactionTable({
                 )}
               </button>
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <button
                 onClick={() => onSort('description')}
                 className="flex items-center gap-1 hover:text-gray-700"
@@ -705,7 +705,7 @@ function TransactionTable({
                 )}
               </button>
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
               <button
                 onClick={() => onSort('category')}
                 className="flex items-center gap-1 hover:text-gray-700"
@@ -716,7 +716,7 @@ function TransactionTable({
                 )}
               </button>
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
               <button
                 onClick={() => onSort('payment_method')}
                 className="flex items-center gap-1 hover:text-gray-700"
@@ -727,7 +727,7 @@ function TransactionTable({
                 )}
               </button>
             </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-2 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
               <button
                 onClick={() => onSort('amount')}
                 className="flex items-center gap-1 hover:text-gray-700 ml-auto"
@@ -738,7 +738,7 @@ function TransactionTable({
                 )}
               </button>
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="hidden md:table-cell px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
               <button
                 onClick={() => onSort('paid_by')}
                 className="flex items-center gap-1 hover:text-gray-700"
@@ -749,7 +749,7 @@ function TransactionTable({
                 )}
               </button>
             </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="hidden md:table-cell px-3 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
               Actions
             </th>
           </tr>
@@ -760,21 +760,21 @@ function TransactionTable({
             const isSelected = selectedIds.has(transaction.id);
             return (
               <tr key={transaction.id} className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-2 md:px-6 py-3 md:py-4 whitespace-nowrap">
                   <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={(e) => handleSelectOne(transaction.id, e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="hidden md:table-cell px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-900 w-32">
                   {transaction.date ? format(new Date(transaction.date), 'MMM dd, yyyy') : '—'}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-900">
+                <td className="px-2 md:px-6 py-3 md:py-4 text-sm text-gray-900 break-words">
                   {transaction.description}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500 w-32">
                   <div className="flex items-center">
                     <EditableCategoryCell
                       transactionId={transaction.id}
@@ -784,20 +784,20 @@ function TransactionTable({
                     />
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500 w-32">
                   {transaction.payment_method}
                 </td>
-                <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold text-right text-gray-900 ${getPaidByColor(transaction.paid_by)}`}>
+                <td className={`px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm font-bold text-right text-gray-900 w-24 ${getPaidByColor(transaction.paid_by)}`}>
                   ${parseFloat(transaction.amount.toString()).toFixed(2)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="hidden md:table-cell px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500 w-28">
                     <EditablePaidByCell
                       transactionId={transaction.id}
                       currentPaidBy={transaction.paid_by}
                       onUpdate={onUpdate ? (paidBy: any) => onUpdate(transaction.id, { paid_by: paidBy }) : () => {}}
                     />
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <td className="hidden md:table-cell px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-right text-sm font-medium w-24">
                   {confirmDelete === transaction.id ? (
                     <div className="flex justify-end space-x-2">
                       <button
