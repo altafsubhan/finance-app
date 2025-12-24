@@ -31,7 +31,7 @@ interface TransactionListProps {
   onEdit: (transaction: Transaction) => void;
   onDelete: (id: string) => void;
   categoryTypeFilter?: 'monthly' | 'quarterly' | 'yearly' | '';
-  onUpdate?: () => void;
+  onUpdate?: (transactionId: string, updates: { category_id?: string; paid_by?: any }) => void;
   selectedIds?: Set<string>;
   onSelectionChange?: (selectedIds: Set<string>) => void;
   onAddTransaction?: (data: any) => Promise<void>;
@@ -583,7 +583,7 @@ function TransactionTable({
   onDelete: (id: string) => void;
   confirmDelete: string | null;
   setConfirmDelete: (id: string | null) => void;
-  onUpdate?: () => void;
+  onUpdate?: (transactionId: string, updates: { category_id?: string; paid_by?: any }) => void;
   selectedIds: Set<string>;
   onSelectionChange: (selectedIds: Set<string>) => void;
   sortField: SortField;
@@ -783,7 +783,7 @@ function TransactionTable({
                       transactionId={transaction.id}
                       currentCategoryId={transaction.category_id}
                       categories={categories}
-                      onUpdate={onUpdate || (() => {})}
+                      onUpdate={onUpdate ? (categoryId: string) => onUpdate(transaction.id, { category_id: categoryId }) : () => {}}
                     />
                   </div>
                 </td>
@@ -794,11 +794,11 @@ function TransactionTable({
                   ${parseFloat(transaction.amount.toString()).toFixed(2)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <EditablePaidByCell
-                    transactionId={transaction.id}
-                    currentPaidBy={transaction.paid_by}
-                    onUpdate={onUpdate || (() => {})}
-                  />
+                    <EditablePaidByCell
+                      transactionId={transaction.id}
+                      currentPaidBy={transaction.paid_by}
+                      onUpdate={onUpdate ? (paidBy: any) => onUpdate(transaction.id, { paid_by: paidBy }) : () => {}}
+                    />
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   {confirmDelete === transaction.id ? (

@@ -80,6 +80,12 @@ export default function TransactionsPage() {
     loadData();
   };
 
+  const handleTransactionUpdate = (transactionId: string, updates: { category_id?: string; paid_by?: any }) => {
+    setTransactions(prev => prev.map(t => 
+      t.id === transactionId ? { ...t, ...updates } : t
+    ));
+  };
+
   const handleCancel = () => {
     setShowForm(false);
     setEditingTransaction(null);
@@ -115,12 +121,6 @@ export default function TransactionsPage() {
                 className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
               >
                 Import CSV
-              </button>
-              <button
-                onClick={() => setShowForm(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-              >
-                Add Transaction
               </button>
             </div>
           )}
@@ -323,7 +323,7 @@ export default function TransactionsPage() {
           onEdit={handleEdit}
           onDelete={handleDelete}
           categoryTypeFilter={selectedCategoryType}
-          onUpdate={loadData}
+          onUpdate={handleTransactionUpdate}
           selectedIds={selectedTransactionIds}
           onSelectionChange={setSelectedTransactionIds}
           onAddTransaction={async (data) => {

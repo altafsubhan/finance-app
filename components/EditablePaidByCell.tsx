@@ -7,7 +7,7 @@ import { PAID_BY_OPTIONS } from '@/lib/constants';
 interface EditablePaidByCellProps {
   transactionId: string;
   currentPaidBy: PaidBy;
-  onUpdate: () => void;
+  onUpdate: (paidBy: PaidBy) => void;
 }
 
 export default function EditablePaidByCell({ 
@@ -39,7 +39,7 @@ export default function EditablePaidByCell({
       }
 
       setIsEditing(false);
-      onUpdate();
+      onUpdate(selectedPaidBy);
     } catch (error) {
       alert('Failed to update paid by');
       setSelectedPaidBy(currentPaidBy);

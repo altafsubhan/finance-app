@@ -7,7 +7,7 @@ interface EditableCategoryCellProps {
   transactionId: string;
   currentCategoryId: string;
   categories: Category[];
-  onUpdate: () => void;
+  onUpdate: (categoryId: string) => void;
 }
 
 export default function EditableCategoryCell({ 
@@ -40,7 +40,7 @@ export default function EditableCategoryCell({
       }
 
       setIsEditing(false);
-      onUpdate();
+      onUpdate(selectedCategoryId);
     } catch (error) {
       alert('Failed to update category');
       setSelectedCategoryId(currentCategoryId);

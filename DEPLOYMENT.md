@@ -20,11 +20,34 @@ git commit -m "Initial commit: Finance tracking MVP"
 
 ## Step 3: Push to GitHub
 
+### Option A: Using Personal Access Token (Recommended)
+
+1. **Create a Personal Access Token on GitHub:**
+   - Go to GitHub.com → Your profile icon → **Settings**
+   - Go to **Developer settings** → **Personal access tokens** → **Tokens (classic)**
+   - Click **"Generate new token (classic)"**
+   - Name it (e.g., "Finance App Deployment")
+   - Select scope: **`repo`** (check all repo permissions)
+   - Click **"Generate token"**
+   - **COPY THE TOKEN** (you won't see it again!)
+
+2. **Push to GitHub:**
+   ```bash
+   git remote add origin https://github.com/yourusername/finance-app.git
+   git branch -M main
+   git push -u origin main
+   ```
+   - When prompted for username: enter your GitHub username
+   - When prompted for password: **paste your Personal Access Token** (not your GitHub password)
+
+### Option B: Using SSH (Alternative)
+
+If you prefer SSH:
 ```bash
-git remote add origin https://github.com/yourusername/finance-app.git
-git branch -M main
+git remote set-url origin git@github.com:yourusername/finance-app.git
 git push -u origin main
 ```
+*(Requires SSH keys to be set up with GitHub)*
 
 ## Step 4: Deploy to Vercel
 
