@@ -184,7 +184,8 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     return categories.find(c => c.id === categoryId)?.name || 'Unknown';
   };
 
-  const getCategoryType = (categoryId: string): 'monthly' | 'quarterly' | 'yearly' | null => {
+  const getCategoryType = (categoryId: string | null): 'monthly' | 'quarterly' | 'yearly' | null => {
+    if (!categoryId) return null;
     return categories.find(c => c.id === categoryId)?.type || null;
   };
 
@@ -640,7 +641,8 @@ function TransactionTable({
     return categories.find(c => c.id === categoryId)?.name || 'Unknown';
   };
 
-  const getCategoryType = (categoryId: string): 'monthly' | 'quarterly' | 'yearly' | null => {
+  const getCategoryType = (categoryId: string | null): 'monthly' | 'quarterly' | 'yearly' | null => {
+    if (!categoryId) return null;
     return categories.find(c => c.id === categoryId)?.type || null;
   };
 
