@@ -229,7 +229,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
     // First pass: find the first date in the OCR text to use for transactions without dates
     let firstDateInText: string | null = null;
     for (const line of lines) {
-      const date = parseDate(line);
+      const date = parseDate(line, selectedYear);
       if (date) {
         firstDateInText = date;
         break; // Use the first date we find
@@ -264,7 +264,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
       const line = lines[i].trim();
       if (!line || isHeaderLine(line)) {
         // But check if this header line contains a date we should extract
-        const headerDate = parseDate(line);
+        const headerDate = parseDate(line, selectedYear);
         if (headerDate && !currentDate) {
           currentDate = headerDate;
         }
@@ -282,7 +282,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
       }
 
       // Check for date-only header lines (like "Dec 20, 2025" or "December 20, 2025:")
-      const parsedDate = parseDate(line);
+      const parsedDate = parseDate(line, selectedYear);
       const lineAmount = parseAmount(line);
       
       if (parsedDate && !lineAmount) {
@@ -297,6 +297,22 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         if (withoutDate.length < 15) {
           currentDate = parsedDate;
           pendingAmount = null; // Clear pending when we see a date
+          continue;
+        }
+      }
+      
+      // New pattern: Date header → Amount-only line → Merchant line
+      // If we have a currentDate set and this line is just an amount (no text), store it as pendingAmount
+      if (currentDate && !parsedDate && lineAmount) {
+        // Check if the line is JUST an amount (maybe with $ sign and whitespace)
+        const lineWithoutAmount = line.replace(/([-])?\$(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g, '')
+          .replace(/([-])?(\d{1,3}(?:,\d{3})*\.\d{2,})/g, '')
+          .trim();
+        
+        // If line is mostly just the amount (very little or no other text), treat as amount-only line
+        if (lineWithoutAmount.length < 5) {
+          // This line is just an amount, next line should be merchant
+          pendingAmount = lineAmount;
           continue;
         }
       }
@@ -326,7 +342,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
             const nextLine = lines[j].trim();
             
             if (!nextLine || isHeaderLine(nextLine)) break;
-            if (parseDate(nextLine)) break;
+            if (parseDate(nextLine, selectedYear)) break;
             
             // If next line has amount, it's likely a balance or new transaction - stop
             if (parseAmount(nextLine)) break;
@@ -459,7 +475,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
           const nextLine = lines[j].trim();
           
           if (!nextLine || isHeaderLine(nextLine)) break;
-          if (parseDate(nextLine)) break;
+          if (parseDate(nextLine, selectedYear)) break;
           
           const nextAmount = parseAmount(nextLine);
           if (nextAmount) {
