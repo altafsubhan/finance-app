@@ -109,7 +109,9 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
     }
     
     // Try without year (use default/selected year)
-    const abbrevPatternNoYear = new RegExp(`\\b(${monthAbbrev.join('|')})\\s+(\\d{1,2})\\b`, 'i');
+    // Also handle day-of-week prefix like "Sun, Dec 7" or "Tue, Dec 2"
+    const dayOfWeekPrefix = '(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\\s+';
+    const abbrevPatternNoYear = new RegExp(`(?:^|\\s)(?:${dayOfWeekPrefix})?(${monthAbbrev.join('|')})\\s+(\\d{1,2})\\b`, 'i');
     const abbrevMatchNoYear = text.match(abbrevPatternNoYear);
     if (abbrevMatchNoYear) {
       const [, monthStr, day] = abbrevMatchNoYear;
@@ -290,6 +292,8 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         const withoutDate = line.replace(/\d{1,2}\/\d{1,2}\/\d{4}/g, '')
           .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b/gi, '')
           .replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/gi, '')
+          .replace(/\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b/gi, '') // With day-of-week and year
+          .replace(/\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}\b/gi, '') // With day-of-week, no year
           .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}\b/gi, '') // Also remove dates without year
           .replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}\b/gi, '') // Full month without year
           .replace(/:/g, '')
@@ -405,7 +409,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         if (description.length >= 3) {
           transactions.push({
             id: `screenshot-${Date.now()}-${transactions.length}`,
-            date: currentDate || '', // Use currentDate if available
+            date: currentDate || firstDateInText || todayDate, // Use currentDate, firstDateInText, or today as fallback
             amount: pendingAmount, // Use stored pending amount
             description: description,
             category: '',
@@ -442,7 +446,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         if (description.length >= 3 && description.toLowerCase() !== 'pending') {
           transactions.push({
             id: `screenshot-${Date.now()}-${transactions.length}`,
-            date: currentDate || '', // Use currentDate if available
+            date: currentDate || firstDateInText || todayDate, // Use currentDate, firstDateInText, or today as fallback
             amount: pendingAmount, // Use stored pending amount
             description: description,
             category: '',
@@ -463,9 +467,9 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
       // Pattern 3: Regular merchant + amount line (with current date set or first date in text)
       // In this format (merchant + amount under date header), amounts are transactions, not balances
       // So we don't need balance detection here - all amounts should be treated as transactions
-      // Use firstDateInText if currentDate is not set yet (for transactions appearing before first date header)
-      const dateToUse = currentDate || firstDateInText;
-      if (lineAmount && !parsedDate && dateToUse && !pendingAmount) {
+      // Use firstDateInText if currentDate is not set yet, or today's date as final fallback
+      const dateToUse = currentDate || firstDateInText || todayDate;
+      if (lineAmount && !parsedDate && !pendingAmount) {
         // Extract merchant name by removing amount - match $X.XX or X.XX with decimal
         let description = line.replace(/([-])?\$(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g, '')
           .replace(/([-])?(\d{1,3}(?:,\d{3})*\.\d{2,})/g, '').trim();
