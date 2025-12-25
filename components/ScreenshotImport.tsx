@@ -653,6 +653,16 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
 
     const worker = await createWorker('eng');
     
+    // Configure Tesseract for better accuracy on structured transaction lists
+    // --oem 1: Use LSTM OCR engine (better for structured text)
+    // --psm 6: Assume a single uniform block of text
+    // preserve_interword_spaces=1: Preserve spacing between words
+    await worker.setParameters({
+      tessedit_ocr_engine_mode: '1', // OEM 1 (LSTM)
+      tessedit_pageseg_mode: '6', // PSM 6 (single uniform block)
+      preserve_interword_spaces: '1', // Preserve spacing
+    });
+    
     setOcrStatus(`Processing ${file.name} (${fileIndex + 1}/${totalFiles})...`);
     
     // Don't use logger callback - it causes DataCloneError because React state setters can't be cloned
