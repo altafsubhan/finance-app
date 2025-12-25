@@ -228,6 +228,9 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
     let currentDate: string | null = null;
     let pendingAmount: string | null = null; // Store pending transaction amount
     
+    // Use today's date as fallback for transactions without dates
+    const todayDate = new Date().toISOString().split('T')[0];
+    
     // First pass: find the first date in the OCR text to use for transactions without dates
     let firstDateInText: string | null = null;
     for (const line of lines) {
