@@ -922,7 +922,7 @@ function TransactionTable({
                       transactionId={transaction.id}
                       currentCategoryId={transaction.category_id}
                       categories={categories}
-                      onUpdate={onUpdate ? (categoryId: string) => onUpdate(transaction.id, { category_id: categoryId }) : () => {}}
+                      onUpdate={onUpdate ? (categoryId: string | null) => onUpdate(transaction.id, { category_id: categoryId || undefined }) : () => {}}
                     />
                   </div>
                 </td>
