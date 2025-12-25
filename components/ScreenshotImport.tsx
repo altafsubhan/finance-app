@@ -659,7 +659,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
     // preserve_interword_spaces=1: Preserve spacing between words
     await worker.setParameters({
       tessedit_ocr_engine_mode: OEM.LSTM_ONLY, // OEM 1 (LSTM)
-      tessedit_pageseg_mode: PSM.UNIFORM_BLOCK, // PSM 6 (single uniform block)
+      tessedit_pageseg_mode: 6 as PSM, // PSM 6 (single uniform block) - numeric value with type assertion
       preserve_interword_spaces: '1', // Preserve spacing (string for this parameter)
     });
     
