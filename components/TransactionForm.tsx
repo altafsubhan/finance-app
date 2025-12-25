@@ -65,7 +65,7 @@ export default function TransactionForm({ categories, onSuccess, initialData }: 
       setDate(initialData.date || '');
       setAmount(initialData.amount.toString());
       setDescription(initialData.description);
-      setCategoryId(initialData.category_id);
+      setCategoryId(initialData.category_id || ''); // Handle null category_id
       setPaymentMethod(initialData.payment_method);
       setPaidBy(initialData.paid_by);
       setYear(initialData.year);
