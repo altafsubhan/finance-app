@@ -658,9 +658,9 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
     // --psm 6: Assume a single uniform block of text
     // preserve_interword_spaces=1: Preserve spacing between words
     await worker.setParameters({
-      tessedit_ocr_engine_mode: '1', // OEM 1 (LSTM)
-      tessedit_pageseg_mode: '6', // PSM 6 (single uniform block)
-      preserve_interword_spaces: '1', // Preserve spacing
+      tessedit_ocr_engine_mode: 1, // OEM 1 (LSTM) - use number, not string
+      tessedit_pageseg_mode: 6, // PSM 6 (single uniform block) - use number, not string
+      preserve_interword_spaces: 1, // Preserve spacing - use number, not string
     });
     
     setOcrStatus(`Processing ${file.name} (${fileIndex + 1}/${totalFiles})...`);
