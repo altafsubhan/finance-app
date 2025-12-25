@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
       .select(`
         *,
         category:categories(*)
-      `)
-      .eq('user_id', user.id);
+      `);
+      // RLS policies handle user filtering for shared access
 
     if (year) {
       query = query.eq('year', parseInt(year));

@@ -17,30 +17,27 @@ export async function GET(request: NextRequest) {
 
     const yearNum = parseInt(year);
 
-    // Get all categories
+    // Get all categories (RLS handles shared access)
     const { data: categories, error: categoriesError } = await supabase
       .from('categories')
       .select('*')
-      .eq('user_id', user.id)
       .order('type', { ascending: true })
       .order('name', { ascending: true });
 
     if (categoriesError) throw categoriesError;
 
-    // Get budgets for the year
+    // Get budgets for the year (RLS handles shared access)
     const { data: budgets, error: budgetsError } = await supabase
       .from('budgets')
       .select('*')
-      .eq('user_id', user.id)
       .eq('year', yearNum);
 
     if (budgetsError) throw budgetsError;
 
-    // Get transactions for the year using year field
+    // Get transactions for the year using year field (RLS handles shared access)
     let transactionsQuery = supabase
       .from('transactions')
       .select('*')
-      .eq('user_id', user.id)
       .eq('year', yearNum);
 
     // Filter by period if specified

@@ -21,30 +21,16 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No updates provided' }, { status: 400 });
     }
 
-    // Verify all transactions belong to the user
-    const { data: userTransactions, error: verifyError } = await supabase
-      .from('transactions')
-      .select('id')
-      .eq('user_id', user.id)
-      .in('id', transaction_ids);
-
-    if (verifyError) throw verifyError;
-
-    if (!userTransactions || userTransactions.length !== transaction_ids.length) {
-      return NextResponse.json({ error: 'Some transactions not found or unauthorized' }, { status: 403 });
-    }
-
     // Build update object (only include fields that are provided)
     const updateData: any = {};
     if (updates.category_id !== undefined) updateData.category_id = updates.category_id;
     if (updates.payment_method !== undefined) updateData.payment_method = updates.payment_method;
     if (updates.paid_by !== undefined) updateData.paid_by = updates.paid_by;
 
-    // Update all transactions
+    // Update all transactions (RLS policies handle authorization)
     const { data, error } = await supabase
       .from('transactions')
       .update(updateData)
-      .eq('user_id', user.id)
       .in('id', transaction_ids)
       .select();
 

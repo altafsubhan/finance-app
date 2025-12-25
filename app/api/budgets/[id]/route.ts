@@ -20,7 +20,7 @@ export async function PUT(
       .from('budgets')
       .update({ amount: parseFloat(amount) })
       .eq('id', params.id)
-      .eq('user_id', user.id)
+      // RLS policies handle authorization for shared access
       .select()
       .single();
 
@@ -49,8 +49,8 @@ export async function DELETE(
     const { error } = await supabase
       .from('budgets')
       .delete()
-      .eq('id', params.id)
-      .eq('user_id', user.id);
+      .eq('id', params.id);
+      // RLS policies handle authorization for shared access
 
     if (error) {
       throw error;

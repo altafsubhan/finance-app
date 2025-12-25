@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase
       .from('categories')
       .select('*')
-      .eq('user_id', user.id)
+      // RLS policies now handle user filtering for shared access
       .order('type', { ascending: true })
       .order('name', { ascending: true });
 

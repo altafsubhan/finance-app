@@ -24,7 +24,7 @@ export async function PATCH(
       .from('transactions')
       .update(updateData)
       .eq('id', params.id)
-      .eq('user_id', user.id)
+      // RLS policies handle authorization for shared access
       .select()
       .single();
 

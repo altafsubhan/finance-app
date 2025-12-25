@@ -11,11 +11,10 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if categories already exist
+    // Check if categories already exist (RLS handles shared access)
     const { data: existingCategories } = await supabase
       .from('categories')
-      .select('name')
-      .eq('user_id', user.id);
+      .select('name');
 
     if (existingCategories && existingCategories.length > 0) {
       return NextResponse.json({ 

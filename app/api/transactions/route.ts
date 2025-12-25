@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         *,
         category:categories(*)
       `)
-      .eq('user_id', user.id)
+      // RLS policies now handle user filtering for shared access
       .order('year', { ascending: false })
       .order('quarter', { ascending: false, nullsFirst: false })
       .order('month', { ascending: false, nullsFirst: false })
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         month: month ? parseInt(month) : null,
         quarter: calculatedQuarter ? parseInt(calculatedQuarter) : null,
         year: parseInt(year),
-        user_id: user.id,
+        user_id: user.id, // Still set user_id for tracking, but RLS allows partners to see it
       })
       .select()
       .single();

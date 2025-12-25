@@ -17,11 +17,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No transactions provided' }, { status: 400 });
     }
 
-    // Get all categories to map names to IDs
+    // Get all categories to map names to IDs (RLS handles shared access)
     const { data: categories, error: categoriesError } = await supabase
       .from('categories')
-      .select('*')
-      .eq('user_id', user.id);
+      .select('*');
 
     if (categoriesError) throw categoriesError;
 
