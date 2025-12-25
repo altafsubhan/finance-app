@@ -7,6 +7,7 @@ import TransactionList from '@/components/TransactionList';
 import CSVImport from '@/components/CSVImport';
 import ScreenshotImport from '@/components/ScreenshotImport';
 import BulkEditBar from '@/components/BulkEditBar';
+import OutstandingSummary from '@/components/OutstandingSummary';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { format, startOfYear, endOfYear } from 'date-fns';
 
@@ -27,6 +28,8 @@ export default function TransactionsPage() {
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
+  const [summariesExpanded, setSummariesExpanded] = useState(true);
 
   const loadTransactions = useCallback(async () => {
     try {
@@ -226,24 +229,35 @@ export default function TransactionsPage() {
           </div>
         )}
 
-        <div className="mb-6 flex flex-wrap gap-4">
-          <div>
-            <label htmlFor="year" className="block text-sm font-medium mb-1">
-              Year
-            </label>
-            <select
-              id="year"
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Filters Section - Collapsible */}
+        <div className="mb-6 bg-white border rounded-lg">
+          <button
+            onClick={() => setFiltersExpanded(!filtersExpanded)}
+            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
+          >
+            <span className="font-medium text-gray-900">Filters</span>
+            <span className="text-gray-500">{filtersExpanded ? '−' : '+'}</span>
+          </button>
+          {filtersExpanded && (
+            <div className="px-4 pb-4 pt-2">
+              <div className="flex flex-wrap gap-4">
+                <div>
+                  <label htmlFor="year" className="block text-sm font-medium mb-1">
+                    Year
+                  </label>
+                  <select
+                    id="year"
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {years.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
           <div>
             <label htmlFor="category_type" className="block text-sm font-medium mb-1">
@@ -387,7 +401,30 @@ export default function TransactionsPage() {
               ))}
             </select>
           </div>
-          </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Summaries Section - Collapsible */}
+        <div className="mb-6 bg-white border rounded-lg">
+          <button
+            onClick={() => setSummariesExpanded(!summariesExpanded)}
+            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
+          >
+            <span className="font-medium text-gray-900">Summaries & Visualizations</span>
+            <span className="text-gray-500">{summariesExpanded ? '−' : '+'}</span>
+          </button>
+          {summariesExpanded && (
+            <div className="px-4 pb-4 pt-2 space-y-4">
+              {/* Outstanding Amount Summary */}
+              <OutstandingSummary
+                transactions={transactions}
+                categories={categories}
+              />
+            </div>
+          )}
+        </div>
 
         {loadingTransactions ? (
           <div className="bg-white border rounded-lg p-8 text-center">
