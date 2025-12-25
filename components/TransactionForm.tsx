@@ -13,7 +13,7 @@ interface TransactionFormProps {
     date: string | null;
     amount: number;
     description: string;
-    category_id: string;
+    category_id: string | null; // Allow null for uncategorized transactions
     payment_method: PaymentMethod;
     paid_by: PaidBy;
     month: number | null;
