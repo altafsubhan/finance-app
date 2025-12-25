@@ -776,17 +776,17 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 w-32">Date</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Description</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Category</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-24">Amount</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 w-28 md:w-32">Date</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 min-w-[200px] md:min-w-[300px]">Description</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 w-32 md:w-40">Category</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-20 md:w-24">Amount</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 w-20">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {preview.map((row) => (
                       <tr key={row.id}>
-                        <td className="px-3 py-2 text-sm w-32">
+                        <td className="px-3 py-2 text-sm w-28 md:w-32">
                           <input
                             type="date"
                             value={row.date}
@@ -794,7 +794,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
                             className="w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="px-4 py-2 text-sm">
+                        <td className="px-4 py-2 text-sm min-w-[200px] md:min-w-[300px]">
                           <input
                             type="text"
                             value={row.description}
@@ -802,7 +802,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
                             className="w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="px-4 py-2 text-sm">
+                        <td className="px-4 py-2 text-sm w-32 md:w-40">
                           <select
                             value={row.category}
                             onChange={(e) => handlePreviewEdit(row.id, 'category', e.target.value)}
@@ -816,7 +816,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
                             ))}
                           </select>
                         </td>
-                        <td className="px-3 py-2 text-sm text-right w-24">
+                        <td className="px-3 py-2 text-sm text-right w-20 md:w-24">
                           <input
                             type="text"
                             value={row.amount}
