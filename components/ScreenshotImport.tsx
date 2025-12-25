@@ -773,7 +773,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
                 Preview ({preview.length} transaction{preview.length !== 1 ? 's' : ''} found from {files.length} file{files.length !== 1 ? 's' : ''}):
               </div>
               <div className="overflow-x-auto border rounded-lg">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-[800px] md:min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 w-28 md:w-32">Date</th>
