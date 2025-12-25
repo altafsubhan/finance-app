@@ -186,6 +186,16 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
     const transactions: ParsedTransaction[] = [];
     let currentDate: string | null = null;
     let pendingAmount: string | null = null; // Store pending transaction amount
+    
+    // First pass: find the first date in the OCR text to use for transactions without dates
+    let firstDateInText: string | null = null;
+    for (const line of lines) {
+      const date = parseDate(line);
+      if (date) {
+        firstDateInText = date;
+        break; // Use the first date we find
+      }
+    }
 
     // Helper to check if a line is a header/non-transaction
     const isHeaderLine = (line: string): boolean => {
@@ -357,10 +367,12 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         continue;
       }
       
-      // Pattern 3: Regular merchant + amount line (with current date set)
+      // Pattern 3: Regular merchant + amount line (with current date set or first date in text)
       // In this format (merchant + amount under date header), amounts are transactions, not balances
       // So we don't need balance detection here - all amounts should be treated as transactions
-      if (lineAmount && !parsedDate && currentDate && !pendingAmount) {
+      // Use firstDateInText if currentDate is not set yet (for transactions appearing before first date header)
+      const dateToUse = currentDate || firstDateInText;
+      if (lineAmount && !parsedDate && dateToUse && !pendingAmount) {
         // Extract merchant name by removing amount - match $X.XX or X.XX with decimal
         let description = line.replace(/([-])?\$(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g, '')
           .replace(/([-])?(\d{1,3}(?:,\d{3})*\.\d{2,})/g, '').trim();
@@ -404,7 +416,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         if (description.length >= 3 && !description.match(/^\d+$/)) {
           transactions.push({
             id: `screenshot-${Date.now()}-${transactions.length}`,
-            date: currentDate,
+            date: dateToUse, // Use dateToUse instead of currentDate
             amount: lineAmount,
             description: description,
             category: '',
