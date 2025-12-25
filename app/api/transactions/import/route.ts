@@ -26,12 +26,12 @@ export async function POST(request: NextRequest) {
 
     // Prepare transactions for insertion
     const transactionsToInsert = transactions.map((t: any) => {
-      // Find category by name
-      const category = categories?.find(
+      // Find category by name (category is optional)
+      const category = t.category ? categories?.find(
         (c) => c.name.toLowerCase() === t.category?.toLowerCase()
-      );
+      ) : null;
 
-      if (!category) {
+      if (t.category && !category) {
         throw new Error(`Category not found: ${t.category}`);
       }
 
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         date: t.date || null,
         amount: parseFloat(t.amount),
         description: t.description || '',
-        category_id: category.id,
+        category_id: category?.id || null, // Allow null if no category provided
         payment_method: t.payment_method || 'Other',
         paid_by: t.paid_by || null,
         year: parseInt(t.year) || new Date().getFullYear(),

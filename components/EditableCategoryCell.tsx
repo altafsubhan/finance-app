@@ -5,9 +5,9 @@ import { Category } from '@/types/database';
 
 interface EditableCategoryCellProps {
   transactionId: string;
-  currentCategoryId: string;
+  currentCategoryId: string | null;
   categories: Category[];
-  onUpdate: (categoryId: string) => void;
+  onUpdate: (categoryId: string | null) => void;
 }
 
 export default function EditableCategoryCell({ 
@@ -17,13 +17,14 @@ export default function EditableCategoryCell({
   onUpdate 
 }: EditableCategoryCellProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedCategoryId, setSelectedCategoryId] = useState(currentCategoryId);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(currentCategoryId || '');
   const [loading, setLoading] = useState(false);
   const editTimerRef = useRef<NodeJS.Timeout | null>(null);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
   const handleSave = async () => {
-    if (selectedCategoryId === currentCategoryId) {
+    const newCategoryId = selectedCategoryId || null;
+    if (newCategoryId === currentCategoryId) {
       setIsEditing(false);
       return;
     }
@@ -34,7 +35,7 @@ export default function EditableCategoryCell({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ category_id: selectedCategoryId }),
+        body: JSON.stringify({ category_id: newCategoryId }),
       });
 
       if (!response.ok) {
@@ -42,18 +43,19 @@ export default function EditableCategoryCell({
       }
 
       setIsEditing(false);
-      onUpdate(selectedCategoryId);
+      onUpdate(newCategoryId);
     } catch (error) {
       alert('Failed to update category');
-      setSelectedCategoryId(currentCategoryId);
+      setSelectedCategoryId(currentCategoryId || '');
     } finally {
       setLoading(false);
     }
   };
 
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newCategoryId = e.target.value;
-    setSelectedCategoryId(newCategoryId);
+    const newCategoryIdValue = e.target.value;
+    const newCategoryId = newCategoryIdValue || null;
+    setSelectedCategoryId(newCategoryIdValue);
     
     if (newCategoryId === currentCategoryId) {
       setIsEditing(false);
@@ -78,14 +80,14 @@ export default function EditableCategoryCell({
       onUpdate(newCategoryId);
     } catch (error) {
       alert('Failed to update category');
-      setSelectedCategoryId(currentCategoryId);
+      setSelectedCategoryId(currentCategoryId || '');
     } finally {
       setLoading(false);
     }
   };
 
   const handleCancel = () => {
-    setSelectedCategoryId(currentCategoryId);
+    setSelectedCategoryId(currentCategoryId || '');
     setIsEditing(false);
   };
 
@@ -161,6 +163,7 @@ export default function EditableCategoryCell({
             if (e.key === 'Escape') handleCancel();
           }}
         >
+          <option value="">Uncategorized</option>
           {categories.map((cat) => (
             <option key={cat.id} value={cat.id}>
               {cat.name} ({cat.type})
@@ -180,7 +183,7 @@ export default function EditableCategoryCell({
       onTouchEnd={handleTouchEnd}
       title="Click to edit"
     >
-      {currentCategory?.name || 'Unknown'}
+      {currentCategory?.name || 'Uncategorized'}
     </div>
   );
 }

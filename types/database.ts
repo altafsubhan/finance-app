@@ -23,7 +23,7 @@ export interface Transaction {
   date: string | null; // Optional - can be null
   amount: number;
   description: string;
-  category_id: string;
+  category_id: string | null; // Optional - can be null for uncategorized transactions
   payment_method: PaymentMethod;
   paid_by: PaidBy;
   month: number | null; // 1-12, required for monthly categories

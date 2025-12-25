@@ -104,7 +104,7 @@ export default function TransactionForm({ categories, onSuccess, initialData }: 
           date: date || null,
           amount: parseFloat(amount),
           description,
-          category_id: categoryId,
+          category_id: categoryId || null, // Allow null/empty category_id
           payment_method: paymentMethod,
           paid_by: paidBy,
           year,

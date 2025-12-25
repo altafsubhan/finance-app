@@ -62,9 +62,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     if (!row.amount || parseFloat(row.amount) === 0) {
       return 'Amount is required';
     }
-    if (!row.category_id) {
-      return 'Category is required';
-    }
+    // Category is now optional - no validation needed
     if (!row.payment_method) {
       return 'Payment method is required';
     }
@@ -94,7 +92,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
       date: row.date || null,
       description: row.description.trim(),
       amount: parseFloat(row.amount),
-      category_id: row.category_id,
+      category_id: row.category_id || null, // Allow null/empty category_id
       payment_method: row.payment_method as PaymentMethod,
       paid_by: row.paid_by,
       year: transactionYear,
@@ -220,8 +218,8 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
           bValue = b.description.toLowerCase();
           break;
         case 'category':
-          aValue = categories.find(c => c.id === a.category_id)?.name || '';
-          bValue = categories.find(c => c.id === b.category_id)?.name || '';
+          aValue = a.category_id ? (categories.find(c => c.id === a.category_id)?.name || '') : 'Uncategorized';
+          bValue = b.category_id ? (categories.find(c => c.id === b.category_id)?.name || '') : 'Uncategorized';
           break;
         case 'payment_method':
           aValue = a.payment_method;
@@ -260,6 +258,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     monthly: sortedTransactions.filter(t => getCategoryType(t.category_id) === 'monthly'),
     quarterly: sortedTransactions.filter(t => getCategoryType(t.category_id) === 'quarterly'),
     yearly: sortedTransactions.filter(t => getCategoryType(t.category_id) === 'yearly'),
+    uncategorized: sortedTransactions.filter(t => !t.category_id), // Uncategorized transactions
   };
 
   // If filter is set, only show that type
@@ -371,6 +370,33 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
             </div>
             <TransactionTable 
               transactions={groupedTransactions.yearly}
+              categories={categories}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              confirmDelete={confirmDelete}
+              setConfirmDelete={setConfirmDelete}
+              onUpdate={onUpdate}
+              selectedIds={selectedIds}
+              onSelectionChange={onSelectionChange}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+              isSelectionMode={isSelectionMode}
+              setIsSelectionMode={setIsSelectionMode}
+            />
+          </div>
+        )}
+
+        {groupedTransactions.uncategorized.length > 0 && (
+          <div className="bg-white border rounded-lg p-2 sm:p-4 lg:p-6">
+            <div className="flex items-center mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Uncategorized</h3>
+              <span className="ml-2 px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800">
+                {groupedTransactions.uncategorized.length} transactions
+              </span>
+            </div>
+            <TransactionTable 
+              transactions={groupedTransactions.uncategorized}
               categories={categories}
               onEdit={onEdit}
               onDelete={onDelete}
@@ -858,10 +884,10 @@ function TransactionTable({
             const categoryType = getCategoryType(transaction.category_id);
             const isSelected = selectedIds.has(transaction.id);
             return (
-              <tr 
-                key={transaction.id} 
-                className={`${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
-                style={{ 
+            <tr 
+              key={transaction.id} 
+              className={`${isSelected ? 'bg-blue-50' : !transaction.category_id ? 'bg-red-50' : 'hover:bg-gray-50'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
+              style={{
                   WebkitUserSelect: 'none', 
                   userSelect: 'none',
                   WebkitTouchCallout: 'none',
