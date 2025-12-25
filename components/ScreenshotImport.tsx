@@ -536,6 +536,104 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
     return transactions;
   };
 
+  // Preprocess image for better OCR accuracy
+  const preprocessImage = async (imageDataUrl: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          // Create canvas with 2x upscaling for better OCR accuracy
+          const scaleFactor = 2;
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width * scaleFactor;
+          canvas.height = img.height * scaleFactor;
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+
+          // Use high-quality image rendering
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          
+          // Draw scaled image
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          // Get image data for pixel manipulation
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          // Apply preprocessing: grayscale, contrast enhancement, and sharpening
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            
+            // Convert to grayscale using luminance formula
+            const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+            
+            // Apply contrast enhancement (increase contrast by 20%)
+            const contrast = 1.2;
+            const enhanced = Math.round(((gray / 255 - 0.5) * contrast + 0.5) * 255);
+            
+            // Clamp values to 0-255
+            const final = Math.max(0, Math.min(255, enhanced));
+            
+            data[i] = final;     // R
+            data[i + 1] = final; // G
+            data[i + 2] = final; // B
+            // Alpha channel (data[i + 3]) stays the same
+          }
+          
+          // Apply simple sharpening kernel (unsharp mask effect)
+          // We'll do a simple edge enhancement by detecting edges
+          const sharpenedData = new Uint8ClampedArray(data);
+          const kernel = [
+            0, -1, 0,
+            -1, 5, -1,
+            0, -1, 0
+          ];
+          
+          // Apply kernel (simplified - only to grayscale values)
+          for (let y = 1; y < canvas.height - 1; y++) {
+            for (let x = 1; x < canvas.width - 1; x++) {
+              let sum = 0;
+              let kernelIdx = 0;
+              
+              for (let ky = -1; ky <= 1; ky++) {
+                for (let kx = -1; kx <= 1; kx++) {
+                  const idx = ((y + ky) * canvas.width + (x + kx)) * 4;
+                  sum += data[idx] * kernel[kernelIdx];
+                  kernelIdx++;
+                }
+              }
+              
+              const idx = (y * canvas.width + x) * 4;
+              const sharpened = Math.max(0, Math.min(255, sum));
+              sharpenedData[idx] = sharpened;
+              sharpenedData[idx + 1] = sharpened;
+              sharpenedData[idx + 2] = sharpened;
+            }
+          }
+          
+          // Put processed image data back
+          imageData.data.set(sharpenedData);
+          ctx.putImageData(imageData, 0, 0);
+          
+          // Convert back to data URL
+          resolve(canvas.toDataURL('image/png'));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      img.onerror = reject;
+      img.src = imageDataUrl;
+    });
+  };
+
   // Process a single file
   const processSingleFile = async (file: File, fileIndex: number, totalFiles: number): Promise<ParsedTransaction[]> => {
     setProcessingFile(`${file.name} (${fileIndex + 1}/${totalFiles})`);
@@ -549,12 +647,16 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
       reader.readAsDataURL(file);
     });
 
+    // Preprocess image for better OCR accuracy
+    setOcrStatus(`Preprocessing ${file.name}...`);
+    const preprocessedImageDataUrl = await preprocessImage(imageDataUrl);
+
     const worker = await createWorker('eng');
     
     setOcrStatus(`Processing ${file.name} (${fileIndex + 1}/${totalFiles})...`);
     
     // Don't use logger callback - it causes DataCloneError because React state setters can't be cloned
-    const { data } = await worker.recognize(imageDataUrl);
+    const { data } = await worker.recognize(preprocessedImageDataUrl);
 
     await worker.terminate();
 
