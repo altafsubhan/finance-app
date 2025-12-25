@@ -14,16 +14,28 @@ We've created a migration that allows both partners to access each other's data 
 
 Run the migration in your Supabase SQL Editor:
 
-1. Go to your Supabase dashboard
-2. Navigate to SQL Editor
-3. Copy the contents of `supabase/migrations/004_enable_shared_access.sql`
-4. Paste and run it
+1. Go to your Supabase dashboard (https://supabase.com/dashboard)
+2. Select your project
+3. Navigate to SQL Editor (in the left sidebar)
+4. Click "New Query"
+5. Copy the contents of `supabase/migrations/004_enable_shared_access.sql`
+6. Paste into the SQL Editor
+7. Click "Run" or press Cmd/Ctrl + Enter
 
 This migration:
-- Creates a function that returns all user IDs (both partners)
+- Creates a function `get_shared_user_ids()` that returns all user IDs (both partners)
 - Updates RLS policies to allow both partners to view and modify each other's data
+- All authenticated users in your profiles table will have access to all data
 
-### 2. Verify It Works
+### 2. Restart Your Application
+
+After running the migration, restart your Next.js dev server:
+```bash
+# Stop the current server (Ctrl+C)
+npm run dev
+```
+
+### 3. Verify It Works
 
 After running the migration:
 - Log in as yourself - you should see all transactions (yours and your wife's)
