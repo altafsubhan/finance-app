@@ -77,8 +77,10 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
   };
 
   // Date parsing patterns
-  const parseDate = (text: string): string | null => {
+  const parseDate = (text: string, defaultYear?: number): string | null => {
     if (!text) return null;
+    
+    const yearToUse = defaultYear || selectedYear;
 
     // Pattern 1: MM/DD/YYYY or M/D/YYYY
     const mmddyyyy = text.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
@@ -90,12 +92,13 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
       }
     }
 
-    // Pattern 2: Mon DD, YYYY or Dec DD, YYYY (abbreviated month) - comma optional
+    // Pattern 2: Mon DD, YYYY or Dec DD, YYYY (abbreviated month) - comma optional, year optional
     const monthAbbrev = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const abbrevPattern = new RegExp(`\\b(${monthAbbrev.join('|')})\\s+(\\d{1,2}),?\\s+(\\d{4})\\b`, 'i');
-    const abbrevMatch = text.match(abbrevPattern);
-    if (abbrevMatch) {
-      const [, monthStr, day, year] = abbrevMatch;
+    // Try with year first
+    const abbrevPatternWithYear = new RegExp(`\\b(${monthAbbrev.join('|')})\\s+(\\d{1,2}),?\\s+(\\d{4})\\b`, 'i');
+    const abbrevMatchWithYear = text.match(abbrevPatternWithYear);
+    if (abbrevMatchWithYear) {
+      const [, monthStr, day, year] = abbrevMatchWithYear;
       const monthIndex = monthAbbrev.findIndex(m => m.toLowerCase() === monthStr.toLowerCase());
       if (monthIndex >= 0) {
         const date = new Date(parseInt(year), monthIndex, parseInt(day));
@@ -104,19 +107,55 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         }
       }
     }
+    
+    // Try without year (use default/selected year)
+    const abbrevPatternNoYear = new RegExp(`\\b(${monthAbbrev.join('|')})\\s+(\\d{1,2})\\b`, 'i');
+    const abbrevMatchNoYear = text.match(abbrevPatternNoYear);
+    if (abbrevMatchNoYear) {
+      const [, monthStr, day] = abbrevMatchNoYear;
+      const monthIndex = monthAbbrev.findIndex(m => m.toLowerCase() === monthStr.toLowerCase());
+      if (monthIndex >= 0) {
+        // Check if this looks like a date (not just random text)
+        // Should be at start of line or after whitespace, and day should be 1-31
+        const dayNum = parseInt(day);
+        if (dayNum >= 1 && dayNum <= 31) {
+          const date = new Date(yearToUse, monthIndex, dayNum);
+          if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
+          }
+        }
+      }
+    }
 
-    // Pattern 3: Full month name (January, February, etc.)
+    // Pattern 3: Full month name (January, February, etc.) - with or without year
     const monthFull = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    // Also match "May 10, 2025" without comma sometimes, and handle "Recent Activity Since May 10, 2025"
-    const fullPattern = new RegExp(`\\b(${monthFull.join('|')})\\s+(\\d{1,2}),?\\s+(\\d{4})\\b`, 'i');
-    const fullMatch = text.match(fullPattern);
-    if (fullMatch) {
-      const [, monthStr, day, year] = fullMatch;
+    // Try with year first
+    const fullPatternWithYear = new RegExp(`\\b(${monthFull.join('|')})\\s+(\\d{1,2}),?\\s+(\\d{4})\\b`, 'i');
+    const fullMatchWithYear = text.match(fullPatternWithYear);
+    if (fullMatchWithYear) {
+      const [, monthStr, day, year] = fullMatchWithYear;
       const monthIndex = monthFull.findIndex(m => m.toLowerCase() === monthStr.toLowerCase());
       if (monthIndex >= 0) {
         const date = new Date(parseInt(year), monthIndex, parseInt(day));
         if (!isNaN(date.getTime())) {
           return date.toISOString().split('T')[0];
+        }
+      }
+    }
+    
+    // Try without year (use default/selected year)
+    const fullPatternNoYear = new RegExp(`\\b(${monthFull.join('|')})\\s+(\\d{1,2})\\b`, 'i');
+    const fullMatchNoYear = text.match(fullPatternNoYear);
+    if (fullMatchNoYear) {
+      const [, monthStr, day] = fullMatchNoYear;
+      const monthIndex = monthFull.findIndex(m => m.toLowerCase() === monthStr.toLowerCase());
+      if (monthIndex >= 0) {
+        const dayNum = parseInt(day);
+        if (dayNum >= 1 && dayNum <= 31) {
+          const date = new Date(yearToUse, monthIndex, dayNum);
+          if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
+          }
         }
       }
     }
@@ -330,17 +369,53 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         }
       }
       
-      // Pattern 2: Pending transaction - we have pendingAmount stored, this line is merchant + balance
+      // Pattern 2: Pending transaction OR Amount-only line followed by merchant
+      // If we have pendingAmount stored, this line should be the merchant
+      if (pendingAmount && !lineAmount && !parsedDate) {
+        // This line is the merchant (no amount on this line)
+        let description = line.trim();
+        
+        // Clean up description: remove UI elements
+        description = description
+          .replace(/pay\s+it/gi, '') // Remove "Pay It" button text
+          .replace(/^[®¢%9$C\s]+/g, '') // Remove weird prefix characters at the start
+          .replace(/[✓✔✅@]/g, '') // Checkmarks and @ symbols
+          .replace(/[>→]/g, '') // Arrows
+          .replace(/\s+/g, ' ') // Multiple spaces
+          .trim();
+        
+        if (description.length >= 3) {
+          transactions.push({
+            id: `screenshot-${Date.now()}-${transactions.length}`,
+            date: currentDate || '', // Use currentDate if available
+            amount: pendingAmount, // Use stored pending amount
+            description: description,
+            category: '',
+            payment_method: paymentMethodOverride || 'Other',
+            paid_by: null,
+            year: selectedYear,
+            month: periodType === 'month' ? periodValue : undefined,
+            quarter: periodType === 'quarter' ? periodValue : undefined,
+            rawText: line,
+          });
+          
+          // Clear pending amount after using it
+          pendingAmount = null;
+        }
+        continue;
+      }
+      
+      // Pattern 2b: Pending transaction - we have pendingAmount stored, this line is merchant + balance
       if (pendingAmount && lineAmount && !parsedDate) {
         // Extract merchant name by removing the amount (balance) - match $X.XX or X.XX with decimal
         let description = line.replace(/([-])?\$(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g, '')
           .replace(/([-])?(\d{1,3}(?:,\d{3})*\.\d{2,})/g, '').trim();
         description = description.replace(/:/g, '').trim();
         
-        // Clean up
         // Clean up description: remove UI elements and weird prefix characters
         description = description
-          .replace(/^[®¢%9$C\s]+/g, '') // Remove weird prefix characters at the start (®¢, %¢, 9¢, $C, etc.)
+          .replace(/pay\s+it/gi, '') // Remove "Pay It" button text
+          .replace(/^[®¢%9$C\s]+/g, '') // Remove weird prefix characters at the start
           .replace(/[✓✔✅@]/g, '') // Checkmarks and @ symbols
           .replace(/[>→]/g, '') // Arrows
           .replace(/\s+/g, ' ') // Multiple spaces
@@ -349,7 +424,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         if (description.length >= 3 && description.toLowerCase() !== 'pending') {
           transactions.push({
             id: `screenshot-${Date.now()}-${transactions.length}`,
-            date: '', // Pending transactions have no date
+            date: currentDate || '', // Use currentDate if available
             amount: pendingAmount, // Use stored pending amount
             description: description,
             category: '',
