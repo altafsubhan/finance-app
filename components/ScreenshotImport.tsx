@@ -290,6 +290,8 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         const withoutDate = line.replace(/\d{1,2}\/\d{1,2}\/\d{4}/g, '')
           .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b/gi, '')
           .replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/gi, '')
+          .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}\b/gi, '') // Also remove dates without year
+          .replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}\b/gi, '') // Full month without year
           .replace(/:/g, '')
           .trim()
           .replace(/[^\w\s]/g, '');
