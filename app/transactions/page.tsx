@@ -8,6 +8,7 @@ import CSVImport from '@/components/CSVImport';
 import ScreenshotImport from '@/components/ScreenshotImport';
 import BulkEditBar from '@/components/BulkEditBar';
 import OutstandingSummary from '@/components/OutstandingSummary';
+import SplitTransactionModal, { Split } from '@/components/SplitTransactionModal';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { format, startOfYear, endOfYear } from 'date-fns';
 
@@ -30,6 +31,7 @@ export default function TransactionsPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [filtersExpanded, setFiltersExpanded] = useState(true);
   const [summariesExpanded, setSummariesExpanded] = useState(true);
+  const [splittingTransaction, setSplittingTransaction] = useState<Transaction | null>(null);
 
   const loadTransactions = useCallback(async () => {
     try {
@@ -506,7 +508,38 @@ export default function TransactionsPage() {
                 setSelectedTransactionIds(new Set());
               }
             }}
+            onBulkSplit={(transactionId: string) => {
+              const transaction = transactions.find(t => t.id === transactionId);
+              if (transaction) {
+                setSplittingTransaction(transaction);
+                setSelectedTransactionIds(new Set());
+              }
+            }}
             onCancel={() => setSelectedTransactionIds(new Set())}
+          />
+        )}
+
+        {splittingTransaction && (
+          <SplitTransactionModal
+            transaction={splittingTransaction}
+            categories={categories}
+            onClose={() => setSplittingTransaction(null)}
+            onSave={async (splits: Split[]) => {
+              const response = await fetch(`/api/transactions/${splittingTransaction.id}/split`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ splits }),
+              });
+
+              if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to split transaction');
+              }
+
+              setSplittingTransaction(null);
+              loadData();
+            }}
           />
         )}
       </div>

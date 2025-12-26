@@ -15,10 +15,11 @@ interface BulkEditBarProps {
   }) => Promise<void>;
   onBulkDelete: (ids: string[]) => Promise<void>;
   onBulkEdit: (transactionId: string) => void;
+  onBulkSplit: (transactionId: string) => void;
   onCancel: () => void;
 }
 
-export default function BulkEditBar({ selectedCount, selectedIds, categories, onBulkUpdate, onBulkDelete, onBulkEdit, onCancel }: BulkEditBarProps) {
+export default function BulkEditBar({ selectedCount, selectedIds, categories, onBulkUpdate, onBulkDelete, onBulkEdit, onBulkSplit, onCancel }: BulkEditBarProps) {
   const [categoryId, setCategoryId] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [paidBy, setPaidBy] = useState<PaidBy | ''>('');
@@ -82,6 +83,13 @@ export default function BulkEditBar({ selectedCount, selectedIds, categories, on
     }
   };
 
+  const handleSplit = () => {
+    // Split the first selected transaction (should only be called when one is selected)
+    if (selectedIds.length === 1) {
+      onBulkSplit(selectedIds[0]);
+    }
+  };
+
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 safe-area-inset-bottom">
       <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-4">
@@ -95,12 +103,20 @@ export default function BulkEditBar({ selectedCount, selectedIds, categories, on
                 <span className="text-xs text-red-600">{error}</span>
               )}
               {selectedCount === 1 && (
-                <button
-                  onClick={handleEdit}
-                  className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap"
-                >
-                  Edit
-                </button>
+                <>
+                  <button
+                    onClick={handleEdit}
+                    className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={handleSplit}
+                    className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 whitespace-nowrap"
+                  >
+                    Split
+                  </button>
+                </>
               )}
               <button
                 onClick={handleDelete}
