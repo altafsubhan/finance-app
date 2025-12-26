@@ -5,6 +5,8 @@ import { Category, PaymentMethod } from '@/types/database';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { createWorker, PSM, OEM } from 'tesseract.js';
 
+console.log("PSM enum:", PSM);
+
 interface ScreenshotImportProps {
   categories: Category[];
   onSuccess: () => void;
@@ -655,12 +657,12 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
     
     // Configure Tesseract for better accuracy on structured transaction lists
     // --oem 1: Use LSTM OCR engine (better for structured text)
-    // --psm 6: Assume a single uniform block of text
+    // --psm: Use SINGLE_BLOCK (equivalent to uniform block for transaction lists)
     // preserve_interword_spaces=1: Preserve spacing between words
     await worker.setParameters({
       tessedit_ocr_engine_mode: OEM.LSTM_ONLY, // OEM 1 (LSTM)
-      tessedit_pageseg_mode: 6 as PSM, // PSM 6 (single uniform block) - numeric value with type assertion
-      preserve_interword_spaces: '1', // Preserve spacing (string for this parameter)
+      tessedit_pageseg_mode: PSM.SINGLE_BLOCK, // Single block (similar to uniform block)
+      preserve_interword_spaces: '1', // Preserve spacing
     });
     
     setOcrStatus(`Processing ${file.name} (${fileIndex + 1}/${totalFiles})...`);
