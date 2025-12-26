@@ -7,7 +7,6 @@ export type PaymentMethod =
   | 'BOA CB'
   | 'Chase Sapphire'
   | 'Chase Amazon'
-  | 'Chase Freedom'
   | 'Mano Chase Freedom'
   | 'Sobi Chase Freedom'
   | 'Mano Discover'

@@ -366,7 +366,6 @@ export default function TransactionsPage() {
               <option value="BOA CB">BOA CB</option>
               <option value="Chase Sapphire">Chase Sapphire</option>
               <option value="Chase Amazon">Chase Amazon</option>
-              <option value="Chase Freedom">Chase Freedom</option>
               <option value="Mano Chase Freedom">Mano Chase Freedom</option>
               <option value="Sobi Chase Freedom">Sobi Chase Freedom</option>
               <option value="Mano Discover">Mano Discover</option>
