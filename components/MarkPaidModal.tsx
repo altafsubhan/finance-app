@@ -15,12 +15,12 @@ export default function MarkPaidModal({
   onClose,
   onConfirm,
 }: MarkPaidModalProps) {
-  const [selectedPaidBy, setSelectedPaidBy] = useState<PaidBy | ''>('');
+  const [selectedPaidBy, setSelectedPaidBy] = useState<PaidBy | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleConfirm = async () => {
-    if (!selectedPaidBy || selectedPaidBy === '') {
+    if (!selectedPaidBy) {
       setError('Please select who paid');
       return;
     }
@@ -59,7 +59,7 @@ export default function MarkPaidModal({
             <select
               id="paid-by-select"
               value={selectedPaidBy || ''}
-              onChange={(e) => setSelectedPaidBy(e.target.value as PaidBy || '')}
+              onChange={(e) => setSelectedPaidBy(e.target.value ? (e.target.value as PaidBy) : null)}
               className="w-full px-3 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select who paid</option>
@@ -87,7 +87,7 @@ export default function MarkPaidModal({
             </button>
             <button
               onClick={handleConfirm}
-              disabled={!selectedPaidBy || loading}
+              disabled={selectedPaidBy === null || loading}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Marking as Paid...' : 'Mark as Paid'}
