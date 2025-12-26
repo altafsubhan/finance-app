@@ -3,9 +3,7 @@
 import { useState } from 'react';
 import { Category, PaymentMethod } from '@/types/database';
 import { PAYMENT_METHODS } from '@/lib/constants';
-import { createWorker, PSM, OEM } from 'tesseract.js';
-
-console.log("PSM enum:", PSM);
+import { createWorker } from 'tesseract.js';
 
 interface ScreenshotImportProps {
   categories: Category[];
@@ -655,16 +653,6 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
 
     const worker = await createWorker('eng');
     
-    // Configure Tesseract for better accuracy on structured transaction lists
-    // --oem 1: Use LSTM OCR engine (better for structured text)
-    // --psm: Use SINGLE_BLOCK (equivalent to uniform block for transaction lists)
-    // preserve_interword_spaces=1: Preserve spacing between words
-    await worker.setParameters({
-      tessedit_ocr_engine_mode: OEM.LSTM_ONLY, // OEM 1 (LSTM)
-      tessedit_pageseg_mode: PSM.SINGLE_BLOCK, // Single block (similar to uniform block)
-      preserve_interword_spaces: '1', // Preserve spacing
-    });
-    
     setOcrStatus(`Processing ${file.name} (${fileIndex + 1}/${totalFiles})...`);
     
     // Don't use logger callback - it causes DataCloneError because React state setters can't be cloned
@@ -1066,17 +1054,11 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
 
               <button
                 onClick={handleImport}
-                disabled={loading || preview.some(t => !t.category)}
+                disabled={loading}
                 className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Importing...' : `Import ${preview.length} Transactions`}
               </button>
-              
-              {preview.some(t => !t.category) && (
-                <p className="text-sm text-amber-600">
-                  Please assign a category to all transactions before importing.
-                </p>
-              )}
             </div>
           )}
         </div>
