@@ -755,7 +755,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         date: t.date || null,
         amount: t.amount,
         description: t.description,
-        category: t.category, // This should be the category name from the dropdown
+        category: t.category || null, // Allow null/empty category for uncategorized transactions
         payment_method: t.payment_method || 'Other',
         paid_by: t.paid_by || null,
         year: selectedYear,
