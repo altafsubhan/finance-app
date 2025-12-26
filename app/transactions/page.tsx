@@ -116,12 +116,6 @@ export default function TransactionsPage() {
     loadData();
   };
 
-  const handleTransactionUpdate = (transactionId: string, updates: { category_id?: string; paid_by?: any }) => {
-    setTransactions(prev => prev.map(t => 
-      t.id === transactionId ? { ...t, ...updates } : t
-    ));
-  };
-
   const handleCancel = () => {
     setShowForm(false);
     setEditingTransaction(null);
@@ -439,7 +433,6 @@ export default function TransactionsPage() {
             onEdit={handleEdit}
             onDelete={handleDelete}
             categoryTypeFilter={selectedCategoryType}
-            onUpdate={handleTransactionUpdate}
             selectedIds={selectedTransactionIds}
             onSelectionChange={setSelectedTransactionIds}
             onAddTransaction={async (data) => {

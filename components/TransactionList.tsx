@@ -4,8 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Transaction, Category, PaidBy } from '@/types/database';
 import { format } from 'date-fns';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
-import EditableCategoryCell from './EditableCategoryCell';
-import EditablePaidByCell from './EditablePaidByCell';
 import NewTransactionRow from './NewTransactionRow';
 import { PaymentMethod } from '@/types/database';
 
@@ -31,7 +29,6 @@ interface TransactionListProps {
   onEdit: (transaction: Transaction) => void;
   onDelete: (id: string) => void;
   categoryTypeFilter?: 'monthly' | 'quarterly' | 'yearly' | '';
-  onUpdate?: (transactionId: string, updates: { category_id?: string; paid_by?: any }) => void;
   selectedIds?: Set<string>;
   onSelectionChange?: (selectedIds: Set<string>) => void;
   onAddTransaction?: (data: any) => Promise<void>;
@@ -39,7 +36,7 @@ interface TransactionListProps {
 
 const noOpSelectionChange = (ids: Set<string>) => {};
 
-export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, onUpdate, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction }: TransactionListProps) {
+export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction }: TransactionListProps) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -322,7 +319,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
               onDelete={onDelete}
               confirmDelete={confirmDelete}
               setConfirmDelete={setConfirmDelete}
-              onUpdate={onUpdate}
               selectedIds={selectedIds}
               onSelectionChange={onSelectionChange}
               sortField={sortField}
@@ -349,7 +345,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
               onDelete={onDelete}
               confirmDelete={confirmDelete}
               setConfirmDelete={setConfirmDelete}
-              onUpdate={onUpdate}
               selectedIds={selectedIds}
               onSelectionChange={onSelectionChange}
               sortField={sortField}
@@ -376,7 +371,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
               onDelete={onDelete}
               confirmDelete={confirmDelete}
               setConfirmDelete={setConfirmDelete}
-              onUpdate={onUpdate}
               selectedIds={selectedIds}
               onSelectionChange={onSelectionChange}
               sortField={sortField}
@@ -403,7 +397,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
               onDelete={onDelete}
               confirmDelete={confirmDelete}
               setConfirmDelete={setConfirmDelete}
-              onUpdate={onUpdate}
               selectedIds={selectedIds}
               onSelectionChange={onSelectionChange}
               sortField={sortField}
@@ -509,7 +502,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
           onDelete={onDelete}
           confirmDelete={confirmDelete}
           setConfirmDelete={setConfirmDelete}
-          onUpdate={onUpdate}
           selectedIds={selectedIds}
           onSelectionChange={onSelectionChange}
           sortField={sortField}
@@ -610,7 +602,6 @@ function TransactionTable({
   onDelete, 
   confirmDelete, 
   setConfirmDelete,
-  onUpdate,
   selectedIds,
   onSelectionChange,
   sortField,
@@ -625,7 +616,6 @@ function TransactionTable({
   onDelete: (id: string) => void;
   confirmDelete: string | null;
   setConfirmDelete: (id: string | null) => void;
-  onUpdate?: (transactionId: string, updates: { category_id?: string; paid_by?: any }) => void;
   selectedIds: Set<string>;
   onSelectionChange: (selectedIds: Set<string>) => void;
   sortField: SortField;
@@ -919,24 +909,17 @@ function TransactionTable({
                   {transaction.description}
                 </td>
                 <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500 w-28">
-                  <div className="flex items-center">
-                    <EditableCategoryCell
-                      transactionId={transaction.id}
-                      currentCategoryId={transaction.category_id}
-                      categories={categories}
-                      onUpdate={onUpdate ? (categoryId: string | null) => onUpdate(transaction.id, { category_id: categoryId || undefined }) : () => {}}
-                    />
-                  </div>
+                  {transaction.category_id ? (
+                    getCategoryName(transaction.category_id)
+                  ) : (
+                    <span className="text-gray-400 italic">Uncategorized</span>
+                  )}
                 </td>
                 <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-900 w-32">
                   {transaction.date ? format(new Date(transaction.date), 'MMM dd, yyyy') : '—'}
                 </td>
                 <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500 w-28">
-                    <EditablePaidByCell
-                      transactionId={transaction.id}
-                      currentPaidBy={transaction.paid_by}
-                      onUpdate={onUpdate ? (paidBy: any) => onUpdate(transaction.id, { paid_by: paidBy }) : () => {}}
-                    />
+                  {getPaidByLabel(transaction.paid_by)}
                 </td>
                 <td className="hidden md:table-cell px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-right text-sm font-medium w-24">
                   {confirmDelete === transaction.id ? (
