@@ -417,6 +417,7 @@ export default function TransactionsPage() {
               <OutstandingSummary
                 transactions={transactions}
                 categories={categories}
+                onMarkPaid={loadTransactions}
               />
             </div>
           )}

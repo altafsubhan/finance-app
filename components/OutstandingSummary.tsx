@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Transaction, Category, PaymentMethod } from '@/types/database';
+import { useState, useMemo, useRef } from 'react';
+import { Transaction, Category, PaymentMethod, PaidBy } from '@/types/database';
 import { PAYMENT_METHODS } from '@/lib/constants';
+import MarkPaidModal from './MarkPaidModal';
 
 interface OutstandingSummaryProps {
   transactions: Transaction[];
   categories: Category[];
+  onMarkPaid?: () => Promise<void>; // Callback to refresh transactions after marking as paid
 }
 
 interface OutstandingBreakdown {
@@ -16,9 +18,12 @@ interface OutstandingBreakdown {
   total: number;
 }
 
-export default function OutstandingSummary({ transactions, categories }: OutstandingSummaryProps) {
+export default function OutstandingSummary({ transactions, categories, onMarkPaid }: OutstandingSummaryProps) {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | ''>('');
   const [isExpanded, setIsExpanded] = useState(true);
+  const [markingPaidFor, setMarkingPaidFor] = useState<PaymentMethod | null>(null);
+  const touchHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
   // Get category names for personal identification
   const subiPersonalCategoryName = categories.find(c => 
@@ -85,6 +90,130 @@ export default function OutstandingSummary({ transactions, categories }: Outstan
       currency: 'USD',
       minimumFractionDigits: 2,
     }).format(amount);
+  };
+
+  const handleMarkPaid = async (paymentMethod: PaymentMethod, paidBy: PaidBy) => {
+    // Find all unpaid transactions with this payment method
+    const unpaidTransactionIds = transactions
+      .filter(t => t.payment_method === paymentMethod && t.paid_by === null)
+      .map(t => t.id);
+
+    if (unpaidTransactionIds.length === 0) {
+      throw new Error('No unpaid transactions found for this payment method');
+    }
+
+    // Call bulk-update API to mark all as paid
+    const response = await fetch('/api/transactions/bulk-update', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        transaction_ids: unpaidTransactionIds,
+        updates: { paid_by: paidBy },
+      }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Failed to mark transactions as paid');
+    }
+
+    // Refresh transactions if callback provided
+    if (onMarkPaid) {
+      await onMarkPaid();
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, paymentMethod: PaymentMethod) => {
+    e.stopPropagation();
+    
+    // Store touch position
+    if (e.touches.length > 0) {
+      touchStartPosRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+      };
+    }
+
+    // Clear any existing timer
+    if (touchHoldTimerRef.current) {
+      clearTimeout(touchHoldTimerRef.current);
+    }
+
+    // Start timer for long-press (500ms)
+    touchHoldTimerRef.current = setTimeout(() => {
+      setMarkingPaidFor(paymentMethod);
+      touchHoldTimerRef.current = null;
+    }, 500);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    
+    // Clear the timer if it hasn't fired yet
+    if (touchHoldTimerRef.current) {
+      clearTimeout(touchHoldTimerRef.current);
+      touchHoldTimerRef.current = null;
+    }
+    
+    touchStartPosRef.current = null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // If user moves finger, cancel the hold timer
+    if (touchStartPosRef.current && e.touches.length > 0) {
+      const deltaX = Math.abs(e.touches[0].clientX - touchStartPosRef.current.x);
+      const deltaY = Math.abs(e.touches[0].clientY - touchStartPosRef.current.y);
+      
+      // If moved more than 10px, cancel
+      if (deltaX > 10 || deltaY > 10) {
+        if (touchHoldTimerRef.current) {
+          clearTimeout(touchHoldTimerRef.current);
+          touchHoldTimerRef.current = null;
+        }
+        touchStartPosRef.current = null;
+      }
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, paymentMethod: PaymentMethod) => {
+    // For desktop, use right-click or long-press simulation
+    // For now, we'll use a simpler approach: show on right-click or double-click
+    // Actually, let's just use long-press for consistency - desktop users can hold mouse button
+    e.stopPropagation();
+    
+    touchStartPosRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+    };
+
+    if (touchHoldTimerRef.current) {
+      clearTimeout(touchHoldTimerRef.current);
+    }
+
+    touchHoldTimerRef.current = setTimeout(() => {
+      setMarkingPaidFor(paymentMethod);
+      touchHoldTimerRef.current = null;
+    }, 500);
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (touchHoldTimerRef.current) {
+      clearTimeout(touchHoldTimerRef.current);
+      touchHoldTimerRef.current = null;
+    }
+    
+    touchStartPosRef.current = null;
+  };
+
+  const handleMouseLeave = () => {
+    if (touchHoldTimerRef.current) {
+      clearTimeout(touchHoldTimerRef.current);
+      touchHoldTimerRef.current = null;
+    }
+    touchStartPosRef.current = null;
   };
 
   return (
@@ -167,7 +296,18 @@ export default function OutstandingSummary({ transactions, categories }: Outstan
                       .filter(([_, breakdown]) => breakdown.total > 0)
                       .sort(([a], [b]) => a.localeCompare(b))
                       .map(([method, breakdown]) => (
-                        <tr key={method} className="hover:bg-gray-50">
+                        <tr 
+                          key={method} 
+                          className="hover:bg-gray-50 cursor-pointer"
+                          onTouchStart={(e) => handleTouchStart(e, method as PaymentMethod)}
+                          onTouchEnd={handleTouchEnd}
+                          onTouchMove={handleTouchMove}
+                          onMouseDown={(e) => handleMouseDown(e, method as PaymentMethod)}
+                          onMouseUp={handleMouseUp}
+                          onMouseLeave={handleMouseLeave}
+                          style={{ WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}
+                          title="Long-press to mark as paid"
+                        >
                           <td className="px-3 py-2 text-sm text-gray-900">{method}</td>
                           <td className="px-3 py-2 text-sm text-right text-blue-900">{formatCurrency(breakdown.joint)}</td>
                           <td className="px-3 py-2 text-sm text-right text-green-900">{formatCurrency(breakdown.subi)}</td>
@@ -181,6 +321,17 @@ export default function OutstandingSummary({ transactions, categories }: Outstan
             </div>
           )}
         </div>
+      )}
+
+      {markingPaidFor && (
+        <MarkPaidModal
+          paymentMethod={markingPaidFor}
+          onClose={() => setMarkingPaidFor(null)}
+          onConfirm={async (paidBy: PaidBy) => {
+            await handleMarkPaid(markingPaidFor, paidBy);
+            // Modal will close itself via onClose callback
+          }}
+        />
       )}
     </div>
   );
