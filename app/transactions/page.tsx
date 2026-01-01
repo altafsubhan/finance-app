@@ -48,7 +48,11 @@ export default function TransactionsPage() {
       }
       if (selectedCategory) params.append('category_id', selectedCategory);
       if (selectedPaymentMethod) params.append('payment_method', selectedPaymentMethod);
-      if (selectedPaidBy) params.append('paid_by', selectedPaidBy);
+      if (selectedPaidBy) {
+        // Convert empty string (which represents null/Not Paid) to the string 'null'
+        // Empty string means "All", so only append if it's not empty
+        params.append('paid_by', selectedPaidBy);
+      }
 
       const transactionsRes = await fetch(`/api/transactions?${params.toString()}`, {
         credentials: 'include',
@@ -390,7 +394,7 @@ export default function TransactionsPage() {
             >
               <option value="">All</option>
               {PAID_BY_OPTIONS.map((option) => (
-                <option key={option.value || 'null'} value={option.value || ''}>
+                <option key={option.value || 'null'} value={option.value === null ? 'null' : option.value}>
                   {option.label}
                 </option>
               ))}
