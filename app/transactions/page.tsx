@@ -33,7 +33,9 @@ export default function TransactionsPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [filtersExpanded, setFiltersExpanded] = useState(true);
   const [summariesExpanded, setSummariesExpanded] = useState(true);
+  const [transactionsExpanded, setTransactionsExpanded] = useState(true);
   const [splittingTransaction, setSplittingTransaction] = useState<Transaction | null>(null);
+  const [editingTransactionModal, setEditingTransactionModal] = useState<Transaction | null>(null);
 
   const loadTransactions = useCallback(async () => {
     try {
