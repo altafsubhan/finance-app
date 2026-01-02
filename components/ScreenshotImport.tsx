@@ -26,6 +26,7 @@ interface ParsedTransaction {
 }
 
 export default function ScreenshotImport({ categories, onSuccess }: ScreenshotImportProps) {
+  const { paymentMethods } = usePaymentMethods();
   const [files, setFiles] = useState<File[]>([]);
   const [preview, setPreview] = useState<ParsedTransaction[]>([]);
   const [loading, setLoading] = useState(false);
