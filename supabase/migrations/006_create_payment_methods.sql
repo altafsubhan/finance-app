@@ -9,6 +9,17 @@ CREATE TABLE IF NOT EXISTS public.payment_methods (
 -- Enable RLS
 ALTER TABLE public.payment_methods ENABLE ROW LEVEL SECURITY;
 
+-- Ensure get_partner_uids() function exists (from migration 004)
+-- If it doesn't exist, create it
+CREATE OR REPLACE FUNCTION get_partner_uids()
+RETURNS SETOF uuid
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY SELECT id FROM public.profiles;
+END;
+$$;
+
 -- Create policies for payment_methods (shared access like other tables)
 CREATE POLICY "Partners can view all payment methods" ON public.payment_methods
   FOR SELECT USING (auth.uid() IN (SELECT get_partner_uids()));
