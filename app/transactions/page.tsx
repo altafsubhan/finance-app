@@ -11,6 +11,7 @@ import OutstandingSummary from '@/components/OutstandingSummary';
 import SplitTransactionModal, { Split } from '@/components/SplitTransactionModal';
 import EditTransactionModal from '@/components/EditTransactionModal';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
+import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 import { format, startOfYear, endOfYear } from 'date-fns';
 
 export default function TransactionsPage() {
@@ -367,20 +368,12 @@ export default function TransactionsPage() {
               className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Methods</option>
-              <option value="BOA Travel">BOA Travel</option>
-              <option value="BOA CB">BOA CB</option>
-              <option value="Chase Sapphire">Chase Sapphire</option>
-              <option value="Chase Amazon">Chase Amazon</option>
-              <option value="Mano Chase Freedom">Mano Chase Freedom</option>
-              <option value="Sobi Chase Freedom">Sobi Chase Freedom</option>
-              <option value="Mano Discover">Mano Discover</option>
-              <option value="Sobi Discover">Sobi Discover</option>
-              <option value="Mano Amex">Mano Amex</option>
-              <option value="Subi Chase Debit">Subi Chase Debit</option>
-              <option value="BILT">BILT</option>
-              <option value="Cash">Cash</option>
-              <option value="Other">Other</option>
-              </select>
+              {paymentMethods.map((method) => (
+                <option key={method.id} value={method.name}>
+                  {method.name}
+                </option>
+              ))}
+            </select>
             </div>
 
           <div>

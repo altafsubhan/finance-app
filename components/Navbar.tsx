@@ -51,6 +51,9 @@ export default function Navbar() {
             <Link href="/budgets" className="flex items-center text-sm sm:text-base text-gray-700 hover:text-gray-900 whitespace-nowrap px-1 sm:px-0">
               Budgets
             </Link>
+            <Link href="/payment-methods" className="flex items-center text-sm sm:text-base text-gray-700 hover:text-gray-900 whitespace-nowrap px-1 sm:px-0">
+              Payment Methods
+            </Link>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4 ml-2 sm:ml-0">
             <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">{user.email}</span>

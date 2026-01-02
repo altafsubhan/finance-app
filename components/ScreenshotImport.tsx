@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Category, PaymentMethod } from '@/types/database';
-import { PAYMENT_METHODS } from '@/lib/constants';
+import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 import { createWorker } from 'tesseract.js';
 
 interface ScreenshotImportProps {
@@ -924,9 +924,9 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
                 className="w-full px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select payment method</option>
-                {PAYMENT_METHODS.map((method) => (
-                  <option key={method} value={method}>
-                    {method}
+                {paymentMethods.map((method) => (
+                  <option key={method.id} value={method.name}>
+                    {method.name}
                   </option>
                 ))}
               </select>

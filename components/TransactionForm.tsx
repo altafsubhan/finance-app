@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { PaymentMethod, PaidBy, Category } from '@/types/database';
-import { PAYMENT_METHODS, PAID_BY_OPTIONS } from '@/lib/constants';
+import { PAID_BY_OPTIONS } from '@/lib/constants';
+import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 import { format } from 'date-fns';
 
 interface TransactionFormProps {
@@ -23,6 +24,7 @@ interface TransactionFormProps {
 }
 
 export default function TransactionForm({ categories, onSuccess, initialData }: TransactionFormProps) {
+  const { paymentMethods } = usePaymentMethods();
   const currentDate = new Date();
   const [date, setDate] = useState<string>('');
   const [amount, setAmount] = useState('');
@@ -312,9 +314,9 @@ export default function TransactionForm({ categories, onSuccess, initialData }: 
             required
             className="w-full px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {PAYMENT_METHODS.map((method) => (
-              <option key={method} value={method}>
-                {method}
+            {paymentMethods.map((method) => (
+              <option key={method.id} value={method.name}>
+                {method.name}
               </option>
             ))}
           </select>

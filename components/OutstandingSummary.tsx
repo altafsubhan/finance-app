@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useRef } from 'react';
 import { Transaction, Category, PaymentMethod, PaidBy } from '@/types/database';
-import { PAYMENT_METHODS } from '@/lib/constants';
 import MarkPaidModal from './MarkPaidModal';
+import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 
 interface OutstandingSummaryProps {
   transactions: Transaction[];
@@ -269,12 +269,12 @@ export default function OutstandingSummary({ transactions, categories, onMarkPai
               onChange={(e) => setSelectedPaymentMethod(e.target.value as PaymentMethod | '')}
               className="w-full px-3 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">All Payment Methods</option>
-              {PAYMENT_METHODS.map((method) => (
-                <option key={method} value={method}>
-                  {method}
-                </option>
-              ))}
+                    <option value="">All Payment Methods</option>
+                    {paymentMethods.map((method) => (
+                      <option key={method.id} value={method.name}>
+                        {method.name}
+                      </option>
+                    ))}
             </select>
           </div>
 

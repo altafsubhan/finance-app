@@ -1,7 +1,8 @@
 'use client';
 
 import { Category, PaymentMethod, PaidBy } from '@/types/database';
-import { PAYMENT_METHODS, PAID_BY_OPTIONS } from '@/lib/constants';
+import { PAID_BY_OPTIONS } from '@/lib/constants';
+import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 import { NewTransactionRowState } from './TransactionList';
 
 interface NewTransactionRowProps {
@@ -14,6 +15,7 @@ interface NewTransactionRowProps {
 }
 
 export default function NewTransactionRow({ row, categories, onChange, onCancel, onSave, loading = false }: NewTransactionRowProps) {
+  const { paymentMethods } = usePaymentMethods();
   const currentDate = new Date();
 
   // Handle field changes
@@ -108,9 +110,9 @@ export default function NewTransactionRow({ row, categories, onChange, onCancel,
           className="w-40 px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Payment method</option>
-          {PAYMENT_METHODS.map((method) => (
-            <option key={method} value={method}>
-              {method}
+          {paymentMethods.map((method) => (
+            <option key={method.id} value={method.name}>
+              {method.name}
             </option>
           ))}
         </select>

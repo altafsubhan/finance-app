@@ -54,11 +54,22 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if payment method is used in any transactions
+    // First get the payment method name
+    const { data: paymentMethod, error: fetchError } = await supabase
+      .from('payment_methods')
+      .select('name')
+      .eq('id', params.id)
+      .single();
+
+    if (fetchError || !paymentMethod) {
+      return NextResponse.json({ error: 'Payment method not found' }, { status: 404 });
+    }
+
+    // Check if payment method is used in any transactions (by name, since we store name in transactions)
     const { data: transactions, error: checkError } = await supabase
       .from('transactions')
       .select('id')
-      .eq('payment_method', params.id)
+      .eq('payment_method', paymentMethod.name)
       .limit(1);
 
     if (checkError) {

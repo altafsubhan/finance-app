@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { Category, PaymentMethod, PaidBy } from '@/types/database';
-import { PAYMENT_METHODS, PAID_BY_OPTIONS } from '@/lib/constants';
+import { PAID_BY_OPTIONS } from '@/lib/constants';
+import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 
 interface BulkEditBarProps {
   selectedCount: number;
@@ -22,8 +23,9 @@ interface BulkEditBarProps {
 }
 
 export default function BulkEditBar({ selectedCount, selectedIds, selectedTransactions, categories, onBulkUpdate, onBulkDelete, onBulkEdit, onBulkSplit, onCancel }: BulkEditBarProps) {
+  const { paymentMethods } = usePaymentMethods();
   const [categoryId, setCategoryId] = useState<string>('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
+  const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [paidBy, setPaidBy] = useState<PaidBy | '' | 'not_paid'>(''); // 'not_paid' is used internally to represent null
   const [date, setDate] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -210,9 +212,9 @@ export default function BulkEditBar({ selectedCount, selectedIds, selectedTransa
                 className="w-full px-2 py-1.5 text-sm border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Payment Method</option>
-                {PAYMENT_METHODS.map((method) => (
-                  <option key={method} value={method}>
-                    {method}
+                {paymentMethods.map((method) => (
+                  <option key={method.id} value={method.name}>
+                    {method.name}
                   </option>
                 ))}
               </select>
