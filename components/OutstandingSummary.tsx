@@ -19,7 +19,8 @@ interface OutstandingBreakdown {
 }
 
 export default function OutstandingSummary({ transactions, categories, onMarkPaid }: OutstandingSummaryProps) {
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | ''>('');
+  const { paymentMethods } = usePaymentMethods();
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [isExpanded, setIsExpanded] = useState(true);
   const [markingPaidFor, setMarkingPaidFor] = useState<PaymentMethod | null>(null);
   const touchHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
