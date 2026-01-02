@@ -15,6 +15,7 @@ import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 import { format, startOfYear, endOfYear } from 'date-fns';
 
 export default function TransactionsPage() {
+  const { paymentMethods } = usePaymentMethods();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
