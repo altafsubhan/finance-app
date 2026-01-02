@@ -96,22 +96,50 @@ export default function OutstandingSummary({ transactions, categories, onMarkPai
   };
 
   const handleMarkPaid = async (paymentMethod: PaymentMethod, paidBy: PaidBy) => {
-    // Find all unpaid transactions with this payment method
-    const unpaidTransactionIds = transactions
-      .filter(t => t.payment_method === paymentMethod && t.paid_by === null)
-      .map(t => t.id);
+    // Filter unpaid transactions with this payment method
+    let filteredTransactions = transactions.filter(t => 
+      t.payment_method === paymentMethod && 
+      t.paid_by === null && 
+      t.category_id !== null // Ignore uncategorized
+    );
 
-    if (unpaidTransactionIds.length === 0) {
-      throw new Error('No unpaid transactions found for this payment method');
+    // Filter by category type based on who paid
+    if (paidBy === 'sobi') {
+      // Only mark Subi Personal transactions
+      filteredTransactions = filteredTransactions.filter(t => {
+        const category = categories.find(c => c.id === t.category_id);
+        return category && category.name.toLowerCase() === subiPersonalCategoryName.toLowerCase();
+      });
+    } else if (paidBy === 'mano') {
+      // Only mark Mano Personal transactions
+      filteredTransactions = filteredTransactions.filter(t => {
+        const category = categories.find(c => c.id === t.category_id);
+        return category && category.name.toLowerCase() === manoPersonalCategoryName.toLowerCase();
+      });
+    } else if (paidBy === 'joint') {
+      // Only mark joint transactions (not Subi Personal or Mano Personal)
+      filteredTransactions = filteredTransactions.filter(t => {
+        const category = categories.find(c => c.id === t.category_id);
+        if (!category) return false;
+        const categoryName = category.name.toLowerCase();
+        return categoryName !== subiPersonalCategoryName.toLowerCase() && 
+               categoryName !== manoPersonalCategoryName.toLowerCase();
+      });
     }
 
-    // Call bulk-update API to mark all as paid
+    const transactionIds = filteredTransactions.map(t => t.id);
+
+    if (transactionIds.length === 0) {
+      throw new Error(`No unpaid ${paidBy === 'sobi' ? 'Subi Personal' : paidBy === 'mano' ? 'Mano Personal' : 'joint'} transactions found for this payment method`);
+    }
+
+    // Call bulk-update API to mark filtered transactions as paid
     const response = await fetch('/api/transactions/bulk-update', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({
-        transaction_ids: unpaidTransactionIds,
+        transaction_ids: transactionIds,
         updates: { paid_by: paidBy },
       }),
     });
