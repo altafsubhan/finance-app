@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import NewTransactionRow from './NewTransactionRow';
 import { PaymentMethod } from '@/types/database';
+import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 
 type SortField = 'date' | 'description' | 'category' | 'payment_method' | 'amount' | 'paid_by';
 type SortDirection = 'asc' | 'desc';
@@ -624,8 +625,11 @@ function TransactionTable({
   isSelectionMode: boolean;
   setIsSelectionMode: (value: boolean) => void;
 }) {
+  const { paymentMethods } = usePaymentMethods();
   const touchHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
   const touchStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingPaymentMethodId, setEditingPaymentMethodId] = useState<string | null>(null);
 
   const getCategoryName = (categoryId: string) => {
     return categories.find(c => c.id === categoryId)?.name || 'Unknown';
@@ -900,7 +904,36 @@ function TransactionTable({
                   />
                 </td>
                 <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500 w-28">
-                  {transaction.payment_method}
+                  {/* Desktop: Dropdown, Mobile: Text */}
+                  <span className="md:hidden">{transaction.payment_method}</span>
+                  {editingPaymentMethodId === transaction.id ? (
+                    <select
+                      value={transaction.payment_method}
+                      onChange={(e) => handlePaymentMethodChange(transaction.id, e.target.value)}
+                      onBlur={() => setEditingPaymentMethodId(null)}
+                      autoFocus
+                      className="hidden md:block w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {paymentMethods.map((method) => (
+                        <option key={method.id} value={method.name}>
+                          {method.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span
+                      onClick={(e) => {
+                        if (window.innerWidth >= 768) { // Desktop only
+                          e.stopPropagation();
+                          setEditingPaymentMethodId(transaction.id);
+                        }
+                      }}
+                      className="hidden md:block cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
+                    >
+                      {transaction.payment_method}
+                    </span>
+                  )}
                 </td>
                 <td className={`px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm font-bold text-right text-gray-900 w-24 ${getPaidByColor(transaction.paid_by)}`}>
                   ${parseFloat(transaction.amount.toString()).toFixed(2)}
@@ -909,10 +942,46 @@ function TransactionTable({
                   {transaction.description}
                 </td>
                 <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500 w-28">
-                  {transaction.category_id ? (
-                    getCategoryName(transaction.category_id)
+                  {/* Desktop: Dropdown, Mobile: Text */}
+                  <span className="md:hidden">
+                    {transaction.category_id ? (
+                      getCategoryName(transaction.category_id)
+                    ) : (
+                      <span className="text-gray-400 italic">Uncategorized</span>
+                    )}
+                  </span>
+                  {editingCategoryId === transaction.id ? (
+                    <select
+                      value={transaction.category_id || ''}
+                      onChange={(e) => handleCategoryChange(transaction.id, e.target.value || null)}
+                      onBlur={() => setEditingCategoryId(null)}
+                      autoFocus
+                      className="hidden md:block w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <option value="">Uncategorized</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name} ({cat.type})
+                        </option>
+                      ))}
+                    </select>
                   ) : (
-                    <span className="text-gray-400 italic">Uncategorized</span>
+                    <span
+                      onClick={(e) => {
+                        if (window.innerWidth >= 768) { // Desktop only
+                          e.stopPropagation();
+                          setEditingCategoryId(transaction.id);
+                        }
+                      }}
+                      className="hidden md:block cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
+                    >
+                      {transaction.category_id ? (
+                        getCategoryName(transaction.category_id)
+                      ) : (
+                        <span className="text-gray-400 italic">Uncategorized</span>
+                      )}
+                    </span>
                   )}
                 </td>
                 <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-900 w-32">
