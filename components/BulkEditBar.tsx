@@ -22,7 +22,7 @@ interface BulkEditBarProps {
 export default function BulkEditBar({ selectedCount, selectedIds, categories, onBulkUpdate, onBulkDelete, onBulkEdit, onBulkSplit, onCancel }: BulkEditBarProps) {
   const [categoryId, setCategoryId] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
-  const [paidBy, setPaidBy] = useState<PaidBy | ''>('');
+  const [paidBy, setPaidBy] = useState<PaidBy | '' | 'not_paid'>(''); // 'not_paid' is used internally to represent null
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,13 +193,13 @@ export default function BulkEditBar({ selectedCount, selectedIds, categories, on
               <label htmlFor="bulk-paid-by" className="sr-only">Paid By</label>
               <select
                 id="bulk-paid-by"
-                value={paidBy === null ? 'not_paid' : paidBy || ''}
+                value={paidBy === 'not_paid' ? 'not_paid' : (paidBy || '')}
                 onChange={(e) => {
                   const value = e.target.value;
                   if (value === 'not_paid') {
-                    setPaidBy(null as PaidBy);
+                    setPaidBy('not_paid');
                   } else if (value === '') {
-                    setPaidBy('' as PaidBy);
+                    setPaidBy('');
                   } else {
                     setPaidBy(value as PaidBy);
                   }
@@ -209,7 +209,7 @@ export default function BulkEditBar({ selectedCount, selectedIds, categories, on
                 <option value="">Paid By (no change)</option>
                 <option value="not_paid">Not Paid</option>
                 {PAID_BY_OPTIONS.filter(opt => opt.value !== null).map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <option key={option.value || ''} value={option.value || ''}>
                     {option.label}
                   </option>
                 ))}
