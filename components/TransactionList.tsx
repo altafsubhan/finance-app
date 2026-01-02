@@ -664,6 +664,50 @@ function TransactionTable({
     return option?.label || 'Not Paid';
   };
 
+  const handleCategoryChange = async (transactionId: string, categoryId: string | null) => {
+    try {
+      const response = await fetch(`/api/transactions/${transactionId}/quick-update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ category_id: categoryId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update category');
+      }
+
+      setEditingCategoryId(null);
+      // Refresh the transaction list by triggering a reload
+      // The parent component should handle this, but we can also just update locally
+      window.location.reload(); // Simple approach, can be optimized later
+    } catch (error) {
+      console.error('Failed to update category:', error);
+      setEditingCategoryId(null);
+    }
+  };
+
+  const handlePaymentMethodChange = async (transactionId: string, paymentMethod: string) => {
+    try {
+      const response = await fetch(`/api/transactions/${transactionId}/quick-update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ payment_method: paymentMethod }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update payment method');
+      }
+
+      setEditingPaymentMethodId(null);
+      window.location.reload(); // Simple approach, can be optimized later
+    } catch (error) {
+      console.error('Failed to update payment method:', error);
+      setEditingPaymentMethodId(null);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     try {
       const response = await fetch(`/api/transactions/${id}`, {
