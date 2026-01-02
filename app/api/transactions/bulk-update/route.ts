@@ -26,6 +26,7 @@ export async function PATCH(request: NextRequest) {
     if (updates.category_id !== undefined) updateData.category_id = updates.category_id;
     if (updates.payment_method !== undefined) updateData.payment_method = updates.payment_method;
     if (updates.paid_by !== undefined) updateData.paid_by = updates.paid_by;
+    if (updates.date !== undefined) updateData.date = updates.date;
 
     // Update all transactions (RLS policies handle authorization)
     const { data, error } = await supabase

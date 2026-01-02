@@ -7,11 +7,13 @@ import { PAYMENT_METHODS, PAID_BY_OPTIONS } from '@/lib/constants';
 interface BulkEditBarProps {
   selectedCount: number;
   selectedIds: string[];
+  selectedTransactions: Array<{ id: string; amount: number }>; // For calculating total
   categories: Category[];
   onBulkUpdate: (updates: {
     category_id?: string | null;
     payment_method?: PaymentMethod;
     paid_by?: PaidBy;
+    date?: string | null;
   }) => Promise<void>;
   onBulkDelete: (ids: string[]) => Promise<void>;
   onBulkEdit: (transactionId: string) => void;
@@ -19,19 +21,24 @@ interface BulkEditBarProps {
   onCancel: () => void;
 }
 
-export default function BulkEditBar({ selectedCount, selectedIds, categories, onBulkUpdate, onBulkDelete, onBulkEdit, onBulkSplit, onCancel }: BulkEditBarProps) {
+export default function BulkEditBar({ selectedCount, selectedIds, selectedTransactions, categories, onBulkUpdate, onBulkDelete, onBulkEdit, onBulkSplit, onCancel }: BulkEditBarProps) {
   const [categoryId, setCategoryId] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [paidBy, setPaidBy] = useState<PaidBy | '' | 'not_paid'>(''); // 'not_paid' is used internally to represent null
+  const [date, setDate] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Calculate total of selected transactions
+  const selectedTotal = selectedTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
   const handleApply = async () => {
     const updates: {
       category_id?: string | null;
       payment_method?: PaymentMethod;
       paid_by?: PaidBy;
+      date?: string | null;
     } = {};
 
     // Handle category: empty string means no change, "uncategorized" means set to null
@@ -50,6 +57,11 @@ export default function BulkEditBar({ selectedCount, selectedIds, categories, on
       updates.paid_by = paidBy as PaidBy;
     }
 
+    // Handle date: empty string means no change
+    if (date) {
+      updates.date = date;
+    }
+
     if (Object.keys(updates).length === 0) {
       setError('Please select at least one field to update');
       return;
@@ -64,6 +76,7 @@ export default function BulkEditBar({ selectedCount, selectedIds, categories, on
       setCategoryId('');
       setPaymentMethod('');
       setPaidBy('');
+      setDate('');
     } catch (err: any) {
       setError(err.message || 'Failed to update transactions');
     } finally {
@@ -107,9 +120,14 @@ export default function BulkEditBar({ selectedCount, selectedIds, categories, on
       <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-4">
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
-              {selectedCount} transaction{selectedCount !== 1 ? 's' : ''} selected
-            </span>
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                {selectedCount} transaction{selectedCount !== 1 ? 's' : ''} selected
+              </span>
+              <span className="text-sm font-bold text-blue-600 whitespace-nowrap">
+                Total: ${selectedTotal.toFixed(2)}
+              </span>
+            </div>
             <div className="flex items-center gap-2 flex-wrap">
               {error && (
                 <span className="text-xs text-red-600">{error}</span>
@@ -154,6 +172,17 @@ export default function BulkEditBar({ selectedCount, selectedIds, categories, on
           </div>
           
           <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex-1 min-w-[140px]">
+              <label htmlFor="bulk-date" className="sr-only">Date</label>
+              <input
+                id="bulk-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full px-2 py-1.5 text-sm border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
             <div className="flex-1 min-w-[140px]">
               <label htmlFor="bulk-category" className="sr-only">Category</label>
               <select

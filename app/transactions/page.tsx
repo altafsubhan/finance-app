@@ -9,6 +9,7 @@ import ScreenshotImport from '@/components/ScreenshotImport';
 import BulkEditBar from '@/components/BulkEditBar';
 import OutstandingSummary from '@/components/OutstandingSummary';
 import SplitTransactionModal, { Split } from '@/components/SplitTransactionModal';
+import EditTransactionModal from '@/components/EditTransactionModal';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { format, startOfYear, endOfYear } from 'date-fns';
 
@@ -112,8 +113,8 @@ export default function TransactionsPage() {
   };
 
   const handleEdit = (transaction: Transaction) => {
-    setEditingTransaction(transaction);
-    setShowForm(true);
+    // Open modal instead of scrolling to top
+    setEditingTransactionModal(transaction);
   };
 
   const handleDelete = () => {
@@ -426,39 +427,54 @@ export default function TransactionsPage() {
           )}
         </div>
 
-        {loadingTransactions ? (
-          <div className="bg-white border rounded-lg p-8 text-center">
-            <div className="text-gray-500">Loading transactions...</div>
-          </div>
-        ) : (
-          <TransactionList
-            transactions={transactions}
-            categories={categories}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            categoryTypeFilter={selectedCategoryType}
-            selectedIds={selectedTransactionIds}
-            onSelectionChange={setSelectedTransactionIds}
-            onAddTransaction={async (data) => {
-              const response = await fetch('/api/transactions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(data),
-              });
+        {/* Transactions List - Collapsible */}
+        <div className="mb-6 bg-white border rounded-lg">
+          <button
+            onClick={() => setTransactionsExpanded(!transactionsExpanded)}
+            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
+          >
+            <h2 className="text-lg font-semibold">Transactions</h2>
+            <span className="text-gray-500">{transactionsExpanded ? '−' : '+'}</span>
+          </button>
+          {transactionsExpanded && (
+            <div className="p-4 border-t border-gray-200">
+              {loadingTransactions ? (
+                <div className="p-8 text-center">
+                  <div className="text-gray-500">Loading transactions...</div>
+                </div>
+              ) : (
+                <TransactionList
+                  transactions={transactions}
+                  categories={categories}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  categoryTypeFilter={selectedCategoryType}
+                  selectedIds={selectedTransactionIds}
+                  onSelectionChange={setSelectedTransactionIds}
+                  onAddTransaction={async (data) => {
+                    const response = await fetch('/api/transactions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify(data),
+                    });
 
-              if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to add transaction');
-              }
-            }}
-          />
-        )}
+                    if (!response.ok) {
+                      const errorData = await response.json();
+                      throw new Error(errorData.error || 'Failed to add transaction');
+                    }
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </div>
 
         {selectedTransactionIds.size > 0 && (
           <BulkEditBar
             selectedCount={selectedTransactionIds.size}
             selectedIds={Array.from(selectedTransactionIds)}
+            selectedTransactions={transactions.filter(t => selectedTransactionIds.has(t.id)).map(t => ({ id: t.id, amount: t.amount }))}
             categories={categories}
             onBulkUpdate={async (updates) => {
               const response = await fetch('/api/transactions/bulk-update', {
@@ -535,6 +551,18 @@ export default function TransactionsPage() {
               }
 
               setSplittingTransaction(null);
+              loadData();
+            }}
+          />
+        )}
+
+        {editingTransactionModal && (
+          <EditTransactionModal
+            transaction={editingTransactionModal}
+            categories={categories}
+            onClose={() => setEditingTransactionModal(null)}
+            onSuccess={() => {
+              setEditingTransactionModal(null);
               loadData();
             }}
           />
