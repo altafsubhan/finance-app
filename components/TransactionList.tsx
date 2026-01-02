@@ -70,6 +70,26 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     return null;
   };
 
+  // Normalize date to local timezone to avoid timezone shifts
+  const normalizeDateForAPI = (dateString: string | null): string | null => {
+    if (!dateString) return null;
+    
+    // If date is already in ISO format with time, parse and normalize
+    // If date is just "YYYY-MM-DD", parse it as local time at midnight
+    const date = dateString.includes('T') 
+      ? new Date(dateString)
+      : new Date(dateString + 'T00:00:00'); // Force local time interpretation
+    
+    if (isNaN(date.getTime())) return null;
+    
+    // Format as YYYY-MM-DD (this preserves the local date)
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  };
+
   // Convert row state to API payload
   const rowToPayload = (row: NewTransactionRowState) => {
     const currentDate = new Date();
@@ -77,9 +97,13 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     
     if (row.date) {
       try {
-        const dateObj = new Date(row.date);
-        if (!isNaN(dateObj.getTime())) {
-          transactionYear = dateObj.getFullYear();
+        // Use the normalized date to extract year
+        const normalizedDate = normalizeDateForAPI(row.date);
+        if (normalizedDate) {
+          const dateObj = new Date(normalizedDate + 'T00:00:00');
+          if (!isNaN(dateObj.getTime())) {
+            transactionYear = dateObj.getFullYear();
+          }
         }
       } catch {
         // Invalid date, use current year
@@ -87,7 +111,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     }
 
     return {
-      date: row.date || null,
+      date: normalizeDateForAPI(row.date),
       description: row.description.trim(),
       amount: parseFloat(row.amount),
       category_id: row.category_id || null, // Allow null/empty category_id
