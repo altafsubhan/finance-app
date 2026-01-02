@@ -23,6 +23,7 @@ interface ParsedTransaction {
 }
 
 export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
+  const { paymentMethods } = usePaymentMethods();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ParsedTransaction[]>([]);
   const [loading, setLoading] = useState(false);
