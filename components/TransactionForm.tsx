@@ -284,16 +284,15 @@ export default function TransactionForm({ categories, onSuccess, initialData }: 
 
         <div>
           <label htmlFor="category" className="block text-sm font-medium mb-1">
-            Category *
+            Category (Optional)
           </label>
           <select
             id="category"
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
-            required
             className="w-full px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">Select a category</option>
+            <option value="">Uncategorized</option>
             {categories.map((cat) => (
               <option key={cat.id} value={cat.id}>
                 {cat.name} ({cat.type})

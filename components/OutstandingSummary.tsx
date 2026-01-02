@@ -38,8 +38,8 @@ export default function OutstandingSummary({ transactions, categories, onMarkPai
   const outstandingByPaymentMethod = useMemo(() => {
     const result: Record<string, OutstandingBreakdown> = {};
 
-    // Filter to only unpaid transactions (paid_by is null)
-    const unpaidTransactions = transactions.filter(t => t.paid_by === null);
+    // Filter to only unpaid transactions (paid_by is null) and ignore uncategorized transactions
+    const unpaidTransactions = transactions.filter(t => t.paid_by === null && t.category_id !== null);
 
     unpaidTransactions.forEach(transaction => {
       const paymentMethod = transaction.payment_method;
@@ -48,7 +48,10 @@ export default function OutstandingSummary({ transactions, categories, onMarkPai
       }
 
       const category = categories.find(c => c.id === transaction.category_id);
-      const categoryName = category?.name || '';
+      // Skip if category not found (shouldn't happen since we filter for category_id !== null, but safety check)
+      if (!category) return;
+      
+      const categoryName = category.name;
       const amount = Math.abs(transaction.amount);
 
       // Categorize based on category name
