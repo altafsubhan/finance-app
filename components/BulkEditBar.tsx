@@ -9,7 +9,7 @@ interface BulkEditBarProps {
   selectedIds: string[];
   categories: Category[];
   onBulkUpdate: (updates: {
-    category_id?: string;
+    category_id?: string | null;
     payment_method?: PaymentMethod;
     paid_by?: PaidBy;
   }) => Promise<void>;
@@ -29,14 +29,26 @@ export default function BulkEditBar({ selectedCount, selectedIds, categories, on
 
   const handleApply = async () => {
     const updates: {
-      category_id?: string;
+      category_id?: string | null;
       payment_method?: PaymentMethod;
       paid_by?: PaidBy;
     } = {};
 
-    if (categoryId) updates.category_id = categoryId;
+    // Handle category: empty string means no change, "uncategorized" means set to null
+    if (categoryId === 'uncategorized') {
+      updates.category_id = null;
+    } else if (categoryId) {
+      updates.category_id = categoryId;
+    }
+    
     if (paymentMethod) updates.payment_method = paymentMethod as PaymentMethod;
-    if (paidBy !== '') updates.paid_by = paidBy as PaidBy;
+    
+    // Handle paid_by: empty string means no change, "not_paid" means set to null
+    if (paidBy === 'not_paid') {
+      updates.paid_by = null;
+    } else if (paidBy !== '') {
+      updates.paid_by = paidBy as PaidBy;
+    }
 
     if (Object.keys(updates).length === 0) {
       setError('Please select at least one field to update');
@@ -150,7 +162,8 @@ export default function BulkEditBar({ selectedCount, selectedIds, categories, on
                 onChange={(e) => setCategoryId(e.target.value)}
                 className="w-full px-2 py-1.5 text-sm border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">Category (optional)</option>
+                <option value="">Category (no change)</option>
+                <option value="uncategorized">Uncategorized</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.name} ({cat.type})
@@ -180,13 +193,23 @@ export default function BulkEditBar({ selectedCount, selectedIds, categories, on
               <label htmlFor="bulk-paid-by" className="sr-only">Paid By</label>
               <select
                 id="bulk-paid-by"
-                value={paidBy || ''}
-                onChange={(e) => setPaidBy(e.target.value as PaidBy || '')}
+                value={paidBy === null ? 'not_paid' : paidBy || ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'not_paid') {
+                    setPaidBy(null as PaidBy);
+                  } else if (value === '') {
+                    setPaidBy('' as PaidBy);
+                  } else {
+                    setPaidBy(value as PaidBy);
+                  }
+                }}
                 className="w-full px-2 py-1.5 text-sm border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">Paid By</option>
-                {PAID_BY_OPTIONS.map((option) => (
-                  <option key={option.value || 'null'} value={option.value || ''}>
+                <option value="">Paid By (no change)</option>
+                <option value="not_paid">Not Paid</option>
+                {PAID_BY_OPTIONS.filter(opt => opt.value !== null).map((option) => (
+                  <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
