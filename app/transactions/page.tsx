@@ -37,6 +37,8 @@ export default function TransactionsPage() {
   const [transactionsExpanded, setTransactionsExpanded] = useState(true);
   const [splittingTransaction, setSplittingTransaction] = useState<Transaction | null>(null);
   const [editingTransactionModal, setEditingTransactionModal] = useState<Transaction | null>(null);
+  const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
+  const categoryFilterRef = useRef<HTMLDivElement>(null);
 
   const loadTransactions = useCallback(async () => {
     try {
@@ -342,54 +344,59 @@ export default function TransactionsPage() {
             </div>
           )}
 
-          <div>
+          <div className="relative" ref={categoryFilterRef}>
             <label className="block text-sm font-medium mb-1">
               Categories
             </label>
-            <div className="border rounded-lg bg-white p-3 max-h-60 overflow-y-auto">
-              <div className="space-y-2">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={selectedCategories.size === 0}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedCategories(new Set());
-                      }
-                    }}
-                    className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">All Categories</span>
-                </label>
-                {categories
-                  .filter(cat => !selectedCategoryType || cat.type === selectedCategoryType)
-                  .map((cat) => (
-                    <label key={cat.id} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedCategories.has(cat.id)}
-                        onChange={(e) => {
-                          const newSet = new Set(selectedCategories);
-                          if (e.target.checked) {
-                            newSet.add(cat.id);
-                          } else {
-                            newSet.delete(cat.id);
-                          }
-                          setSelectedCategories(newSet);
-                        }}
-                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-700">
-                        {cat.name} ({cat.type})
-                      </span>
-                    </label>
-                  ))}
+            <button
+              type="button"
+              onClick={() => setCategoryFilterOpen(!categoryFilterOpen)}
+              className="w-full px-4 py-2 text-left border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between"
+            >
+              <span>{getCategoryFilterText()}</span>
+              <span className="text-gray-400">{categoryFilterOpen ? '▲' : '▼'}</span>
+            </button>
+            {categoryFilterOpen && (
+              <div className="absolute z-10 mt-1 w-full border rounded-lg bg-white shadow-lg max-h-60 overflow-y-auto">
+                <div className="p-3 space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedCategories.size === 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedCategories(new Set());
+                        }
+                      }}
+                      className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">All Categories</span>
+                  </label>
+                  {categories
+                    .filter(cat => !selectedCategoryType || cat.type === selectedCategoryType)
+                    .map((cat) => (
+                      <label key={cat.id} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedCategories.has(cat.id)}
+                          onChange={(e) => {
+                            const newSet = new Set(selectedCategories);
+                            if (e.target.checked) {
+                              newSet.add(cat.id);
+                            } else {
+                              newSet.delete(cat.id);
+                            }
+                            setSelectedCategories(newSet);
+                          }}
+                          className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">
+                          {cat.name} ({cat.type})
+                        </span>
+                      </label>
+                    ))}
+                </div>
               </div>
-            </div>
-            {selectedCategories.size > 0 && (
-              <p className="text-xs text-gray-500 mt-1">
-                {selectedCategories.size} categor{selectedCategories.size === 1 ? 'y' : 'ies'} selected
-              </p>
             )}
           </div>
 
