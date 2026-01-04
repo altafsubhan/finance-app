@@ -488,6 +488,11 @@ export default function TransactionsPage() {
                 categories={categories}
                 onMarkPaid={loadTransactions}
               />
+              {/* Payments Made Summary */}
+              <PaymentsMadeSummary
+                transactions={transactions}
+                categories={categories}
+              />
             </div>
           )}
         </div>
