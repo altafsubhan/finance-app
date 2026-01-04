@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get('year');
     const month = searchParams.get('month');
     const quarter = searchParams.get('quarter');
-    const categoryId = searchParams.get('category_id');
+    const categoryIds = searchParams.getAll('category_id'); // Get all category_id parameters
     const paymentMethod = searchParams.get('payment_method');
 
     let query = supabase
@@ -44,8 +44,9 @@ export async function GET(request: NextRequest) {
       query = query.eq('month', parseInt(month));
     }
 
-    if (categoryId) {
-      query = query.eq('category_id', categoryId);
+    // Filter by category IDs (multiple categories)
+    if (categoryIds.length > 0) {
+      query = query.in('category_id', categoryIds);
     }
     if (paymentMethod) {
       query = query.eq('payment_method', paymentMethod);

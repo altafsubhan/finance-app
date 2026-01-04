@@ -25,7 +25,7 @@ export default function TransactionsPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [selectedQuarter, setSelectedQuarter] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [selectedCategoryType, setSelectedCategoryType] = useState<'monthly' | 'quarterly' | 'yearly' | ''>('');
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>('');
@@ -51,7 +51,10 @@ export default function TransactionsPage() {
       if (selectedQuarter && selectedCategoryType === 'quarterly') {
         params.append('quarter', selectedQuarter);
       }
-      if (selectedCategory) params.append('category_id', selectedCategory);
+      // Append multiple category IDs
+      selectedCategories.forEach(categoryId => {
+        params.append('category_id', categoryId);
+      });
       if (selectedPaymentMethod) params.append('payment_method', selectedPaymentMethod);
       if (selectedPaidBy) {
         // Convert empty string (which represents null/Not Paid) to the string 'null'
@@ -71,7 +74,7 @@ export default function TransactionsPage() {
     } finally {
       setLoadingTransactions(false);
     }
-  }, [selectedYear, selectedMonth, selectedQuarter, selectedCategory, selectedPaymentMethod, selectedCategoryType, selectedPaidBy]);
+  }, [selectedYear, selectedMonth, selectedQuarter, selectedCategories, selectedPaymentMethod, selectedCategoryType, selectedPaidBy]);
 
   // Load categories and transactions on mount
   useEffect(() => {
@@ -340,24 +343,54 @@ export default function TransactionsPage() {
           )}
 
           <div>
-            <label htmlFor="category" className="block text-sm font-medium mb-1">
-              Category
+            <label className="block text-sm font-medium mb-1">
+              Categories
             </label>
-            <select
-              id="category"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Categories</option>
-              {categories
-                .filter(cat => !selectedCategoryType || cat.type === selectedCategoryType)
-                .map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name} ({cat.type})
-                  </option>
-                ))}
-            </select>
+            <div className="border rounded-lg bg-white p-3 max-h-60 overflow-y-auto">
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedCategories.size === 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedCategories(new Set());
+                      }
+                    }}
+                    className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">All Categories</span>
+                </label>
+                {categories
+                  .filter(cat => !selectedCategoryType || cat.type === selectedCategoryType)
+                  .map((cat) => (
+                    <label key={cat.id} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedCategories.has(cat.id)}
+                        onChange={(e) => {
+                          const newSet = new Set(selectedCategories);
+                          if (e.target.checked) {
+                            newSet.add(cat.id);
+                          } else {
+                            newSet.delete(cat.id);
+                          }
+                          setSelectedCategories(newSet);
+                        }}
+                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {cat.name} ({cat.type})
+                      </span>
+                    </label>
+                  ))}
+              </div>
+            </div>
+            {selectedCategories.size > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                {selectedCategories.size} categor{selectedCategories.size === 1 ? 'y' : 'ies'} selected
+              </p>
+            )}
           </div>
 
           <div>
