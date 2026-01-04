@@ -50,12 +50,14 @@ export default function PaymentsMadeSummary({ transactions, categories }: Paymen
       const categoryName = category.name;
       const amount = Math.abs(transaction.amount);
 
-      // Categorize based on category name
-      if (categoryName.toLowerCase() === subiPersonalCategoryName.toLowerCase()) {
+      // Categorize based on paid_by field first, then category name as fallback
+      // This ensures that payments marked as "sobi" or "mano" are correctly attributed
+      if (transaction.paid_by === 'sobi' || categoryName.toLowerCase() === subiPersonalCategoryName.toLowerCase()) {
         result[paymentMethod].subi += amount;
-      } else if (categoryName.toLowerCase() === manoPersonalCategoryName.toLowerCase()) {
+      } else if (transaction.paid_by === 'mano' || categoryName.toLowerCase() === manoPersonalCategoryName.toLowerCase()) {
         result[paymentMethod].mano += amount;
       } else {
+        // Everything else is joint (including paid_by === 'joint' or null)
         result[paymentMethod].joint += amount;
       }
       
@@ -191,4 +193,5 @@ export default function PaymentsMadeSummary({ transactions, categories }: Paymen
     </div>
   );
 }
+
 
