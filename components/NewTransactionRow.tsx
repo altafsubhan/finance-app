@@ -25,12 +25,15 @@ export default function NewTransactionRow({ row, categories, onChange, onCancel,
     // Auto-populate period fields from date
     if (date) {
       try {
-        // Parse date as local time to avoid timezone shifts
-        const dateObj = date.includes('T') 
-          ? new Date(date)
-          : new Date(date + 'T00:00:00'); // Force local time interpretation
-        if (!isNaN(dateObj.getTime())) {
-          const dateMonth = dateObj.getMonth() + 1;
+        // Parse date - HTML date inputs return YYYY-MM-DD, parse as local date
+        // Split to get date part if it includes time
+        const dateOnly = date.includes('T') ? date.split('T')[0] : date;
+        const [year, month, day] = dateOnly.split('-').map(Number);
+        if (year && month && day) {
+          // Use local date construction to avoid timezone issues
+          const dateObj = new Date(year, month - 1, day);
+          if (!isNaN(dateObj.getTime())) {
+            const dateMonth = dateObj.getMonth() + 1;
           const category = categories.find(c => c.id === row.category_id);
           
           if (category) {

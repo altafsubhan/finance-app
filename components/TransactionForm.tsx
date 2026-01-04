@@ -86,25 +86,23 @@ export default function TransactionForm({ categories, onSuccess, initialData }: 
     }
   }, [initialData]);
 
-  // Normalize date to local timezone to avoid timezone shifts
-  // When date is in format "YYYY-MM-DD", parse it as local time
+  // Normalize date - for DATE type in PostgreSQL, we should send YYYY-MM-DD as-is
+  // HTML date inputs return YYYY-MM-DD format which is perfect for DATE columns
   const normalizeDateForAPI = (dateString: string | null): string | null => {
     if (!dateString) return null;
     
-    // If date is already in ISO format with time, parse and normalize
-    // If date is just "YYYY-MM-DD", parse it as local time at midnight
-    const date = dateString.includes('T') 
-      ? new Date(dateString)
-      : new Date(dateString + 'T00:00:00'); // Force local time interpretation
+    // If date includes time (T), extract just the date part
+    if (dateString.includes('T')) {
+      return dateString.split('T')[0];
+    }
     
-    if (isNaN(date.getTime())) return null;
+    // Validate it's in YYYY-MM-DD format and return as-is
+    // This avoids any timezone conversion issues since DATE type doesn't have timezone
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return dateString;
+    }
     
-    // Format as YYYY-MM-DD (this preserves the local date)
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}`;
+    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
