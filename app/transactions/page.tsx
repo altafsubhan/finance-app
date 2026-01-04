@@ -137,6 +137,35 @@ export default function TransactionsPage() {
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
+  // Close category filter dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryFilterRef.current && !categoryFilterRef.current.contains(event.target as Node)) {
+        setCategoryFilterOpen(false);
+      }
+    };
+
+    if (categoryFilterOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [categoryFilterOpen]);
+
+  // Get display text for category filter button
+  const getCategoryFilterText = () => {
+    if (selectedCategories.size === 0) {
+      return 'All Categories';
+    }
+    if (selectedCategories.size === 1) {
+      const categoryId = Array.from(selectedCategories)[0];
+      const category = categories.find(c => c.id === categoryId);
+      return category ? category.name : '1 category';
+    }
+    return `${selectedCategories.size} categories`;
+  };
+
   if (initialLoading) {
     return (
       <main className="min-h-screen p-1 sm:p-4 lg:p-8 bg-gray-50">
