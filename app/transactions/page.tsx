@@ -41,6 +41,75 @@ export default function TransactionsPage() {
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const categoryFilterRef = useRef<HTMLDivElement>(null);
 
+  const exportToCSV = () => {
+    if (transactions.length === 0) {
+      alert('No transactions to export');
+      return;
+    }
+
+    // Define CSV headers
+    const headers = ['Date', 'Amount', 'Description', 'Category', 'Payment Method', 'Paid By', 'Year', 'Month', 'Quarter'];
+    
+    // Convert transactions to CSV rows
+    const rows = transactions.map(transaction => {
+      const category = categories.find(c => c.id === transaction.category_id);
+      const categoryName = category?.name || '';
+      
+      const paidByOption = PAID_BY_OPTIONS.find(opt => opt.value === transaction.paid_by);
+      const paidByLabel = paidByOption?.label || '';
+      
+      // Format date if available
+      let dateStr = '';
+      if (transaction.date) {
+        try {
+          dateStr = format(new Date(transaction.date), 'yyyy-MM-dd');
+        } catch {
+          dateStr = transaction.date;
+        }
+      }
+      
+      return [
+        dateStr,
+        transaction.amount.toString(),
+        `"${transaction.description.replace(/"/g, '""')}"`, // Escape quotes in description
+        categoryName,
+        transaction.payment_method,
+        paidByLabel,
+        transaction.year.toString(),
+        transaction.month?.toString() || '',
+        transaction.quarter?.toString() || '',
+      ];
+    });
+    
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+    
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    // Generate filename with current filters
+    const filterParts: string[] = [];
+    if (selectedYear) filterParts.push(`year-${selectedYear}`);
+    if (selectedCategoryType) filterParts.push(selectedCategoryType);
+    if (selectedMonth) filterParts.push(`month-${selectedMonth}`);
+    if (selectedQuarter) filterParts.push(`quarter-${selectedQuarter}`);
+    if (selectedPaymentMethod) filterParts.push(`payment-${selectedPaymentMethod.replace(/\s+/g, '-')}`);
+    const filterSuffix = filterParts.length > 0 ? `-${filterParts.join('-')}` : '';
+    const filename = `transactions${filterSuffix}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const loadTransactions = useCallback(async () => {
     try {
       setLoadingTransactions(true);
@@ -185,6 +254,13 @@ export default function TransactionsPage() {
             <h1 className="text-2xl sm:text-4xl font-bold">Transactions</h1>
             {!showForm && !showCSVImport && !showScreenshotImport && (
               <div className="flex gap-2">
+                <button
+                  onClick={exportToCSV}
+                  className="bg-blue-600 text-white px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm rounded-lg hover:bg-blue-700 whitespace-nowrap flex-1 sm:flex-none"
+                  disabled={transactions.length === 0}
+                >
+                  Export CSV
+                </button>
                 <button
                   onClick={() => setShowScreenshotImport(true)}
                   className="bg-purple-600 text-white px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm rounded-lg hover:bg-purple-700 whitespace-nowrap flex-1 sm:flex-none"
