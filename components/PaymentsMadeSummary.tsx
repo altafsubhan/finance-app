@@ -7,6 +7,7 @@ import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 interface PaymentsMadeSummaryProps {
   transactions: Transaction[];
   categories: Category[];
+  categoryTypeFilter?: 'monthly' | 'quarterly' | 'yearly' | '';
 }
 
 interface PaymentsBreakdown {
@@ -16,7 +17,7 @@ interface PaymentsBreakdown {
   total: number;
 }
 
-export default function PaymentsMadeSummary({ transactions, categories }: PaymentsMadeSummaryProps) {
+export default function PaymentsMadeSummary({ transactions, categories, categoryTypeFilter = '' }: PaymentsMadeSummaryProps) {
   const { paymentMethods } = usePaymentMethods();
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [isExpanded, setIsExpanded] = useState(true);
@@ -30,12 +31,27 @@ export default function PaymentsMadeSummary({ transactions, categories }: Paymen
     c.name.toLowerCase().includes('mano') && c.name.toLowerCase().includes('personal')
   )?.name || 'Mano Personal';
 
+  // Helper function to get category type
+  const getCategoryType = (categoryId: string | null): 'monthly' | 'quarterly' | 'yearly' | null => {
+    if (!categoryId) return null;
+    const category = categories.find(c => c.id === categoryId);
+    return category?.type || null;
+  };
+
   // Calculate payments made by payment method
   const paymentsByPaymentMethod = useMemo(() => {
     const result: Record<string, PaymentsBreakdown> = {};
 
     // Filter to only paid transactions (paid_by is not null) and ignore uncategorized transactions
-    const paidTransactions = transactions.filter(t => t.paid_by !== null && t.category_id !== null);
+    let paidTransactions = transactions.filter(t => t.paid_by !== null && t.category_id !== null);
+    
+    // If category type filter is set, only include transactions matching that category type
+    if (categoryTypeFilter) {
+      paidTransactions = paidTransactions.filter(t => {
+        const categoryType = getCategoryType(t.category_id);
+        return categoryType === categoryTypeFilter;
+      });
+    }
 
     paidTransactions.forEach(transaction => {
       const paymentMethod = transaction.payment_method;
@@ -51,21 +67,31 @@ export default function PaymentsMadeSummary({ transactions, categories }: Paymen
       const amount = Math.abs(transaction.amount);
 
       // Categorize based on paid_by field first, then category name as fallback
-      // This ensures that payments marked as "sobi" or "mano" are correctly attributed
-      if (transaction.paid_by === 'sobi' || categoryName.toLowerCase() === subiPersonalCategoryName.toLowerCase()) {
+      // If paid_by is explicitly set, use that; otherwise check category name
+      if (transaction.paid_by === 'sobi') {
         result[paymentMethod].subi += amount;
-      } else if (transaction.paid_by === 'mano' || categoryName.toLowerCase() === manoPersonalCategoryName.toLowerCase()) {
+      } else if (transaction.paid_by === 'mano') {
         result[paymentMethod].mano += amount;
-      } else {
-        // Everything else is joint (including paid_by === 'joint' or null)
+      } else if (transaction.paid_by === 'joint') {
+        // Explicitly marked as joint, count as joint
         result[paymentMethod].joint += amount;
+      } else {
+        // paid_by is null or not set - use category name to determine
+        if (categoryName.toLowerCase() === subiPersonalCategoryName.toLowerCase()) {
+          result[paymentMethod].subi += amount;
+        } else if (categoryName.toLowerCase() === manoPersonalCategoryName.toLowerCase()) {
+          result[paymentMethod].mano += amount;
+        } else {
+          // Everything else is joint
+          result[paymentMethod].joint += amount;
+        }
       }
       
       result[paymentMethod].total += amount;
     });
 
     return result;
-  }, [transactions, categories, subiPersonalCategoryName, manoPersonalCategoryName]);
+  }, [transactions, categories, categoryTypeFilter, subiPersonalCategoryName, manoPersonalCategoryName]);
 
   // Get the selected payment method breakdown or all payment methods
   const displayData = useMemo(() => {

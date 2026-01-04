@@ -494,6 +494,7 @@ export default function TransactionsPage() {
               <PaymentsMadeSummary
                 transactions={transactions}
                 categories={categories}
+                categoryTypeFilter={selectedCategoryType}
               />
             </div>
           )}
