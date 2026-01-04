@@ -121,6 +121,14 @@ export default function OutstandingSummary({ transactions, categories, categoryT
       t.category_id !== null // Ignore uncategorized
     );
 
+    // Filter by category type if specified
+    if (categoryTypeFilter) {
+      filteredTransactions = filteredTransactions.filter(t => {
+        const categoryType = getCategoryType(t.category_id);
+        return categoryType === categoryTypeFilter;
+      });
+    }
+
     // Filter by category type based on who paid
     if (paidBy === 'sobi') {
       // Only mark Subi Personal transactions
