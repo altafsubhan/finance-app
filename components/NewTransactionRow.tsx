@@ -34,22 +34,23 @@ export default function NewTransactionRow({ row, categories, onChange, onCancel,
           const dateObj = new Date(year, month - 1, day);
           if (!isNaN(dateObj.getTime())) {
             const dateMonth = dateObj.getMonth() + 1;
-          const category = categories.find(c => c.id === row.category_id);
-          
-          if (category) {
-            if (category.type === 'monthly') {
+            const category = categories.find(c => c.id === row.category_id);
+            
+            if (category) {
+              if (category.type === 'monthly') {
+                updatedRow.periodType = 'month';
+                updatedRow.periodValue = dateMonth;
+              } else if (category.type === 'quarterly') {
+                updatedRow.periodType = 'quarter';
+                updatedRow.periodValue = Math.ceil(dateMonth / 3);
+              } else if (category.type === 'yearly') {
+                updatedRow.periodType = 'year';
+                updatedRow.periodValue = '';
+              }
+            } else {
               updatedRow.periodType = 'month';
               updatedRow.periodValue = dateMonth;
-            } else if (category.type === 'quarterly') {
-              updatedRow.periodType = 'quarter';
-              updatedRow.periodValue = Math.ceil(dateMonth / 3);
-            } else if (category.type === 'yearly') {
-              updatedRow.periodType = 'year';
-              updatedRow.periodValue = '';
             }
-          } else {
-            updatedRow.periodType = 'month';
-            updatedRow.periodValue = dateMonth;
           }
         }
       } catch {
