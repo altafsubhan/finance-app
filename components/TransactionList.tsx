@@ -567,6 +567,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
           onSort={handleSort}
           isSelectionMode={isSelectionMode}
           setIsSelectionMode={setIsSelectionMode}
+          onRefresh={onRefresh}
         />
       </div>
 
