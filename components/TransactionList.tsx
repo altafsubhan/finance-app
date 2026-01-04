@@ -45,6 +45,10 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
   const [newTransactionRows, setNewTransactionRows] = useState<NewTransactionRowState[]>([]);
   const [savingRows, setSavingRows] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [monthlyExpanded, setMonthlyExpanded] = useState(true);
+  const [quarterlyExpanded, setQuarterlyExpanded] = useState(true);
+  const [yearlyExpanded, setYearlyExpanded] = useState(true);
+  const [uncategorizedExpanded, setUncategorizedExpanded] = useState(true);
 
   // Exit selection mode when no items are selected
   useEffect(() => {
@@ -330,25 +334,33 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     return (
       <div className="space-y-8">
         {groupedTransactions.monthly.length > 0 && (
-          <div className="bg-white border rounded-lg p-2 sm:p-4 lg:p-6">
-            <div className="flex items-center mb-4">
-              <h3 className="text-xl font-semibold text-gray-900">Monthly Expenses</h3>
-              <span className="ml-2 px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-800">
-                {groupedTransactions.monthly.length} transactions
-              </span>
-            </div>
-            <TransactionTable 
-              transactions={groupedTransactions.monthly}
-              categories={categories}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              confirmDelete={confirmDelete}
-              setConfirmDelete={setConfirmDelete}
-              selectedIds={selectedIds}
-              onSelectionChange={onSelectionChange}
-              sortField={sortField}
-              sortDirection={sortDirection}
-              onSort={handleSort}
+          <div className="bg-white border rounded-lg">
+            <button
+              onClick={() => setMonthlyExpanded(!monthlyExpanded)}
+              className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
+            >
+              <div className="flex items-center">
+                <h3 className="text-xl font-semibold text-gray-900">Monthly Expenses</h3>
+                <span className="ml-2 px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-800">
+                  {groupedTransactions.monthly.length} transactions
+                </span>
+              </div>
+              <span className="text-gray-500">{monthlyExpanded ? '−' : '+'}</span>
+            </button>
+            {monthlyExpanded && (
+              <div className="p-2 sm:p-4 lg:p-6 border-t border-gray-200">
+                <TransactionTable 
+                  transactions={groupedTransactions.monthly}
+                  categories={categories}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  confirmDelete={confirmDelete}
+                  setConfirmDelete={setConfirmDelete}
+                  selectedIds={selectedIds}
+                  onSelectionChange={onSelectionChange}
+                  sortField={sortField}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
                   isSelectionMode={isSelectionMode}
                   setIsSelectionMode={setIsSelectionMode}
                   onRefresh={onRefresh}
