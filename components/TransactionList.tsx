@@ -387,17 +387,17 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
             {quarterlyExpanded && (
               <div className="p-2 sm:p-4 lg:p-6 border-t border-gray-200">
                 <TransactionTable 
-              transactions={groupedTransactions.quarterly}
-              categories={categories}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              confirmDelete={confirmDelete}
-              setConfirmDelete={setConfirmDelete}
-              selectedIds={selectedIds}
-              onSelectionChange={onSelectionChange}
-              sortField={sortField}
-              sortDirection={sortDirection}
-              onSort={handleSort}
+                  transactions={groupedTransactions.quarterly}
+                  categories={categories}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  confirmDelete={confirmDelete}
+                  setConfirmDelete={setConfirmDelete}
+                  selectedIds={selectedIds}
+                  onSelectionChange={onSelectionChange}
+                  sortField={sortField}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
                   isSelectionMode={isSelectionMode}
                   setIsSelectionMode={setIsSelectionMode}
                   onRefresh={onRefresh}
@@ -424,17 +424,17 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
             {yearlyExpanded && (
               <div className="p-2 sm:p-4 lg:p-6 border-t border-gray-200">
                 <TransactionTable 
-              transactions={groupedTransactions.yearly}
-              categories={categories}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              confirmDelete={confirmDelete}
-              setConfirmDelete={setConfirmDelete}
-              selectedIds={selectedIds}
-              onSelectionChange={onSelectionChange}
-              sortField={sortField}
-              sortDirection={sortDirection}
-              onSort={handleSort}
+                  transactions={groupedTransactions.yearly}
+                  categories={categories}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  confirmDelete={confirmDelete}
+                  setConfirmDelete={setConfirmDelete}
+                  selectedIds={selectedIds}
+                  onSelectionChange={onSelectionChange}
+                  sortField={sortField}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
                   isSelectionMode={isSelectionMode}
                   setIsSelectionMode={setIsSelectionMode}
                   onRefresh={onRefresh}
@@ -461,20 +461,23 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
             {uncategorizedExpanded && (
               <div className="p-2 sm:p-4 lg:p-6 border-t border-gray-200">
                 <TransactionTable 
-              transactions={groupedTransactions.uncategorized}
-              categories={categories}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              confirmDelete={confirmDelete}
-              setConfirmDelete={setConfirmDelete}
-              selectedIds={selectedIds}
-              onSelectionChange={onSelectionChange}
-              sortField={sortField}
-              sortDirection={sortDirection}
-              onSort={handleSort}
-              isSelectionMode={isSelectionMode}
-              setIsSelectionMode={setIsSelectionMode}
-            />
+                  transactions={groupedTransactions.uncategorized}
+                  categories={categories}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  confirmDelete={confirmDelete}
+                  setConfirmDelete={setConfirmDelete}
+                  selectedIds={selectedIds}
+                  onSelectionChange={onSelectionChange}
+                  sortField={sortField}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                  isSelectionMode={isSelectionMode}
+                  setIsSelectionMode={setIsSelectionMode}
+                  onRefresh={onRefresh}
+                />
+              </div>
+            )}
           </div>
         )}
 
