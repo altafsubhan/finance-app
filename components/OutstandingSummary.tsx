@@ -8,6 +8,7 @@ import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 interface OutstandingSummaryProps {
   transactions: Transaction[];
   categories: Category[];
+  categoryTypeFilter?: 'monthly' | 'quarterly' | 'yearly' | ''; // Filter by category type
   onMarkPaid?: () => Promise<void>; // Callback to refresh transactions after marking as paid
 }
 
@@ -18,7 +19,7 @@ interface OutstandingBreakdown {
   total: number;
 }
 
-export default function OutstandingSummary({ transactions, categories, onMarkPaid }: OutstandingSummaryProps) {
+export default function OutstandingSummary({ transactions, categories, categoryTypeFilter = '', onMarkPaid }: OutstandingSummaryProps) {
   const { paymentMethods } = usePaymentMethods();
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [isExpanded, setIsExpanded] = useState(true);
@@ -35,12 +36,28 @@ export default function OutstandingSummary({ transactions, categories, onMarkPai
     c.name.toLowerCase().includes('mano') && c.name.toLowerCase().includes('personal')
   )?.name || 'Mano Personal';
 
+  // Helper function to get category type
+  const getCategoryType = (categoryId: string | null): 'monthly' | 'quarterly' | 'yearly' | null => {
+    if (!categoryId) return null;
+    const category = categories.find(c => c.id === categoryId);
+    return category?.type || null;
+  };
+
   // Calculate outstanding amounts by payment method
   const outstandingByPaymentMethod = useMemo(() => {
     const result: Record<string, OutstandingBreakdown> = {};
 
-    // Filter to only unpaid transactions (paid_by is null) and ignore uncategorized transactions
-    const unpaidTransactions = transactions.filter(t => t.paid_by === null && t.category_id !== null);
+    // Filter to only unpaid transactions (paid_by is null), ignore uncategorized transactions,
+    // and filter by category type if specified
+    let unpaidTransactions = transactions.filter(t => t.paid_by === null && t.category_id !== null);
+    
+    // If category type filter is set, only include transactions matching that category type
+    if (categoryTypeFilter) {
+      unpaidTransactions = unpaidTransactions.filter(t => {
+        const categoryType = getCategoryType(t.category_id);
+        return categoryType === categoryTypeFilter;
+      });
+    }
 
     unpaidTransactions.forEach(transaction => {
       const paymentMethod = transaction.payment_method;
@@ -68,7 +85,7 @@ export default function OutstandingSummary({ transactions, categories, onMarkPai
     });
 
     return result;
-  }, [transactions, categories, subiPersonalCategoryName, manoPersonalCategoryName]);
+  }, [transactions, categories, categoryTypeFilter, subiPersonalCategoryName, manoPersonalCategoryName]);
 
   // Get the selected payment method breakdown or all payment methods
   const displayData = selectedPaymentMethod

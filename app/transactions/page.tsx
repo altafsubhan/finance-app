@@ -487,6 +487,7 @@ export default function TransactionsPage() {
               <OutstandingSummary
                 transactions={transactions}
                 categories={categories}
+                categoryTypeFilter={selectedCategoryType}
                 onMarkPaid={loadTransactions}
               />
               {/* Payments Made Summary */}
