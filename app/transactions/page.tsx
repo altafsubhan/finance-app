@@ -8,6 +8,7 @@ import CSVImport from '@/components/CSVImport';
 import ScreenshotImport from '@/components/ScreenshotImport';
 import BulkEditBar from '@/components/BulkEditBar';
 import OutstandingSummary from '@/components/OutstandingSummary';
+import PaymentsMadeSummary from '@/components/PaymentsMadeSummary';
 import SplitTransactionModal, { Split } from '@/components/SplitTransactionModal';
 import EditTransactionModal from '@/components/EditTransactionModal';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
