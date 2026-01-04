@@ -667,7 +667,8 @@ function TransactionTable({
   sortDirection,
   onSort,
   isSelectionMode,
-  setIsSelectionMode
+  setIsSelectionMode,
+  onRefresh
 }: {
   transactions: Transaction[];
   categories: Category[];
@@ -682,6 +683,7 @@ function TransactionTable({
   onSort: (field: SortField) => void;
   isSelectionMode: boolean;
   setIsSelectionMode: (value: boolean) => void;
+  onRefresh?: () => Promise<void>;
 }) {
   const { paymentMethods } = usePaymentMethods();
   const touchHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
