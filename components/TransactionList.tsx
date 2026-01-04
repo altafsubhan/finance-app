@@ -33,11 +33,12 @@ interface TransactionListProps {
   selectedIds?: Set<string>;
   onSelectionChange?: (selectedIds: Set<string>) => void;
   onAddTransaction?: (data: any) => Promise<void>;
+  onRefresh?: () => Promise<void>; // Callback to refresh transactions
 }
 
 const noOpSelectionChange = (ids: Set<string>) => {};
 
-export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction }: TransactionListProps) {
+export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction, onRefresh }: TransactionListProps) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -348,21 +349,32 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
               sortField={sortField}
               sortDirection={sortDirection}
               onSort={handleSort}
-              isSelectionMode={isSelectionMode}
-              setIsSelectionMode={setIsSelectionMode}
-            />
+                  isSelectionMode={isSelectionMode}
+                  setIsSelectionMode={setIsSelectionMode}
+                  onRefresh={onRefresh}
+                />
+              </div>
+            )}
           </div>
         )}
 
         {groupedTransactions.quarterly.length > 0 && (
-          <div className="bg-white border rounded-lg p-2 sm:p-4 lg:p-6">
-            <div className="flex items-center mb-4">
-              <h3 className="text-xl font-semibold text-gray-900">Quarterly Expenses</h3>
-              <span className="ml-2 px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-800">
-                {groupedTransactions.quarterly.length} transactions
-              </span>
-            </div>
-            <TransactionTable 
+          <div className="bg-white border rounded-lg">
+            <button
+              onClick={() => setQuarterlyExpanded(!quarterlyExpanded)}
+              className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
+            >
+              <div className="flex items-center">
+                <h3 className="text-xl font-semibold text-gray-900">Quarterly Expenses</h3>
+                <span className="ml-2 px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-800">
+                  {groupedTransactions.quarterly.length} transactions
+                </span>
+              </div>
+              <span className="text-gray-500">{quarterlyExpanded ? '−' : '+'}</span>
+            </button>
+            {quarterlyExpanded && (
+              <div className="p-2 sm:p-4 lg:p-6 border-t border-gray-200">
+                <TransactionTable 
               transactions={groupedTransactions.quarterly}
               categories={categories}
               onEdit={onEdit}
@@ -374,21 +386,32 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
               sortField={sortField}
               sortDirection={sortDirection}
               onSort={handleSort}
-              isSelectionMode={isSelectionMode}
-              setIsSelectionMode={setIsSelectionMode}
-            />
+                  isSelectionMode={isSelectionMode}
+                  setIsSelectionMode={setIsSelectionMode}
+                  onRefresh={onRefresh}
+                />
+              </div>
+            )}
           </div>
         )}
 
         {groupedTransactions.yearly.length > 0 && (
-          <div className="bg-white border rounded-lg p-2 sm:p-4 lg:p-6">
-            <div className="flex items-center mb-4">
-              <h3 className="text-xl font-semibold text-gray-900">Yearly Expenses</h3>
-              <span className="ml-2 px-2 py-1 text-xs font-medium rounded bg-orange-100 text-orange-800">
-                {groupedTransactions.yearly.length} transactions
-              </span>
-            </div>
-            <TransactionTable 
+          <div className="bg-white border rounded-lg">
+            <button
+              onClick={() => setYearlyExpanded(!yearlyExpanded)}
+              className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
+            >
+              <div className="flex items-center">
+                <h3 className="text-xl font-semibold text-gray-900">Yearly Expenses</h3>
+                <span className="ml-2 px-2 py-1 text-xs font-medium rounded bg-orange-100 text-orange-800">
+                  {groupedTransactions.yearly.length} transactions
+                </span>
+              </div>
+              <span className="text-gray-500">{yearlyExpanded ? '−' : '+'}</span>
+            </button>
+            {yearlyExpanded && (
+              <div className="p-2 sm:p-4 lg:p-6 border-t border-gray-200">
+                <TransactionTable 
               transactions={groupedTransactions.yearly}
               categories={categories}
               onEdit={onEdit}
@@ -400,21 +423,32 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
               sortField={sortField}
               sortDirection={sortDirection}
               onSort={handleSort}
-              isSelectionMode={isSelectionMode}
-              setIsSelectionMode={setIsSelectionMode}
-            />
+                  isSelectionMode={isSelectionMode}
+                  setIsSelectionMode={setIsSelectionMode}
+                  onRefresh={onRefresh}
+                />
+              </div>
+            )}
           </div>
         )}
 
         {groupedTransactions.uncategorized.length > 0 && (
-          <div className="bg-white border rounded-lg p-2 sm:p-4 lg:p-6">
-            <div className="flex items-center mb-4">
-              <h3 className="text-xl font-semibold text-gray-900">Uncategorized</h3>
-              <span className="ml-2 px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800">
-                {groupedTransactions.uncategorized.length} transactions
-              </span>
-            </div>
-            <TransactionTable 
+          <div className="bg-white border rounded-lg">
+            <button
+              onClick={() => setUncategorizedExpanded(!uncategorizedExpanded)}
+              className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
+            >
+              <div className="flex items-center">
+                <h3 className="text-xl font-semibold text-gray-900">Uncategorized</h3>
+                <span className="ml-2 px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800">
+                  {groupedTransactions.uncategorized.length} transactions
+                </span>
+              </div>
+              <span className="text-gray-500">{uncategorizedExpanded ? '−' : '+'}</span>
+            </button>
+            {uncategorizedExpanded && (
+              <div className="p-2 sm:p-4 lg:p-6 border-t border-gray-200">
+                <TransactionTable 
               transactions={groupedTransactions.uncategorized}
               categories={categories}
               onEdit={onEdit}
@@ -701,9 +735,10 @@ function TransactionTable({
       }
 
       setEditingCategoryId(null);
-      // Refresh the transaction list by triggering a reload
-      // The parent component should handle this, but we can also just update locally
-      window.location.reload(); // Simple approach, can be optimized later
+      // Refresh the transaction list via callback
+      if (onRefresh) {
+        await onRefresh();
+      }
     } catch (error) {
       console.error('Failed to update category:', error);
       setEditingCategoryId(null);
@@ -724,7 +759,10 @@ function TransactionTable({
       }
 
       setEditingPaymentMethodId(null);
-      window.location.reload(); // Simple approach, can be optimized later
+      // Refresh the transaction list via callback
+      if (onRefresh) {
+        await onRefresh();
+      }
     } catch (error) {
       console.error('Failed to update payment method:', error);
       setEditingPaymentMethodId(null);

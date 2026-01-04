@@ -515,28 +515,29 @@ export default function TransactionsPage() {
                   <div className="text-gray-500">Loading transactions...</div>
                 </div>
               ) : (
-                <TransactionList
-                  transactions={transactions}
-                  categories={categories}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  categoryTypeFilter={selectedCategoryType}
-                  selectedIds={selectedTransactionIds}
-                  onSelectionChange={setSelectedTransactionIds}
-                  onAddTransaction={async (data) => {
-                    const response = await fetch('/api/transactions', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify(data),
-                    });
+               <TransactionList
+                 transactions={transactions}
+                 categories={categories}
+                 onEdit={handleEdit}
+                 onDelete={handleDelete}
+                 categoryTypeFilter={selectedCategoryType}
+                 selectedIds={selectedTransactionIds}
+                 onSelectionChange={setSelectedTransactionIds}
+                 onAddTransaction={async (data) => {
+                   const response = await fetch('/api/transactions', {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     credentials: 'include',
+                     body: JSON.stringify(data),
+                   });
 
-                    if (!response.ok) {
-                      const errorData = await response.json();
-                      throw new Error(errorData.error || 'Failed to add transaction');
-                    }
-                  }}
-                />
+                   if (!response.ok) {
+                     const errorData = await response.json();
+                     throw new Error(errorData.error || 'Failed to add transaction');
+                   }
+                 }}
+                 onRefresh={loadTransactions}
+               />
               )}
             </div>
           )}
