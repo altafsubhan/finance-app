@@ -47,11 +47,59 @@ export default function TransactionsPage() {
       return;
     }
 
+    // Filter transactions to match current filters (same logic as loadTransactions)
+    let filteredTransactions = transactions.filter(transaction => {
+      // Filter by year
+      if (transaction.year !== selectedYear) return false;
+      
+      // Filter by month if category type is monthly and month is selected
+      if (selectedMonth && selectedCategoryType === 'monthly') {
+        if (transaction.month !== parseInt(selectedMonth)) return false;
+      }
+      
+      // Filter by quarter if category type is quarterly and quarter is selected
+      if (selectedQuarter && selectedCategoryType === 'quarterly') {
+        if (transaction.quarter !== parseInt(selectedQuarter)) return false;
+      }
+      
+      // Filter by category type (if selected)
+      if (selectedCategoryType) {
+        const category = categories.find(c => c.id === transaction.category_id);
+        if (!category || category.type !== selectedCategoryType) return false;
+      }
+      
+      // Filter by selected categories (if any selected)
+      if (selectedCategories.size > 0) {
+        if (!transaction.category_id || !selectedCategories.has(transaction.category_id)) return false;
+      }
+      
+      // Filter by payment method (if selected)
+      if (selectedPaymentMethod) {
+        if (transaction.payment_method !== selectedPaymentMethod) return false;
+      }
+      
+      // Filter by paid_by (if selected)
+      if (selectedPaidBy) {
+        if (selectedPaidBy === 'null') {
+          if (transaction.paid_by !== null) return false;
+        } else {
+          if (transaction.paid_by !== selectedPaidBy) return false;
+        }
+      }
+      
+      return true;
+    });
+
+    if (filteredTransactions.length === 0) {
+      alert('No transactions match the current filters');
+      return;
+    }
+
     // Define CSV headers
     const headers = ['Date', 'Amount', 'Description', 'Category', 'Payment Method', 'Paid By', 'Year', 'Month', 'Quarter'];
     
     // Convert transactions to CSV rows
-    const rows = transactions.map(transaction => {
+    const rows = filteredTransactions.map(transaction => {
       const category = categories.find(c => c.id === transaction.category_id);
       const categoryName = category?.name || '';
       
