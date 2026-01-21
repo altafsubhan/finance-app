@@ -30,7 +30,6 @@ export default function TransactionsPage() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [selectedCategoryType, setSelectedCategoryType] = useState<'monthly' | 'quarterly' | 'yearly' | ''>('');
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -406,30 +405,6 @@ export default function TransactionsPage() {
           {filtersExpanded && (
             <div className="px-4 pb-4 pt-2">
               <div className="flex flex-wrap gap-4">
-                <div className="flex-1 min-w-[220px]">
-                  <label htmlFor="transaction_search" className="block text-sm font-medium mb-1">
-                    Search
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      id="transaction_search"
-                      type="search"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search description, category, payment method..."
-                      className="w-full px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    {searchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setSearchQuery('')}
-                        className="px-3 py-2 text-sm border rounded-lg text-gray-700 hover:bg-gray-50 whitespace-nowrap"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                </div>
                 <div>
                   <label htmlFor="year" className="block text-sm font-medium mb-1">
                     Year
@@ -671,7 +646,6 @@ export default function TransactionsPage() {
                  onEdit={handleEdit}
                  onDelete={handleDelete}
                  categoryTypeFilter={selectedCategoryType}
-                 searchQuery={searchQuery}
                  selectedIds={selectedTransactionIds}
                  onSelectionChange={setSelectedTransactionIds}
                  onAddTransaction={async (data) => {
