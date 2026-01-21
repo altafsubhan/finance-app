@@ -34,11 +34,12 @@ interface TransactionListProps {
   onSelectionChange?: (selectedIds: Set<string>) => void;
   onAddTransaction?: (data: any) => Promise<void>;
   onRefresh?: () => Promise<void>; // Callback to refresh transactions
+  searchQuery?: string;
 }
 
 const noOpSelectionChange = (ids: Set<string>) => {};
 
-export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction, onRefresh }: TransactionListProps) {
+export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction, onRefresh, searchQuery = '' }: TransactionListProps) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -49,7 +50,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
   const [quarterlyExpanded, setQuarterlyExpanded] = useState(true);
   const [yearlyExpanded, setYearlyExpanded] = useState(true);
   const [uncategorizedExpanded, setUncategorizedExpanded] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
 
   // Exit selection mode when no items are selected
   useEffect(() => {
@@ -331,34 +331,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     ? groupedTransactions[categoryTypeFilter]
     : sortedTransactions;
 
-  const searchBar = (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-1 items-center gap-2">
-        <input
-          type="search"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search description, category, payment method..."
-          className="w-full sm:w-80 px-3 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        {searchQuery && (
-          <button
-            type="button"
-            onClick={() => setSearchQuery('')}
-            className="px-3 py-2 text-sm border rounded-lg text-gray-700 hover:bg-gray-50 whitespace-nowrap"
-          >
-            Clear
-          </button>
-        )}
-      </div>
-      <div className="text-sm text-gray-500">
-        {normalizedSearch
-          ? `Showing ${filteredTransactions.length} of ${transactions.length}`
-          : `${transactions.length} total`}
-      </div>
-    </div>
-  );
-
   const getPaidByColor = (paidBy: PaidBy) => {
     const option = PAID_BY_OPTIONS.find(opt => opt.value === paidBy);
     return option?.color || 'bg-gray-200';
@@ -391,7 +363,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
   if (!categoryTypeFilter) {
     return (
       <div className="space-y-8">
-        {searchBar}
         {filteredTransactions.length === 0 ? (
           <div className="bg-white border rounded-lg p-6 text-center text-gray-500">
             {transactions.length === 0
@@ -635,8 +606,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
 
   // Render single table if filter is set
   return (
-    <div className="space-y-4">
-      {searchBar}
+    <div>
       <div className="bg-white border rounded-lg p-2 sm:p-4 lg:p-6">
         {displayTransactions.length === 0 ? (
           <div className="py-8 text-center text-gray-500">
