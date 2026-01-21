@@ -387,14 +387,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     }
   };
 
-  if (transactions.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        No transactions found. Add your first transaction above!
-      </div>
-    );
-  }
-
   // Render grouped view if no filter is set
   if (!categoryTypeFilter) {
     return (
@@ -402,7 +394,9 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
         {searchBar}
         {filteredTransactions.length === 0 ? (
           <div className="bg-white border rounded-lg p-6 text-center text-gray-500">
-            No transactions match this search.
+            {transactions.length === 0
+              ? 'No transactions found. Add your first transaction above!'
+              : 'No transactions match this search.'}
           </div>
         ) : (
           <>
@@ -646,7 +640,11 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
       <div className="bg-white border rounded-lg p-2 sm:p-4 lg:p-6">
         {displayTransactions.length === 0 ? (
           <div className="py-8 text-center text-gray-500">
-            No transactions match this search.
+            {transactions.length === 0
+              ? 'No transactions found. Add your first transaction above!'
+              : normalizedSearch
+                ? 'No transactions match this search.'
+                : 'No transactions in this category type.'}
           </div>
         ) : (
           <TransactionTable 
