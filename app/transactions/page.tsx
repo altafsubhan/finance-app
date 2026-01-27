@@ -276,6 +276,76 @@ export default function TransactionsPage() {
     setEditingTransaction(null);
   };
 
+  const matchesCurrentFilters = useCallback(
+    (transaction: Transaction) => {
+      if (transaction.year !== selectedYear) return false;
+
+      if (selectedCategoryType) {
+        const category = categories.find(c => c.id === transaction.category_id);
+        if (!category || category.type !== selectedCategoryType) return false;
+      }
+
+      if (selectedCategoryType === 'monthly' && selectedMonth) {
+        if (transaction.month !== parseInt(selectedMonth)) return false;
+      }
+
+      if (selectedCategoryType === 'quarterly' && selectedQuarter) {
+        if (transaction.quarter !== parseInt(selectedQuarter)) return false;
+      }
+
+      if (selectedCategories.size > 0) {
+        if (!transaction.category_id || !selectedCategories.has(transaction.category_id)) return false;
+      }
+
+      if (selectedPaymentMethod) {
+        if (transaction.payment_method !== selectedPaymentMethod) return false;
+      }
+
+      if (selectedPaidBy) {
+        if (selectedPaidBy === 'null') {
+          if (transaction.paid_by !== null) return false;
+        } else if (transaction.paid_by !== selectedPaidBy) {
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [
+      categories,
+      selectedCategories,
+      selectedCategoryType,
+      selectedMonth,
+      selectedPaidBy,
+      selectedPaymentMethod,
+      selectedQuarter,
+      selectedYear,
+    ]
+  );
+
+  const applyTransactionUpdate = useCallback(
+    (transaction: Transaction) => {
+      setTransactions(prev => {
+        const matches = matchesCurrentFilters(transaction);
+        const index = prev.findIndex(t => t.id === transaction.id);
+
+        if (!matches) {
+          if (index === -1) return prev;
+          return prev.filter(t => t.id !== transaction.id);
+        }
+
+        if (index === -1) {
+          return [transaction, ...prev];
+        }
+
+        const next = [...prev];
+        next[index] = transaction;
+        return next;
+      });
+    },
+    [matchesCurrentFilters]
+  );
+
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
   const activeSummaryMonth = selectedMonth ? parseInt(selectedMonth) : new Date().getMonth() + 1;
   const summaryMonthLabel = new Date(2000, activeSummaryMonth - 1).toLocaleString('default', { month: 'long' });
@@ -720,7 +790,11 @@ export default function TransactionsPage() {
                      const errorData = await response.json();
                      throw new Error(errorData.error || 'Failed to add transaction');
                    }
+
+                   const createdTransaction = await response.json();
+                   applyTransactionUpdate(createdTransaction);
                  }}
+                 onTransactionUpdate={applyTransactionUpdate}
                  onRefresh={loadTransactions}
                />
               )}

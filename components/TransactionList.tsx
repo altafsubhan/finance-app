@@ -33,12 +33,13 @@ interface TransactionListProps {
   selectedIds?: Set<string>;
   onSelectionChange?: (selectedIds: Set<string>) => void;
   onAddTransaction?: (data: any) => Promise<void>;
+  onTransactionUpdate?: (transaction: Transaction) => void;
   onRefresh?: () => Promise<void>; // Callback to refresh transactions
 }
 
 const noOpSelectionChange = (ids: Set<string>) => {};
 
-export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction, onRefresh }: TransactionListProps) {
+export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction, onTransactionUpdate, onRefresh }: TransactionListProps) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -363,6 +364,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
                   onSort={handleSort}
                   isSelectionMode={isSelectionMode}
                   setIsSelectionMode={setIsSelectionMode}
+                  onTransactionUpdate={onTransactionUpdate}
                   onRefresh={onRefresh}
                 />
               </div>
@@ -400,6 +402,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
                   onSort={handleSort}
                   isSelectionMode={isSelectionMode}
                   setIsSelectionMode={setIsSelectionMode}
+                  onTransactionUpdate={onTransactionUpdate}
                   onRefresh={onRefresh}
                 />
               </div>
@@ -437,6 +440,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
                   onSort={handleSort}
                   isSelectionMode={isSelectionMode}
                   setIsSelectionMode={setIsSelectionMode}
+                  onTransactionUpdate={onTransactionUpdate}
                   onRefresh={onRefresh}
                 />
               </div>
@@ -474,6 +478,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
                   onSort={handleSort}
                   isSelectionMode={isSelectionMode}
                   setIsSelectionMode={setIsSelectionMode}
+                  onTransactionUpdate={onTransactionUpdate}
                   onRefresh={onRefresh}
                 />
               </div>
@@ -582,6 +587,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
           onSort={handleSort}
           isSelectionMode={isSelectionMode}
           setIsSelectionMode={setIsSelectionMode}
+          onTransactionUpdate={onTransactionUpdate}
           onRefresh={onRefresh}
         />
       </div>
@@ -683,6 +689,7 @@ function TransactionTable({
   onSort,
   isSelectionMode,
   setIsSelectionMode,
+  onTransactionUpdate: handleTransactionUpdate,
   onRefresh
 }: {
   transactions: Transaction[];
@@ -698,6 +705,7 @@ function TransactionTable({
   onSort: (field: SortField) => void;
   isSelectionMode: boolean;
   setIsSelectionMode: (value: boolean) => void;
+  onTransactionUpdate?: (transaction: Transaction) => void;
   onRefresh?: () => Promise<void>;
 }) {
   const { paymentMethods } = usePaymentMethods();
@@ -752,9 +760,11 @@ function TransactionTable({
         throw new Error('Failed to update category');
       }
 
+      const updatedTransaction = await response.json();
       setEditingCategoryId(null);
-      // Refresh the transaction list via callback
-      if (onRefresh) {
+      if (handleTransactionUpdate) {
+        handleTransactionUpdate(updatedTransaction);
+      } else if (onRefresh) {
         await onRefresh();
       }
     } catch (error) {
@@ -776,9 +786,11 @@ function TransactionTable({
         throw new Error('Failed to update payment method');
       }
 
+      const updatedTransaction = await response.json();
       setEditingPaymentMethodId(null);
-      // Refresh the transaction list via callback
-      if (onRefresh) {
+      if (handleTransactionUpdate) {
+        handleTransactionUpdate(updatedTransaction);
+      } else if (onRefresh) {
         await onRefresh();
       }
     } catch (error) {
