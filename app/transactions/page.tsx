@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Transaction, Category } from '@/types/database';
+import { Transaction, Category, Budget } from '@/types/database';
 import TransactionForm from '@/components/TransactionForm';
 import TransactionList from '@/components/TransactionList';
 import CSVImport from '@/components/CSVImport';
@@ -9,6 +9,7 @@ import ScreenshotImport from '@/components/ScreenshotImport';
 import BulkEditBar from '@/components/BulkEditBar';
 import OutstandingSummary from '@/components/OutstandingSummary';
 import PaymentsMadeSummary from '@/components/PaymentsMadeSummary';
+import BudgetVsSpendingPanel from '@/components/BudgetVsSpendingPanel';
 import SplitTransactionModal, { Split } from '@/components/SplitTransactionModal';
 import EditTransactionModal from '@/components/EditTransactionModal';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
@@ -19,6 +20,7 @@ export default function TransactionsPage() {
   const { paymentMethods } = usePaymentMethods();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showCSVImport, setShowCSVImport] = useState(false);
   const [showScreenshotImport, setShowScreenshotImport] = useState(false);
@@ -34,7 +36,7 @@ export default function TransactionsPage() {
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [filtersExpanded, setFiltersExpanded] = useState(true);
-  const [summariesExpanded, setSummariesExpanded] = useState(true);
+  const [summariesExpanded, setSummariesExpanded] = useState(false);
   const [transactionsExpanded, setTransactionsExpanded] = useState(true);
   const [splittingTransaction, setSplittingTransaction] = useState<Transaction | null>(null);
   const [editingTransactionModal, setEditingTransactionModal] = useState<Transaction | null>(null);
@@ -196,6 +198,20 @@ export default function TransactionsPage() {
     }
   }, [selectedYear, selectedMonth, selectedQuarter, selectedCategories, selectedPaymentMethod, selectedCategoryType, selectedPaidBy]);
 
+  const loadBudgets = useCallback(async () => {
+    try {
+      const budgetsRes = await fetch(`/api/budgets?year=${selectedYear}`, {
+        credentials: 'include',
+      });
+      if (budgetsRes.ok) {
+        const budgetsData = await budgetsRes.json();
+        setBudgets(budgetsData);
+      }
+    } catch (error) {
+      console.error('Failed to load budgets:', error);
+    }
+  }, [selectedYear]);
+
   // Load categories and transactions on mount
   useEffect(() => {
     const loadCategories = async () => {
@@ -215,12 +231,13 @@ export default function TransactionsPage() {
     const initialLoad = async () => {
       setInitialLoading(true);
       await loadCategories();
+      await loadBudgets();
       await loadTransactions();
       setInitialLoading(false);
     };
     
     initialLoad();
-  }, []);
+  }, [loadBudgets, loadTransactions]);
 
   // Reload transactions when filters change (but not on initial mount)
   useEffect(() => {
@@ -228,6 +245,12 @@ export default function TransactionsPage() {
       loadTransactions();
     }
   }, [loadTransactions, initialLoading]);
+
+  useEffect(() => {
+    if (!initialLoading) {
+      loadBudgets();
+    }
+  }, [loadBudgets, initialLoading]);
 
   const loadData = async () => {
     await loadTransactions();
@@ -254,6 +277,13 @@ export default function TransactionsPage() {
   };
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+  const activeSummaryMonth = selectedMonth ? parseInt(selectedMonth) : new Date().getMonth() + 1;
+  const summaryMonthLabel = new Date(2000, activeSummaryMonth - 1).toLocaleString('default', { month: 'long' });
+  const showMonthHint = !selectedMonth;
+
+  const activeSummaryQuarter = selectedQuarter ? parseInt(selectedQuarter) : Math.floor(new Date().getMonth() / 3) + 1;
+  const summaryQuarterLabel = `Q${activeSummaryQuarter}`;
+  const showQuarterHint = !selectedQuarter;
 
   // Close category filter dropdown when clicking outside
   useEffect(() => {
@@ -619,6 +649,36 @@ export default function TransactionsPage() {
                 transactions={transactions}
                 categories={categories}
                 categoryTypeFilter={selectedCategoryType}
+              />
+              <BudgetVsSpendingPanel
+                transactions={transactions}
+                categories={categories}
+                budgets={budgets}
+                period="month"
+                year={selectedYear}
+                periodValue={activeSummaryMonth}
+                periodLabel={summaryMonthLabel}
+                showPeriodHint={showMonthHint}
+                enableGroupToggle
+              />
+              <BudgetVsSpendingPanel
+                transactions={transactions}
+                categories={categories}
+                budgets={budgets}
+                period="quarter"
+                year={selectedYear}
+                periodValue={activeSummaryQuarter}
+                periodLabel={summaryQuarterLabel}
+                showPeriodHint={showQuarterHint}
+              />
+              <BudgetVsSpendingPanel
+                transactions={transactions}
+                categories={categories}
+                budgets={budgets}
+                period="year"
+                year={selectedYear}
+                periodValue={null}
+                periodLabel={`${selectedYear}`}
               />
             </div>
           )}
