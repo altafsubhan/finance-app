@@ -50,7 +50,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
   const [quarterlyExpanded, setQuarterlyExpanded] = useState(false);
   const [yearlyExpanded, setYearlyExpanded] = useState(false);
   const [uncategorizedExpanded, setUncategorizedExpanded] = useState(false);
-
+  const [searchQuery, setSearchQuery] = useState('');
   // Exit selection mode when no items are selected
   useEffect(() => {
     if (selectedIds.size === 0) {
@@ -280,8 +280,45 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     }
   };
 
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const matchesSearch = (transaction: Transaction) => {
+    if (!normalizedSearch) return true;
+    const categoryName = transaction.category_id ? getCategoryName(transaction.category_id) : 'Uncategorized';
+    const paidByOption = PAID_BY_OPTIONS.find(opt => opt.value === transaction.paid_by);
+    const paidByLabel = paidByOption?.label || 'Not Paid';
+    let formattedDate = '';
+    if (transaction.date) {
+      try {
+        formattedDate = format(new Date(transaction.date), 'MMM dd, yyyy');
+      } catch {
+        formattedDate = transaction.date;
+      }
+    }
+    const amountText = transaction.amount !== null && transaction.amount !== undefined
+      ? transaction.amount.toString()
+      : '';
+    const searchHaystack = [
+      transaction.description,
+      categoryName,
+      transaction.payment_method,
+      transaction.paid_by ?? '',
+      paidByLabel,
+      amountText,
+      transaction.date ?? '',
+      formattedDate,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return searchHaystack.includes(normalizedSearch);
+  };
+
   // Group transactions by category type (after sorting)
-  const sortedTransactions = sortTransactions(transactions);
+  const filteredTransactions = normalizedSearch
+    ? transactions.filter(matchesSearch)
+    : transactions;
+  const sortedTransactions = sortTransactions(filteredTransactions);
   const groupedTransactions = {
     monthly: sortedTransactions.filter(t => getCategoryType(t.category_id) === 'monthly'),
     quarterly: sortedTransactions.filter(t => getCategoryType(t.category_id) === 'quarterly'),
@@ -293,6 +330,34 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
   const displayTransactions = categoryTypeFilter 
     ? groupedTransactions[categoryTypeFilter]
     : sortedTransactions;
+
+  const searchBar = (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-1 items-center gap-2">
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search description, category, payment method..."
+          className="w-full sm:w-80 px-3 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            className="px-3 py-2 text-sm border rounded-lg text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      <div className="text-sm text-gray-500">
+        {normalizedSearch
+          ? `Showing ${filteredTransactions.length} of ${transactions.length}`
+          : `${transactions.length} total`}
+      </div>
+    </div>
+  );
 
   const getPaidByLabel = (paidBy: PaidBy) => {
     const option = PAID_BY_OPTIONS.find(opt => opt.value === paidBy);
@@ -317,18 +382,19 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     }
   };
 
-  if (transactions.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        No transactions found. Add your first transaction above!
-      </div>
-    );
-  }
-
   // Render grouped view if no filter is set
   if (!categoryTypeFilter) {
     return (
       <div className="space-y-8">
+        {searchBar}
+        {filteredTransactions.length === 0 ? (
+          <div className="bg-white border rounded-lg p-6 text-center text-gray-500">
+            {transactions.length === 0
+              ? 'No transactions found. Add your first transaction above!'
+              : 'No transactions match this search.'}
+          </div>
+        ) : (
+          <>
         {groupedTransactions.monthly.length > 0 && (
           <div className="bg-white border rounded-lg">
             <button
@@ -480,6 +546,8 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
             )}
           </div>
         )}
+          </>
+        )}
 
         {/* New Transaction Rows Section */}
         {newTransactionRows.length > 0 && (
@@ -566,8 +634,35 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
 
   // Render single table if filter is set
   return (
-    <div>
+    <div className="space-y-4">
+      {searchBar}
       <div className="bg-white border rounded-lg p-2 sm:p-4 lg:p-6">
+        {displayTransactions.length === 0 ? (
+          <div className="py-8 text-center text-gray-500">
+            {transactions.length === 0
+              ? 'No transactions found. Add your first transaction above!'
+              : normalizedSearch
+                ? 'No transactions match this search.'
+                : 'No transactions in this category type.'}
+          </div>
+        ) : (
+          <TransactionTable 
+            transactions={displayTransactions}
+            categories={categories}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            confirmDelete={confirmDelete}
+            setConfirmDelete={setConfirmDelete}
+            selectedIds={selectedIds}
+            onSelectionChange={onSelectionChange}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onSort={handleSort}
+            isSelectionMode={isSelectionMode}
+            setIsSelectionMode={setIsSelectionMode}
+            onRefresh={onRefresh}
+          />
+        )}
         <TransactionTable 
           transactions={displayTransactions}
           categories={categories}
