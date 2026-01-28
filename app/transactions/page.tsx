@@ -428,18 +428,6 @@ export default function TransactionsPage() {
             {!showForm && !showCSVImport && !showScreenshotImport && (
               <div className="flex flex-wrap gap-2 justify-end">
                 <button
-                  onClick={() => setUncategorizedModalOpen(true)}
-                  disabled={uncategorizedCount === 0}
-                  className="border border-gray-300 text-gray-800 px-2.5 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                  title={
-                    uncategorizedCount === 0
-                      ? 'No uncategorized transactions in the current list'
-                      : 'Suggest categories using rules'
-                  }
-                >
-                  Suggest categories ({uncategorizedCount})
-                </button>
-                <button
                   onClick={exportToCSV}
                   className="bg-blue-600 text-white px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm rounded-lg hover:bg-blue-700 whitespace-nowrap flex-1 sm:flex-none"
                   disabled={transactions.length === 0}
@@ -838,6 +826,8 @@ export default function TransactionsPage() {
                  }}
                  onTransactionUpdate={applyTransactionUpdate}
                  onRefresh={loadTransactions}
+                 onSuggestCategories={() => setUncategorizedModalOpen(true)}
+                 uncategorizedCount={uncategorizedCount}
                />
               )}
             </div>

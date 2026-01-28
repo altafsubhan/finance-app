@@ -35,11 +35,13 @@ interface TransactionListProps {
   onAddTransaction?: (data: any) => Promise<void>;
   onTransactionUpdate?: (transaction: Transaction) => void;
   onRefresh?: () => Promise<void>; // Callback to refresh transactions
+  onSuggestCategories?: () => void; // Callback to open suggest categories modal
+  uncategorizedCount?: number; // Count of uncategorized transactions
 }
 
 const noOpSelectionChange = (ids: Set<string>) => {};
 
-export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction, onTransactionUpdate, onRefresh }: TransactionListProps) {
+export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction, onTransactionUpdate, onRefresh, onSuggestCategories, uncategorizedCount = 0 }: TransactionListProps) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -51,6 +53,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
   const [yearlyExpanded, setYearlyExpanded] = useState(false);
   const [uncategorizedExpanded, setUncategorizedExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
   // Exit selection mode when no items are selected
   useEffect(() => {
     if (selectedIds.size === 0) {
@@ -230,6 +233,19 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     );
   };
 
+  // Filter transactions by search query
+  const filterBySearch = (txns: Transaction[]) => {
+    if (!searchQuery.trim()) return txns;
+    const query = searchQuery.toLowerCase().trim();
+    return txns.filter(t => {
+      const description = t.description.toLowerCase();
+      const categoryName = t.category_id ? (categories.find(c => c.id === t.category_id)?.name || '').toLowerCase() : '';
+      const paymentMethod = t.payment_method.toLowerCase();
+      const amount = t.amount.toString();
+      return description.includes(query) || categoryName.includes(query) || paymentMethod.includes(query) || amount.includes(query);
+    });
+  };
+
   // Sort function
   const sortTransactions = (txns: Transaction[]) => {
     return [...txns].sort((a, b) => {
@@ -314,10 +330,11 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     return searchHaystack.includes(normalizedSearch);
   };
 
-  // Group transactions by category type (after sorting)
   const filteredTransactions = normalizedSearch
     ? transactions.filter(matchesSearch)
     : transactions;
+
+  // Group transactions by category type (after sorting)
   const sortedTransactions = sortTransactions(filteredTransactions);
   const groupedTransactions = {
     monthly: sortedTransactions.filter(t => getCategoryType(t.category_id) === 'monthly'),
@@ -348,6 +365,21 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
             className="px-3 py-2 text-sm border rounded-lg text-gray-700 hover:bg-gray-50 whitespace-nowrap"
           >
             Clear
+          </button>
+        )}
+        {onSuggestCategories && (
+          <button
+            type="button"
+            onClick={onSuggestCategories}
+            disabled={uncategorizedCount === 0}
+            className="px-3 py-2 text-sm border rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            title={
+              uncategorizedCount === 0
+                ? 'No uncategorized transactions in the current list'
+                : 'Suggest categories using rules'
+            }
+          >
+            Suggest categories ({uncategorizedCount})
           </button>
         )}
       </div>
@@ -387,14 +419,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     return (
       <div className="space-y-8">
         {searchBar}
-        {filteredTransactions.length === 0 ? (
-          <div className="bg-white border rounded-lg p-6 text-center text-gray-500">
-            {transactions.length === 0
-              ? 'No transactions found. Add your first transaction above!'
-              : 'No transactions match this search.'}
-          </div>
-        ) : (
-          <>
         {groupedTransactions.monthly.length > 0 && (
           <div className="bg-white border rounded-lg">
             <button
@@ -546,8 +570,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
             )}
           </div>
         )}
-          </>
-        )}
 
         {/* New Transaction Rows Section */}
         {newTransactionRows.length > 0 && (
@@ -634,8 +656,10 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
 
   // Render single table if filter is set
   return (
-    <div className="space-y-4">
-      {searchBar}
+    <div>
+      <div className="mb-3">
+        {searchBar}
+      </div>
       <div className="bg-white border rounded-lg p-2 sm:p-4 lg:p-6">
         {displayTransactions.length === 0 ? (
           <div className="py-8 text-center text-gray-500">
@@ -660,26 +684,10 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
             onSort={handleSort}
             isSelectionMode={isSelectionMode}
             setIsSelectionMode={setIsSelectionMode}
+            onTransactionUpdate={onTransactionUpdate}
             onRefresh={onRefresh}
           />
         )}
-        <TransactionTable 
-          transactions={displayTransactions}
-          categories={categories}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          confirmDelete={confirmDelete}
-          setConfirmDelete={setConfirmDelete}
-          selectedIds={selectedIds}
-          onSelectionChange={onSelectionChange}
-          sortField={sortField}
-          sortDirection={sortDirection}
-          onSort={handleSort}
-          isSelectionMode={isSelectionMode}
-          setIsSelectionMode={setIsSelectionMode}
-          onTransactionUpdate={onTransactionUpdate}
-          onRefresh={onRefresh}
-        />
       </div>
 
       {/* New Transaction Rows Section */}
