@@ -98,7 +98,7 @@ export default function SharedAccessPanel() {
         <h2 className="text-xl font-semibold">Shared access</h2>
         <p className="text-sm text-gray-600 mt-1">
           Share your data with specific users. Sharing is one-way, so both users must
-          add each other to see each other's data.
+          add each other to see each other&apos;s data.
         </p>
       </div>
 
