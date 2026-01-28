@@ -35,9 +35,9 @@ export default function TransactionsPage() {
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [filtersExpanded, setFiltersExpanded] = useState(true);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [summariesExpanded, setSummariesExpanded] = useState(false);
-  const [transactionsExpanded, setTransactionsExpanded] = useState(true);
+  const [transactionsExpanded, setTransactionsExpanded] = useState(false);
   const [splittingTransaction, setSplittingTransaction] = useState<Transaction | null>(null);
   const [editingTransactionModal, setEditingTransactionModal] = useState<Transaction | null>(null);
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
@@ -713,12 +713,14 @@ export default function TransactionsPage() {
                 categories={categories}
                 categoryTypeFilter={selectedCategoryType}
                 onMarkPaid={loadTransactions}
+                defaultExpanded={false}
               />
               {/* Payments Made Summary */}
               <PaymentsMadeSummary
                 transactions={transactions}
                 categories={categories}
                 categoryTypeFilter={selectedCategoryType}
+                defaultExpanded={false}
               />
               <BudgetVsSpendingPanel
                 transactions={transactions}
@@ -730,6 +732,7 @@ export default function TransactionsPage() {
                 periodLabel={summaryMonthLabel}
                 showPeriodHint={showMonthHint}
                 enableGroupToggle
+                defaultExpanded={false}
               />
               <BudgetVsSpendingPanel
                 transactions={transactions}
@@ -740,6 +743,7 @@ export default function TransactionsPage() {
                 periodValue={activeSummaryQuarter}
                 periodLabel={summaryQuarterLabel}
                 showPeriodHint={showQuarterHint}
+                defaultExpanded={false}
               />
               <BudgetVsSpendingPanel
                 transactions={transactions}
@@ -749,6 +753,7 @@ export default function TransactionsPage() {
                 year={selectedYear}
                 periodValue={null}
                 periodLabel={`${selectedYear}`}
+                defaultExpanded={false}
               />
             </div>
           )}

@@ -16,6 +16,7 @@ interface BudgetVsSpendingPanelProps {
   periodLabel: string;
   enableGroupToggle?: boolean;
   showPeriodHint?: boolean;
+  defaultExpanded?: boolean;
 }
 
 const normalizeCategoryName = (name: string) => name.toLowerCase().replace(/\s+/g, '');
@@ -93,9 +94,10 @@ export default function BudgetVsSpendingPanel({
   periodLabel,
   enableGroupToggle = false,
   showPeriodHint = false,
+  defaultExpanded = true,
 }: BudgetVsSpendingPanelProps) {
   const [activeGroup, setActiveGroup] = useState<ExpenseGroup>('variable');
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   const { rows, totals } = useMemo(() => {
     const categoryType = getCategoryTypeForPeriod(period);

@@ -46,10 +46,10 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
   const [newTransactionRows, setNewTransactionRows] = useState<NewTransactionRowState[]>([]);
   const [savingRows, setSavingRows] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [monthlyExpanded, setMonthlyExpanded] = useState(true);
-  const [quarterlyExpanded, setQuarterlyExpanded] = useState(true);
-  const [yearlyExpanded, setYearlyExpanded] = useState(true);
-  const [uncategorizedExpanded, setUncategorizedExpanded] = useState(true);
+  const [monthlyExpanded, setMonthlyExpanded] = useState(false);
+  const [quarterlyExpanded, setQuarterlyExpanded] = useState(false);
+  const [yearlyExpanded, setYearlyExpanded] = useState(false);
+  const [uncategorizedExpanded, setUncategorizedExpanded] = useState(false);
 
   // Exit selection mode when no items are selected
   useEffect(() => {
