@@ -45,14 +45,8 @@ export default function Navbar() {
             <Link href="/transactions" className="flex items-center text-sm sm:text-base text-gray-700 hover:text-gray-900 whitespace-nowrap px-1 sm:px-0">
               Transactions
             </Link>
-            <Link href="/budgets" className="flex items-center text-sm sm:text-base text-gray-700 hover:text-gray-900 whitespace-nowrap px-1 sm:px-0">
-              Budgets &amp; Categories
-            </Link>
-            <Link href="/payment-methods" className="flex items-center text-sm sm:text-base text-gray-700 hover:text-gray-900 whitespace-nowrap px-1 sm:px-0">
-              Payment Methods
-            </Link>
-            <Link href="/rules" className="flex items-center text-sm sm:text-base text-gray-700 hover:text-gray-900 whitespace-nowrap px-1 sm:px-0">
-              Rules
+            <Link href="/settings" className="flex items-center text-sm sm:text-base text-gray-700 hover:text-gray-900 whitespace-nowrap px-1 sm:px-0">
+              Settings
             </Link>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4 ml-2 sm:ml-0">
