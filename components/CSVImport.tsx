@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Category, PaymentMethod } from '@/types/database';
+import { useEffect, useMemo, useState } from 'react';
+import { Category, CategoryRule, CategoryRuleBlocklist, PaymentMethod } from '@/types/database';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
+import { suggestCategoryIdForDescription } from '@/lib/rules/categoryRules';
 
 interface CSVImportProps {
   categories: Category[];
@@ -11,6 +12,7 @@ interface CSVImportProps {
 }
 
 interface ParsedTransaction {
+  id: string;
   date: string;
   amount: string;
   description: string;
@@ -28,6 +30,9 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
   const [preview, setPreview] = useState<ParsedTransaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoCategorizeEnabled, setAutoCategorizeEnabled] = useState(true);
+  const [rules, setRules] = useState<CategoryRule[]>([]);
+  const [blocklist, setBlocklist] = useState<CategoryRuleBlocklist[]>([]);
   const [paymentMethodOverride, setPaymentMethodOverride] = useState<PaymentMethod | ''>('');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [periodType, setPeriodType] = useState<'month' | 'quarter' | 'year'>('month');
@@ -47,6 +52,51 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
     payment_method: '',
     paid_by: '',
   });
+
+  useEffect(() => {
+    // Load rules once; if migration isn't applied yet, this will just no-op with an error shown in console.
+    const loadRules = async () => {
+      try {
+        const res = await fetch('/api/category-rules', { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        setRules(data.rules || []);
+        setBlocklist(data.blocklist || []);
+      } catch {
+        // ignore
+      }
+    };
+    loadRules();
+  }, []);
+
+  const categoriesById = useMemo(() => {
+    const map = new Map<string, Category>();
+    categories.forEach(c => map.set(c.id, c));
+    return map;
+  }, [categories]);
+
+  const applyRulesToPreview = (rows: ParsedTransaction[]) => {
+    if (!autoCategorizeEnabled) return rows;
+    if (rules.length === 0) return rows;
+
+    return rows.map(row => {
+      // Respect explicit category in CSV if provided
+      if (row.category && row.category.trim()) return row;
+
+      const suggestion = suggestCategoryIdForDescription({
+        description: row.description,
+        rules,
+        blocklist,
+        categories,
+      });
+      if (!suggestion) return row;
+
+      const cat = categoriesById.get(suggestion.category_id);
+      if (!cat) return row;
+
+      return { ...row, category: cat.name };
+    });
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -111,7 +161,7 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
           paid_by: headers.findIndex(h => h.includes('paid') || h.includes('who')),
         };
 
-        // Set mapping to header names
+        // Set mapping to header names (auto-detected, can be adjusted later with UI if needed)
         setMapping({
           date: headers[autoMapping.date] || headers[0] || '',
           amount: headers[autoMapping.amount] || headers[1] || '',
@@ -121,28 +171,31 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
           paid_by: headers[autoMapping.paid_by] || '',
         });
 
-        // Parse preview data (first 5 rows)
+        // Parse preview data for all rows (skip header)
         const previewData: ParsedTransaction[] = [];
-        for (let i = 1; i < Math.min(6, rows.length); i++) {
-          const row = rows[i];
           const dateIdx = autoMapping.date >= 0 ? autoMapping.date : 0;
           const amountIdx = autoMapping.amount >= 0 ? autoMapping.amount : 1;
           const descIdx = autoMapping.description >= 0 ? autoMapping.description : 2;
+
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || row.length === 0) continue;
           
           previewData.push({
+            id: `csv-${i}`,
             date: row[dateIdx] || '',
             amount: row[amountIdx] || '',
             description: row[descIdx] || '',
-            category: row[autoMapping.category] || '',
-            payment_method: paymentMethodOverride || row[autoMapping.payment_method] || 'Other',
-            paid_by: row[autoMapping.paid_by] || null,
+            category: autoMapping.category >= 0 ? (row[autoMapping.category] || '') : '',
+            payment_method: paymentMethodOverride || (autoMapping.payment_method >= 0 ? (row[autoMapping.payment_method] || '') : '') || 'Other',
+            paid_by: autoMapping.paid_by >= 0 ? (row[autoMapping.paid_by] || null) : null,
               year: selectedYear,
               month: periodType === 'month' ? periodValue : undefined,
               quarter: periodType === 'quarter' ? periodValue : undefined,
             });
         }
         
-        setPreview(previewData);
+        setPreview(applyRulesToPreview(previewData));
       } catch (err: any) {
         setError(`Failed to parse CSV: ${err.message}`);
       }
@@ -151,67 +204,25 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
   };
 
   const handleImport = async () => {
-    if (!file || preview.length === 0) return;
+    if (preview.length === 0) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const text = e.target?.result as string;
-          const rows = parseCSV(text);
-          const headers = rows[0].map(h => h.toLowerCase().trim());
-          
-          // Find column indices
-          const dateIdx = headers.indexOf(mapping.date);
-          const amountIdx = headers.indexOf(mapping.amount);
-          const descIdx = headers.indexOf(mapping.description);
-          const categoryIdx = headers.indexOf(mapping.category);
-          const paymentMethodIdx = headers.indexOf(mapping.payment_method);
-          const paidByIdx = headers.indexOf(mapping.paid_by);
+      // Prepare transactions for import from the current preview state
+      const transactions = preview.map((t) => ({
+        date: t.date || null,
+        amount: t.amount,
+        description: t.description,
+        category: t.category || null, // Allow null/empty for uncategorized
+        payment_method: t.payment_method || 'Other',
+        paid_by: t.paid_by || null,
+        year: t.year ?? selectedYear,
+        month: t.month ?? (periodType === 'month' ? periodValue : undefined),
+        quarter: t.quarter ?? (periodType === 'quarter' ? periodValue : undefined),
+      }));
 
-          if (dateIdx < 0 || amountIdx < 0) {
-            throw new Error('Date and Amount columns are required');
-          }
-
-          // Parse all transactions
-          const transactions: ParsedTransaction[] = [];
-          for (let i = 1; i < rows.length; i++) {
-            const row = rows[i];
-            if (row.length === 0) continue;
-
-            const dateStr = row[dateIdx]?.trim();
-            const amountStr = row[amountIdx]?.trim().replace(/[^0-9.-]/g, ''); // Remove currency symbols
-            
-            if (!dateStr || !amountStr) continue;
-
-            // Parse date (try multiple formats)
-            let date = dateStr;
-            try {
-              const dateObj = new Date(dateStr);
-              if (!isNaN(dateObj.getTime())) {
-                date = dateObj.toISOString().split('T')[0];
-              }
-            } catch {
-              // Keep original if parsing fails
-            }
-
-            transactions.push({
-              date,
-              amount: amountStr,
-              description: row[descIdx]?.trim() || '',
-              category: row[categoryIdx]?.trim() || '',
-              payment_method: paymentMethodOverride || row[paymentMethodIdx]?.trim() || 'Other',
-              paid_by: row[paidByIdx]?.trim() || null,
-              year: selectedYear,
-              month: periodType === 'month' ? periodValue : undefined,
-              quarter: periodType === 'quarter' ? periodValue : undefined,
-            });
-          }
-
-          // Send to API
           const response = await fetch('/api/transactions/import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -236,11 +247,17 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
           setLoading(false);
         }
       };
-      reader.readAsText(file);
-    } catch (err: any) {
-      setError(err.message);
-      setLoading(false);
-    }
+
+  const handlePreviewEdit = (id: string, field: keyof ParsedTransaction, value: any) => {
+    setPreview((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, [field]: value } : t
+      )
+    );
+  };
+
+  const handleDeletePreview = (id: string) => {
+    setPreview((prev) => prev.filter((t) => t.id !== id));
   };
 
   return (
@@ -368,6 +385,18 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
               </select>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <input
+              id="auto-categorize"
+              type="checkbox"
+              checked={autoCategorizeEnabled}
+              onChange={(e) => setAutoCategorizeEnabled(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="auto-categorize" className="text-sm text-gray-700">
+              Auto-select categories using rules (recommended)
+            </label>
+          </div>
           <p className="text-sm text-gray-500">
             All imported transactions will be assigned to the selected year and period. Payment method override is optional.
           </p>
@@ -381,26 +410,78 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
 
           {preview.length > 0 && (
             <div className="space-y-4">
-              <div className="text-sm font-medium">Preview (first 5 rows):</div>
+              <div className="text-sm font-medium">
+                Preview ({preview.length} transaction{preview.length !== 1 ? 's' : ''}):
+              </div>
               <div className="overflow-x-auto border rounded-lg">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-[800px] md:min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Date</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Amount</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Description</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Category</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Payment Method</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 w-28 md:w-32">Date</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 min-w-[200px] md:min-w-[300px]">Description</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 w-32 md:w-40">Category</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-20 md:w-24">Amount</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 w-32 md:w-40">Payment Method</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 w-20">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {preview.map((row, idx) => (
-                      <tr key={idx}>
-                        <td className="px-4 py-2 text-sm">{row.date}</td>
-                        <td className="px-4 py-2 text-sm">${row.amount}</td>
-                        <td className="px-4 py-2 text-sm">{row.description}</td>
-                        <td className="px-4 py-2 text-sm">{row.category}</td>
-                        <td className="px-4 py-2 text-sm">{row.payment_method}</td>
+                    {preview.map((row) => (
+                      <tr key={row.id}>
+                        <td className="px-3 py-2 text-sm w-28 md:w-32">
+                          <input
+                            type="date"
+                            value={row.date}
+                            onChange={(e) => handlePreviewEdit(row.id, 'date', e.target.value)}
+                            className="w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-sm min-w-[200px] md:min-w-[300px]">
+                          <input
+                            type="text"
+                            value={row.description}
+                            onChange={(e) => handlePreviewEdit(row.id, 'description', e.target.value)}
+                            className="w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-sm w-32 md:w-40">
+                          <select
+                            value={row.category}
+                            onChange={(e) => handlePreviewEdit(row.id, 'category', e.target.value)}
+                            className="w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Select category</option>
+                            {categories.map((cat) => (
+                              <option key={cat.id} value={cat.name}>
+                                {cat.name} ({cat.type})
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2 text-sm text-right w-20 md:w-24">
+                          <input
+                            type="text"
+                            value={row.amount}
+                            onChange={(e) => handlePreviewEdit(row.id, 'amount', e.target.value)}
+                            className="w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-sm w-32 md:w-40">
+                          <input
+                            type="text"
+                            value={row.payment_method}
+                            onChange={(e) => handlePreviewEdit(row.id, 'payment_method', e.target.value)}
+                            className="w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          <button
+                            onClick={() => handleDeletePreview(row.id)}
+                            className="text-red-600 hover:text-red-800 text-xs"
+                          >
+                            Delete
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -412,7 +493,7 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
                 disabled={loading}
                 className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {loading ? 'Importing...' : `Import ${preview.length}+ Transactions`}
+                {loading ? 'Importing...' : `Import ${preview.length} Transactions`}
               </button>
             </div>
           )}

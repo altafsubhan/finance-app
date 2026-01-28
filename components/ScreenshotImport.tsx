@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Category, PaymentMethod } from '@/types/database';
+import { useEffect, useMemo, useState } from 'react';
+import { Category, CategoryRule, CategoryRuleBlocklist, PaymentMethod } from '@/types/database';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 import { createWorker } from 'tesseract.js';
+import { suggestCategoryIdForDescription } from '@/lib/rules/categoryRules';
 
 interface ScreenshotImportProps {
   categories: Category[];
@@ -40,6 +41,49 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [periodType, setPeriodType] = useState<'month' | 'quarter' | 'year'>('month');
   const [periodValue, setPeriodValue] = useState<number>(new Date().getMonth() + 1);
+  const [autoCategorizeEnabled, setAutoCategorizeEnabled] = useState(true);
+  const [rules, setRules] = useState<CategoryRule[]>([]);
+  const [blocklist, setBlocklist] = useState<CategoryRuleBlocklist[]>([]);
+
+  useEffect(() => {
+    const loadRules = async () => {
+      try {
+        const res = await fetch('/api/category-rules', { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        setRules(data.rules || []);
+        setBlocklist(data.blocklist || []);
+      } catch {
+        // ignore
+      }
+    };
+    loadRules();
+  }, []);
+
+  const categoriesById = useMemo(() => {
+    const map = new Map<string, Category>();
+    categories.forEach(c => map.set(c.id, c));
+    return map;
+  }, [categories]);
+
+  const applyRulesToPreview = (rows: ParsedTransaction[]) => {
+    if (!autoCategorizeEnabled) return rows;
+    if (rules.length === 0) return rows;
+
+    return rows.map(row => {
+      if (row.category && row.category.trim()) return row;
+      const suggestion = suggestCategoryIdForDescription({
+        description: row.description,
+        rules,
+        blocklist,
+        categories,
+      });
+      if (!suggestion) return row;
+      const cat = categoriesById.get(suggestion.category_id);
+      if (!cat) return row;
+      return { ...row, category: cat.name };
+    });
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
@@ -731,7 +775,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         console.warn('Processing warnings:', errors);
       }
 
-      setPreview(allTransactions);
+      setPreview(applyRulesToPreview(allTransactions));
       setOcrStatus(`Complete - Found ${allTransactions.length} transactions from ${files.length} file(s)`);
       setOcrProgress(1);
     } catch (err: any) {
@@ -937,6 +981,18 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
           <p className="text-sm text-gray-500">
             All imported transactions will be assigned to the selected year and period. Please select the payment method used for these transactions.
           </p>
+          <div className="flex items-center gap-2">
+            <input
+              id="screenshot-auto-categorize"
+              type="checkbox"
+              checked={autoCategorizeEnabled}
+              onChange={(e) => setAutoCategorizeEnabled(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="screenshot-auto-categorize" className="text-sm text-gray-700">
+              Auto-select categories using rules (recommended)
+            </label>
+          </div>
 
           <button
             onClick={handleProcessScreenshots}

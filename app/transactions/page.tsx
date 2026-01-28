@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Transaction, Category } from '@/types/database';
+import { Transaction, Category, Budget, CategoryRule, CategoryRuleBlocklist } from '@/types/database';
 import TransactionForm from '@/components/TransactionForm';
 import TransactionList from '@/components/TransactionList';
 import CSVImport from '@/components/CSVImport';
@@ -9,8 +9,10 @@ import ScreenshotImport from '@/components/ScreenshotImport';
 import BulkEditBar from '@/components/BulkEditBar';
 import OutstandingSummary from '@/components/OutstandingSummary';
 import PaymentsMadeSummary from '@/components/PaymentsMadeSummary';
+import BudgetVsSpendingPanel from '@/components/BudgetVsSpendingPanel';
 import SplitTransactionModal, { Split } from '@/components/SplitTransactionModal';
 import EditTransactionModal from '@/components/EditTransactionModal';
+import UncategorizedAutoAssignModal from '@/components/UncategorizedAutoAssignModal';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 import { format, startOfYear, endOfYear } from 'date-fns';
@@ -19,6 +21,9 @@ export default function TransactionsPage() {
   const { paymentMethods } = usePaymentMethods();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [rules, setRules] = useState<CategoryRule[]>([]);
+  const [blocklist, setBlocklist] = useState<CategoryRuleBlocklist[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showCSVImport, setShowCSVImport] = useState(false);
   const [showScreenshotImport, setShowScreenshotImport] = useState(false);
@@ -33,9 +38,10 @@ export default function TransactionsPage() {
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [filtersExpanded, setFiltersExpanded] = useState(true);
-  const [summariesExpanded, setSummariesExpanded] = useState(true);
-  const [transactionsExpanded, setTransactionsExpanded] = useState(true);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [summariesExpanded, setSummariesExpanded] = useState(false);
+  const [transactionsExpanded, setTransactionsExpanded] = useState(false);
+  const [uncategorizedModalOpen, setUncategorizedModalOpen] = useState(false);
   const [splittingTransaction, setSplittingTransaction] = useState<Transaction | null>(null);
   const [editingTransactionModal, setEditingTransactionModal] = useState<Transaction | null>(null);
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
@@ -196,6 +202,32 @@ export default function TransactionsPage() {
     }
   }, [selectedYear, selectedMonth, selectedQuarter, selectedCategories, selectedPaymentMethod, selectedCategoryType, selectedPaidBy]);
 
+  const loadBudgets = useCallback(async () => {
+    try {
+      const budgetsRes = await fetch(`/api/budgets?year=${selectedYear}`, {
+        credentials: 'include',
+      });
+      if (budgetsRes.ok) {
+        const budgetsData = await budgetsRes.json();
+        setBudgets(budgetsData);
+      }
+    } catch (error) {
+      console.error('Failed to load budgets:', error);
+    }
+  }, [selectedYear]);
+
+  const loadCategoryRules = useCallback(async () => {
+    try {
+      const res = await fetch('/api/category-rules', { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setRules(data.rules || []);
+      setBlocklist(data.blocklist || []);
+    } catch (error) {
+      console.error('Failed to load category rules:', error);
+    }
+  }, []);
+
   // Load categories and transactions on mount
   useEffect(() => {
     const loadCategories = async () => {
@@ -215,12 +247,14 @@ export default function TransactionsPage() {
     const initialLoad = async () => {
       setInitialLoading(true);
       await loadCategories();
+      await loadBudgets();
+      await loadCategoryRules();
       await loadTransactions();
       setInitialLoading(false);
     };
     
     initialLoad();
-  }, []);
+  }, [loadBudgets, loadCategoryRules, loadTransactions]);
 
   // Reload transactions when filters change (but not on initial mount)
   useEffect(() => {
@@ -228,6 +262,18 @@ export default function TransactionsPage() {
       loadTransactions();
     }
   }, [loadTransactions, initialLoading]);
+
+  useEffect(() => {
+    if (!initialLoading) {
+      loadBudgets();
+    }
+  }, [loadBudgets, initialLoading]);
+
+  useEffect(() => {
+    if (!initialLoading) {
+      loadCategoryRules();
+    }
+  }, [loadCategoryRules, initialLoading]);
 
   const loadData = async () => {
     await loadTransactions();
@@ -253,7 +299,86 @@ export default function TransactionsPage() {
     setEditingTransaction(null);
   };
 
+  const matchesCurrentFilters = useCallback(
+    (transaction: Transaction) => {
+      if (transaction.year !== selectedYear) return false;
+
+      if (selectedCategoryType) {
+        const category = categories.find(c => c.id === transaction.category_id);
+        if (!category || category.type !== selectedCategoryType) return false;
+      }
+
+      if (selectedCategoryType === 'monthly' && selectedMonth) {
+        if (transaction.month !== parseInt(selectedMonth)) return false;
+      }
+
+      if (selectedCategoryType === 'quarterly' && selectedQuarter) {
+        if (transaction.quarter !== parseInt(selectedQuarter)) return false;
+      }
+
+      if (selectedCategories.size > 0) {
+        if (!transaction.category_id || !selectedCategories.has(transaction.category_id)) return false;
+      }
+
+      if (selectedPaymentMethod) {
+        if (transaction.payment_method !== selectedPaymentMethod) return false;
+      }
+
+      if (selectedPaidBy) {
+        if (selectedPaidBy === 'null') {
+          if (transaction.paid_by !== null) return false;
+        } else if (transaction.paid_by !== selectedPaidBy) {
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [
+      categories,
+      selectedCategories,
+      selectedCategoryType,
+      selectedMonth,
+      selectedPaidBy,
+      selectedPaymentMethod,
+      selectedQuarter,
+      selectedYear,
+    ]
+  );
+
+  const applyTransactionUpdate = useCallback(
+    (transaction: Transaction) => {
+      setTransactions(prev => {
+        const matches = matchesCurrentFilters(transaction);
+        const index = prev.findIndex(t => t.id === transaction.id);
+
+        if (!matches) {
+          if (index === -1) return prev;
+          return prev.filter(t => t.id !== transaction.id);
+        }
+
+        if (index === -1) {
+          return [transaction, ...prev];
+        }
+
+        const next = [...prev];
+        next[index] = transaction;
+        return next;
+      });
+    },
+    [matchesCurrentFilters]
+  );
+
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+  const activeSummaryMonth = selectedMonth ? parseInt(selectedMonth) : new Date().getMonth() + 1;
+  const summaryMonthLabel = new Date(2000, activeSummaryMonth - 1).toLocaleString('default', { month: 'long' });
+  const showMonthHint = !selectedMonth;
+
+  const activeSummaryQuarter = selectedQuarter ? parseInt(selectedQuarter) : Math.floor(new Date().getMonth() / 3) + 1;
+  const summaryQuarterLabel = `Q${activeSummaryQuarter}`;
+  const showQuarterHint = !selectedQuarter;
+
+  const uncategorizedCount = transactions.filter(t => t.category_id === null).length;
 
   // Close category filter dropdown when clicking outside
   useEffect(() => {
@@ -301,7 +426,19 @@ export default function TransactionsPage() {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <h1 className="text-2xl sm:text-4xl font-bold">Transactions</h1>
             {!showForm && !showCSVImport && !showScreenshotImport && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 justify-end">
+                <button
+                  onClick={() => setUncategorizedModalOpen(true)}
+                  disabled={uncategorizedCount === 0}
+                  className="border border-gray-300 text-gray-800 px-2.5 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  title={
+                    uncategorizedCount === 0
+                      ? 'No uncategorized transactions in the current list'
+                      : 'Suggest categories using rules'
+                  }
+                >
+                  Suggest categories ({uncategorizedCount})
+                </button>
                 <button
                   onClick={exportToCSV}
                   className="bg-blue-600 text-white px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm rounded-lg hover:bg-blue-700 whitespace-nowrap flex-1 sm:flex-none"
@@ -613,12 +750,47 @@ export default function TransactionsPage() {
                 categories={categories}
                 categoryTypeFilter={selectedCategoryType}
                 onMarkPaid={loadTransactions}
+                defaultExpanded={false}
               />
               {/* Payments Made Summary */}
               <PaymentsMadeSummary
                 transactions={transactions}
                 categories={categories}
                 categoryTypeFilter={selectedCategoryType}
+                defaultExpanded={false}
+              />
+              <BudgetVsSpendingPanel
+                transactions={transactions}
+                categories={categories}
+                budgets={budgets}
+                period="month"
+                year={selectedYear}
+                periodValue={activeSummaryMonth}
+                periodLabel={summaryMonthLabel}
+                showPeriodHint={showMonthHint}
+                enableGroupToggle
+                defaultExpanded={false}
+              />
+              <BudgetVsSpendingPanel
+                transactions={transactions}
+                categories={categories}
+                budgets={budgets}
+                period="quarter"
+                year={selectedYear}
+                periodValue={activeSummaryQuarter}
+                periodLabel={summaryQuarterLabel}
+                showPeriodHint={showQuarterHint}
+                defaultExpanded={false}
+              />
+              <BudgetVsSpendingPanel
+                transactions={transactions}
+                categories={categories}
+                budgets={budgets}
+                period="year"
+                year={selectedYear}
+                periodValue={null}
+                periodLabel={`${selectedYear}`}
+                defaultExpanded={false}
               />
             </div>
           )}
@@ -660,7 +832,11 @@ export default function TransactionsPage() {
                      const errorData = await response.json();
                      throw new Error(errorData.error || 'Failed to add transaction');
                    }
+
+                   const createdTransaction = await response.json();
+                   applyTransactionUpdate(createdTransaction);
                  }}
+                 onTransactionUpdate={applyTransactionUpdate}
                  onRefresh={loadTransactions}
                />
               )}
@@ -765,6 +941,16 @@ export default function TransactionsPage() {
             }}
           />
         )}
+
+        <UncategorizedAutoAssignModal
+          isOpen={uncategorizedModalOpen}
+          onClose={() => setUncategorizedModalOpen(false)}
+          uncategorized={transactions.filter(t => t.category_id === null)}
+          categories={categories}
+          rules={rules}
+          blocklist={blocklist}
+          onTransactionUpdated={applyTransactionUpdate}
+        />
       </div>
     </main>
   );

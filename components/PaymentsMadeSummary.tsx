@@ -8,6 +8,7 @@ interface PaymentsMadeSummaryProps {
   transactions: Transaction[];
   categories: Category[];
   categoryTypeFilter?: 'monthly' | 'quarterly' | 'yearly' | '';
+  defaultExpanded?: boolean;
 }
 
 interface PaymentsBreakdown {
@@ -17,10 +18,10 @@ interface PaymentsBreakdown {
   total: number;
 }
 
-export default function PaymentsMadeSummary({ transactions, categories, categoryTypeFilter = '' }: PaymentsMadeSummaryProps) {
+export default function PaymentsMadeSummary({ transactions, categories, categoryTypeFilter = '', defaultExpanded = true }: PaymentsMadeSummaryProps) {
   const { paymentMethods } = usePaymentMethods();
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   // Get category names for personal identification
   const subiPersonalCategoryName = categories.find(c => 

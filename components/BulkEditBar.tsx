@@ -158,23 +158,23 @@ export default function BulkEditBar({ selectedCount, selectedIds, selectedTransa
                 {deleteLoading ? 'Deleting...' : 'Delete'}
               </button>
               <button
-                onClick={onCancel}
-                className="px-3 py-1.5 text-sm text-gray-700 hover:text-gray-900 whitespace-nowrap"
-              >
-                Cancel
-              </button>
-              <button
                 onClick={handleApply}
                 disabled={loading}
                 className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
               >
                 {loading ? 'Updating...' : 'Apply'}
               </button>
+              <button
+                onClick={onCancel}
+                className="px-3 py-1.5 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 whitespace-nowrap"
+              >
+                Cancel
+              </button>
             </div>
           </div>
           
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex-1 min-w-[140px]">
+            <div className="flex-1 min-w-[120px]">
               <label htmlFor="bulk-date" className="sr-only">Date</label>
               <input
                 id="bulk-date"

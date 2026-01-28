@@ -33,24 +33,24 @@ interface TransactionListProps {
   selectedIds?: Set<string>;
   onSelectionChange?: (selectedIds: Set<string>) => void;
   onAddTransaction?: (data: any) => Promise<void>;
+  onTransactionUpdate?: (transaction: Transaction) => void;
   onRefresh?: () => Promise<void>; // Callback to refresh transactions
 }
 
 const noOpSelectionChange = (ids: Set<string>) => {};
 
-export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction, onRefresh }: TransactionListProps) {
+export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction, onTransactionUpdate, onRefresh }: TransactionListProps) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [newTransactionRows, setNewTransactionRows] = useState<NewTransactionRowState[]>([]);
   const [savingRows, setSavingRows] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [monthlyExpanded, setMonthlyExpanded] = useState(true);
-  const [quarterlyExpanded, setQuarterlyExpanded] = useState(true);
-  const [yearlyExpanded, setYearlyExpanded] = useState(true);
-  const [uncategorizedExpanded, setUncategorizedExpanded] = useState(true);
+  const [monthlyExpanded, setMonthlyExpanded] = useState(false);
+  const [quarterlyExpanded, setQuarterlyExpanded] = useState(false);
+  const [yearlyExpanded, setYearlyExpanded] = useState(false);
+  const [uncategorizedExpanded, setUncategorizedExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
   // Exit selection mode when no items are selected
   useEffect(() => {
     if (selectedIds.size === 0) {
@@ -359,11 +359,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     </div>
   );
 
-  const getPaidByColor = (paidBy: PaidBy) => {
-    const option = PAID_BY_OPTIONS.find(opt => opt.value === paidBy);
-    return option?.color || 'bg-gray-200';
-  };
-
   const getPaidByLabel = (paidBy: PaidBy) => {
     const option = PAID_BY_OPTIONS.find(opt => opt.value === paidBy);
     return option?.label || 'Not Paid';
@@ -430,6 +425,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
                   onSort={handleSort}
                   isSelectionMode={isSelectionMode}
                   setIsSelectionMode={setIsSelectionMode}
+                  onTransactionUpdate={onTransactionUpdate}
                   onRefresh={onRefresh}
                 />
               </div>
@@ -467,6 +463,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
                   onSort={handleSort}
                   isSelectionMode={isSelectionMode}
                   setIsSelectionMode={setIsSelectionMode}
+                  onTransactionUpdate={onTransactionUpdate}
                   onRefresh={onRefresh}
                 />
               </div>
@@ -504,6 +501,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
                   onSort={handleSort}
                   isSelectionMode={isSelectionMode}
                   setIsSelectionMode={setIsSelectionMode}
+                  onTransactionUpdate={onTransactionUpdate}
                   onRefresh={onRefresh}
                 />
               </div>
@@ -541,6 +539,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
                   onSort={handleSort}
                   isSelectionMode={isSelectionMode}
                   setIsSelectionMode={setIsSelectionMode}
+                  onTransactionUpdate={onTransactionUpdate}
                   onRefresh={onRefresh}
                 />
               </div>
@@ -664,6 +663,23 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
             onRefresh={onRefresh}
           />
         )}
+        <TransactionTable 
+          transactions={displayTransactions}
+          categories={categories}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          confirmDelete={confirmDelete}
+          setConfirmDelete={setConfirmDelete}
+          selectedIds={selectedIds}
+          onSelectionChange={onSelectionChange}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSort={handleSort}
+          isSelectionMode={isSelectionMode}
+          setIsSelectionMode={setIsSelectionMode}
+          onTransactionUpdate={onTransactionUpdate}
+          onRefresh={onRefresh}
+        />
       </div>
 
       {/* New Transaction Rows Section */}
@@ -763,6 +779,7 @@ function TransactionTable({
   onSort,
   isSelectionMode,
   setIsSelectionMode,
+  onTransactionUpdate: handleTransactionUpdate,
   onRefresh
 }: {
   transactions: Transaction[];
@@ -778,6 +795,7 @@ function TransactionTable({
   onSort: (field: SortField) => void;
   isSelectionMode: boolean;
   setIsSelectionMode: (value: boolean) => void;
+  onTransactionUpdate?: (transaction: Transaction) => void;
   onRefresh?: () => Promise<void>;
 }) {
   const { paymentMethods } = usePaymentMethods();
@@ -832,9 +850,11 @@ function TransactionTable({
         throw new Error('Failed to update category');
       }
 
+      const updatedTransaction = await response.json();
       setEditingCategoryId(null);
-      // Refresh the transaction list via callback
-      if (onRefresh) {
+      if (handleTransactionUpdate) {
+        handleTransactionUpdate(updatedTransaction);
+      } else if (onRefresh) {
         await onRefresh();
       }
     } catch (error) {
@@ -856,9 +876,11 @@ function TransactionTable({
         throw new Error('Failed to update payment method');
       }
 
+      const updatedTransaction = await response.json();
       setEditingPaymentMethodId(null);
-      // Refresh the transaction list via callback
-      if (onRefresh) {
+      if (handleTransactionUpdate) {
+        handleTransactionUpdate(updatedTransaction);
+      } else if (onRefresh) {
         await onRefresh();
       }
     } catch (error) {
@@ -1082,10 +1104,20 @@ function TransactionTable({
           {transactions.map((transaction) => {
             const categoryType = getCategoryType(transaction.category_id);
             const isSelected = selectedIds.has(transaction.id);
+            const isUncategorized = !transaction.category_id;
+            const isPaid = transaction.paid_by !== null;
+
+            const rowBgClass = isSelected
+              ? 'bg-blue-50'
+              : isUncategorized
+                ? 'bg-red-50'
+                : isPaid
+                  ? 'bg-green-50'
+                  : 'bg-white';
             return (
             <tr 
               key={transaction.id} 
-              className={`${isSelected ? 'bg-blue-50' : !transaction.category_id ? 'bg-red-50' : 'hover:bg-gray-50'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
+              className={`${rowBgClass} ${!isSelected ? 'hover:bg-gray-50' : ''} ${isSelectionMode ? 'cursor-pointer' : ''}`}
               style={{
                   WebkitUserSelect: 'none', 
                   userSelect: 'none',
@@ -1138,7 +1170,7 @@ function TransactionTable({
                     </span>
                   )}
                 </td>
-                <td className={`px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm font-bold text-right text-gray-900 w-24 ${getPaidByColor(transaction.paid_by)}`}>
+                <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm font-bold text-right text-gray-900 w-24">
                   ${parseFloat(transaction.amount.toString()).toFixed(2)}
                 </td>
                 <td className="px-1 md:px-6 py-2 md:py-4 text-sm text-gray-900 break-words">

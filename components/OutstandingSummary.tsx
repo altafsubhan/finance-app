@@ -10,6 +10,7 @@ interface OutstandingSummaryProps {
   categories: Category[];
   categoryTypeFilter?: 'monthly' | 'quarterly' | 'yearly' | ''; // Filter by category type
   onMarkPaid?: () => Promise<void>; // Callback to refresh transactions after marking as paid
+  defaultExpanded?: boolean;
 }
 
 interface OutstandingBreakdown {
@@ -19,10 +20,10 @@ interface OutstandingBreakdown {
   total: number;
 }
 
-export default function OutstandingSummary({ transactions, categories, categoryTypeFilter = '', onMarkPaid }: OutstandingSummaryProps) {
+export default function OutstandingSummary({ transactions, categories, categoryTypeFilter = '', onMarkPaid, defaultExpanded = true }: OutstandingSummaryProps) {
   const { paymentMethods } = usePaymentMethods();
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [markingPaidFor, setMarkingPaidFor] = useState<PaymentMethod | null>(null);
   const touchHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);

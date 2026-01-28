@@ -134,12 +134,12 @@ export default function NewTransactionRow({ row, categories, onChange, onCancel,
           placeholder="Amount"
         />
       </td>
-      <td className="px-6 py-4">
+      <td className="px-3 md:px-6 py-4">
         <input
           type="text"
           value={row.description}
           onChange={(e) => handleFieldChange('description', e.target.value)}
-          className="w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-[260px] sm:w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Description"
         />
       </td>
