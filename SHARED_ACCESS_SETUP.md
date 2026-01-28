@@ -1,14 +1,13 @@
 # Shared Data Access Setup
 
-This guide explains how to enable shared data access between you and your wife so you can both see and manage the same transactions and categories.
+This guide explains how to enable controlled sharing so only explicitly shared users can access each other's data.
 
-## Problem
-Currently, the app uses Row Level Security (RLS) that restricts each user to only see their own data. This means transactions and categories are isolated per user.
+## What Changed
+- Sharing is no longer global for all users.
+- Access is granted explicitly per user via the `shared_access` table.
+- Sharing is one-way: both users must share to see each other's data.
 
-## Solution
-We've created a migration that allows both partners to access each other's data by modifying the RLS policies.
-
-## Steps to Enable Shared Access
+## Steps to Enable Controlled Sharing
 
 ### 1. Apply the Migration
 
@@ -18,14 +17,14 @@ Run the migration in your Supabase SQL Editor:
 2. Select your project
 3. Navigate to SQL Editor (in the left sidebar)
 4. Click "New Query"
-5. Copy the contents of `supabase/migrations/004_enable_shared_access.sql`
+5. Copy the contents of `supabase/migrations/008_controlled_shared_access.sql`
 6. Paste into the SQL Editor
 7. Click "Run" or press Cmd/Ctrl + Enter
 
 This migration:
-- Creates a function `get_shared_user_ids()` that returns all user IDs (both partners)
-- Updates RLS policies to allow both partners to view and modify each other's data
-- All authenticated users in your profiles table will have access to all data
+- Creates a `shared_access` table to track explicit shares
+- Updates `get_shared_user_ids()` to return only allowed user IDs
+- Updates RLS policies so inserts must be owned by the current user
 
 ### 2. Restart Your Application
 
@@ -35,31 +34,21 @@ After running the migration, restart your Next.js dev server:
 npm run dev
 ```
 
-### 3. Verify It Works
+### 3. Share Access via Settings
 
-After running the migration:
-- Log in as yourself - you should see all transactions (yours and your wife's)
-- Log in as your wife - she should see all transactions (yours and hers)
-- Categories should also be shared
-- Both users can add, edit, and delete transactions/categories
+1. Log in to the app
+2. Go to **Settings** → **Shared access**
+3. Enter the other user's email and click **Share access**
+
+### 4. Verify It Works
+
+- User A should only see their own data until they share access
+- After A shares with B, B can see A's data
+- A will not see B's data unless B also shares with A
 
 ## Important Notes
 
-1. **All Data is Shared**: With this setup, ALL users in the profiles table will have access to ALL data. This is fine for a household finance app with just two users.
-
-2. **Initial Categories**: Your wife should see all categories once she logs in. If she sees an empty dropdown, she may need to:
-   - Refresh the page
-   - Or you can have her run the category initialization if needed (though categories should now be visible to both)
-
-3. **Security**: This approach shares data between all users in your Supabase project. If you add more users in the future, they would also have access. For a household app with just two people, this is typically acceptable.
-
-## Alternative Approach (More Secure, More Complex)
-
-If you want more granular control in the future, you could:
-- Add a `household_id` or `partner_id` field to profiles
-- Create a households table
-- Link users to specific households
-- Update RLS policies to only share within households
-
-For now, the simpler approach should work fine for two users sharing finances.
+1. **One-way sharing**: Each person must add the other to get mutual access.
+2. **Existing accounts only**: The email must already exist in the profiles table.
+3. **Applies to core data**: Categories, budgets, transactions, and rules use the new sharing rules.
 
