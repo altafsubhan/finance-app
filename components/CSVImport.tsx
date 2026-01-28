@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Category, PaymentMethod } from '@/types/database';
+import { useEffect, useMemo, useState } from 'react';
+import { Category, CategoryRule, CategoryRuleBlocklist, PaymentMethod } from '@/types/database';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
+import { suggestCategoryIdForDescription } from '@/lib/rules/categoryRules';
 
 interface CSVImportProps {
   categories: Category[];
@@ -29,6 +30,9 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
   const [preview, setPreview] = useState<ParsedTransaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoCategorizeEnabled, setAutoCategorizeEnabled] = useState(true);
+  const [rules, setRules] = useState<CategoryRule[]>([]);
+  const [blocklist, setBlocklist] = useState<CategoryRuleBlocklist[]>([]);
   const [paymentMethodOverride, setPaymentMethodOverride] = useState<PaymentMethod | ''>('');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [periodType, setPeriodType] = useState<'month' | 'quarter' | 'year'>('month');
@@ -48,6 +52,51 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
     payment_method: '',
     paid_by: '',
   });
+
+  useEffect(() => {
+    // Load rules once; if migration isn't applied yet, this will just no-op with an error shown in console.
+    const loadRules = async () => {
+      try {
+        const res = await fetch('/api/category-rules', { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        setRules(data.rules || []);
+        setBlocklist(data.blocklist || []);
+      } catch {
+        // ignore
+      }
+    };
+    loadRules();
+  }, []);
+
+  const categoriesById = useMemo(() => {
+    const map = new Map<string, Category>();
+    categories.forEach(c => map.set(c.id, c));
+    return map;
+  }, [categories]);
+
+  const applyRulesToPreview = (rows: ParsedTransaction[]) => {
+    if (!autoCategorizeEnabled) return rows;
+    if (rules.length === 0) return rows;
+
+    return rows.map(row => {
+      // Respect explicit category in CSV if provided
+      if (row.category && row.category.trim()) return row;
+
+      const suggestion = suggestCategoryIdForDescription({
+        description: row.description,
+        rules,
+        blocklist,
+        categories,
+      });
+      if (!suggestion) return row;
+
+      const cat = categoriesById.get(suggestion.category_id);
+      if (!cat) return row;
+
+      return { ...row, category: cat.name };
+    });
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -146,7 +195,7 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
             });
         }
         
-        setPreview(previewData);
+        setPreview(applyRulesToPreview(previewData));
       } catch (err: any) {
         setError(`Failed to parse CSV: ${err.message}`);
       }
@@ -335,6 +384,18 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
                 ))}
               </select>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              id="auto-categorize"
+              type="checkbox"
+              checked={autoCategorizeEnabled}
+              onChange={(e) => setAutoCategorizeEnabled(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="auto-categorize" className="text-sm text-gray-700">
+              Auto-select categories using rules (recommended)
+            </label>
           </div>
           <p className="text-sm text-gray-500">
             All imported transactions will be assigned to the selected year and period. Payment method override is optional.

@@ -53,6 +53,31 @@ export interface Budget {
   created_at: string;
 }
 
+export type RuleMatchType = 'contains' | 'starts_with' | 'regex';
+
+export interface CategoryRule {
+  id: string;
+  pattern: string;
+  match_type: RuleMatchType;
+  category_id: string;
+  priority: number;
+  is_active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CategoryRuleBlocklist {
+  id: string;
+  pattern: string;
+  match_type: RuleMatchType;
+  reason: string | null;
+  is_active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface User {
   id: string;
   email: string;

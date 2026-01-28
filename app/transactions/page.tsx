@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Transaction, Category, Budget } from '@/types/database';
+import { Transaction, Category, Budget, CategoryRule, CategoryRuleBlocklist } from '@/types/database';
 import TransactionForm from '@/components/TransactionForm';
 import TransactionList from '@/components/TransactionList';
 import CSVImport from '@/components/CSVImport';
@@ -12,6 +12,7 @@ import PaymentsMadeSummary from '@/components/PaymentsMadeSummary';
 import BudgetVsSpendingPanel from '@/components/BudgetVsSpendingPanel';
 import SplitTransactionModal, { Split } from '@/components/SplitTransactionModal';
 import EditTransactionModal from '@/components/EditTransactionModal';
+import UncategorizedAutoAssignModal from '@/components/UncategorizedAutoAssignModal';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 import { format, startOfYear, endOfYear } from 'date-fns';
@@ -21,6 +22,8 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [rules, setRules] = useState<CategoryRule[]>([]);
+  const [blocklist, setBlocklist] = useState<CategoryRuleBlocklist[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showCSVImport, setShowCSVImport] = useState(false);
   const [showScreenshotImport, setShowScreenshotImport] = useState(false);
@@ -38,6 +41,7 @@ export default function TransactionsPage() {
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [summariesExpanded, setSummariesExpanded] = useState(false);
   const [transactionsExpanded, setTransactionsExpanded] = useState(false);
+  const [uncategorizedModalOpen, setUncategorizedModalOpen] = useState(false);
   const [splittingTransaction, setSplittingTransaction] = useState<Transaction | null>(null);
   const [editingTransactionModal, setEditingTransactionModal] = useState<Transaction | null>(null);
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
@@ -212,6 +216,18 @@ export default function TransactionsPage() {
     }
   }, [selectedYear]);
 
+  const loadCategoryRules = useCallback(async () => {
+    try {
+      const res = await fetch('/api/category-rules', { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setRules(data.rules || []);
+      setBlocklist(data.blocklist || []);
+    } catch (error) {
+      console.error('Failed to load category rules:', error);
+    }
+  }, []);
+
   // Load categories and transactions on mount
   useEffect(() => {
     const loadCategories = async () => {
@@ -232,12 +248,13 @@ export default function TransactionsPage() {
       setInitialLoading(true);
       await loadCategories();
       await loadBudgets();
+      await loadCategoryRules();
       await loadTransactions();
       setInitialLoading(false);
     };
     
     initialLoad();
-  }, [loadBudgets, loadTransactions]);
+  }, [loadBudgets, loadCategoryRules, loadTransactions]);
 
   // Reload transactions when filters change (but not on initial mount)
   useEffect(() => {
@@ -251,6 +268,12 @@ export default function TransactionsPage() {
       loadBudgets();
     }
   }, [loadBudgets, initialLoading]);
+
+  useEffect(() => {
+    if (!initialLoading) {
+      loadCategoryRules();
+    }
+  }, [loadCategoryRules, initialLoading]);
 
   const loadData = async () => {
     await loadTransactions();
@@ -355,6 +378,8 @@ export default function TransactionsPage() {
   const summaryQuarterLabel = `Q${activeSummaryQuarter}`;
   const showQuarterHint = !selectedQuarter;
 
+  const uncategorizedCount = transactions.filter(t => t.category_id === null).length;
+
   // Close category filter dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -401,7 +426,19 @@ export default function TransactionsPage() {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <h1 className="text-2xl sm:text-4xl font-bold">Transactions</h1>
             {!showForm && !showCSVImport && !showScreenshotImport && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 justify-end">
+                <button
+                  onClick={() => setUncategorizedModalOpen(true)}
+                  disabled={uncategorizedCount === 0}
+                  className="border border-gray-300 text-gray-800 px-2.5 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  title={
+                    uncategorizedCount === 0
+                      ? 'No uncategorized transactions in the current list'
+                      : 'Suggest categories using rules'
+                  }
+                >
+                  Suggest categories ({uncategorizedCount})
+                </button>
                 <button
                   onClick={exportToCSV}
                   className="bg-blue-600 text-white px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm rounded-lg hover:bg-blue-700 whitespace-nowrap flex-1 sm:flex-none"
@@ -904,6 +941,16 @@ export default function TransactionsPage() {
             }}
           />
         )}
+
+        <UncategorizedAutoAssignModal
+          isOpen={uncategorizedModalOpen}
+          onClose={() => setUncategorizedModalOpen(false)}
+          uncategorized={transactions.filter(t => t.category_id === null)}
+          categories={categories}
+          rules={rules}
+          blocklist={blocklist}
+          onTransactionUpdated={applyTransactionUpdate}
+        />
       </div>
     </main>
   );

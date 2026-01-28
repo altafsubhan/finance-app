@@ -118,7 +118,7 @@ export default function BudgetsPage() {
     <main className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">Budgets</h1>
+          <h1 className="text-4xl font-bold">Budgets &amp; Categories</h1>
           <div className="flex items-center gap-4">
             <select
               value={selectedYear}
@@ -141,6 +141,68 @@ export default function BudgetsPage() {
             )}
           </div>
         </div>
+
+        {/* Categories overview (read-only) */}
+        {categories.length > 0 && (
+          <div className="mb-10 space-y-6">
+            <h2 className="text-2xl font-semibold">Categories</h2>
+            <div className="space-y-6">
+              <section>
+                <h3 className="text-lg font-semibold mb-2">Monthly</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {categories
+                    .filter((c) => c.type === 'monthly')
+                    .map((cat) => (
+                      <div key={cat.id} className="p-4 border rounded-lg bg-white">
+                        <div className="font-medium">{cat.name}</div>
+                        {cat.default_budget && (
+                          <div className="text-sm text-gray-500">
+                            Default Budget: ${parseFloat(cat.default_budget.toString()).toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-lg font-semibold mb-2">Quarterly</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {categories
+                    .filter((c) => c.type === 'quarterly')
+                    .map((cat) => (
+                      <div key={cat.id} className="p-4 border rounded-lg bg-white">
+                        <div className="font-medium">{cat.name}</div>
+                        {cat.default_budget && (
+                          <div className="text-sm text-gray-500">
+                            Default Budget: ${parseFloat(cat.default_budget.toString()).toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-lg font-semibold mb-2">Yearly</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {categories
+                    .filter((c) => c.type === 'yearly')
+                    .map((cat) => (
+                      <div key={cat.id} className="p-4 border rounded-lg bg-white">
+                        <div className="font-medium">{cat.name}</div>
+                        {cat.default_budget && (
+                          <div className="text-sm text-gray-500">
+                            Default Budget: ${parseFloat(cat.default_budget.toString()).toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </section>
+            </div>
+          </div>
+        )}
 
         {showForm && (
           <div className="mb-8 p-6 bg-white border rounded-lg">
