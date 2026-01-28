@@ -294,11 +294,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     ? groupedTransactions[categoryTypeFilter]
     : sortedTransactions;
 
-  const getPaidByColor = (paidBy: PaidBy) => {
-    const option = PAID_BY_OPTIONS.find(opt => opt.value === paidBy);
-    return option?.color || 'bg-gray-200';
-  };
-
   const getPaidByLabel = (paidBy: PaidBy) => {
     const option = PAID_BY_OPTIONS.find(opt => opt.value === paidBy);
     return option?.label || 'Not Paid';
@@ -1014,10 +1009,20 @@ function TransactionTable({
           {transactions.map((transaction) => {
             const categoryType = getCategoryType(transaction.category_id);
             const isSelected = selectedIds.has(transaction.id);
+            const isUncategorized = !transaction.category_id;
+            const isPaid = transaction.paid_by !== null;
+
+            const rowBgClass = isSelected
+              ? 'bg-blue-50'
+              : isUncategorized
+                ? 'bg-red-50'
+                : isPaid
+                  ? 'bg-green-50'
+                  : 'bg-white';
             return (
             <tr 
               key={transaction.id} 
-              className={`${isSelected ? 'bg-blue-50' : !transaction.category_id ? 'bg-red-50' : 'hover:bg-gray-50'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
+              className={`${rowBgClass} ${!isSelected ? 'hover:bg-gray-50' : ''} ${isSelectionMode ? 'cursor-pointer' : ''}`}
               style={{
                   WebkitUserSelect: 'none', 
                   userSelect: 'none',
@@ -1070,7 +1075,7 @@ function TransactionTable({
                     </span>
                   )}
                 </td>
-                <td className={`px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm font-bold text-right text-gray-900 w-24 ${getPaidByColor(transaction.paid_by)}`}>
+                <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm font-bold text-right text-gray-900 w-24">
                   ${parseFloat(transaction.amount.toString()).toFixed(2)}
                 </td>
                 <td className="px-1 md:px-6 py-2 md:py-4 text-sm text-gray-900 break-words">
