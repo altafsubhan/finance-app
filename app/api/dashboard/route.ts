@@ -201,14 +201,40 @@ export async function GET(request: NextRequest) {
       difference: annualBudget - annualActual,
     };
 
-    // Calculate average monthly expense
-    // Average monthly run-rate:
-    // (monthly total / 12) + (quarterly total / 4) + (annual total / 12)
+    // Calculate average monthly expense (run-rate)
+    // Desired: current-month spending + (current-quarter spending ÷ 4) + (annual spending ÷ 12)
     const totalMonthly = monthlySummaries.reduce((sum, m) => sum + m.actual, 0);
     const totalQuarterly = quarterlySummaries.reduce((sum, q) => sum + q.actual, 0);
     const totalAnnual = annualActual;
-    
-    const averageMonthlyExpense = (totalMonthly / 12) + (totalQuarterly / 4) + (totalAnnual / 12);
+
+    const now = new Date();
+    const isCurrentYear = yearNum === now.getFullYear();
+    const defaultMonth = now.getMonth() + 1;
+    const defaultQuarter = Math.floor(now.getMonth() / 3) + 1;
+
+    const lastNonZeroMonth = (() => {
+      for (let i = monthlySummaries.length - 1; i >= 0; i--) {
+        if (monthlySummaries[i].actual > 0) return monthlySummaries[i].periodValue;
+      }
+      return 1;
+    })();
+    const lastNonZeroQuarter = (() => {
+      for (let i = quarterlySummaries.length - 1; i >= 0; i--) {
+        if (quarterlySummaries[i].actual > 0) return quarterlySummaries[i].periodValue;
+      }
+      return 1;
+    })();
+
+    const currentMonth = isCurrentYear ? defaultMonth : lastNonZeroMonth;
+    const currentQuarter = isCurrentYear ? defaultQuarter : lastNonZeroQuarter;
+
+    const currentMonthActual =
+      monthlySummaries.find(m => m.periodValue === currentMonth)?.actual ?? 0;
+    const currentQuarterActual =
+      quarterlySummaries.find(q => q.periodValue === currentQuarter)?.actual ?? 0;
+
+    const averageMonthlyExpense =
+      currentMonthActual + (currentQuarterActual / 4) + (totalAnnual / 12);
 
     // Calculate total expense for the year
     const totalYearExpense = totalMonthly + totalQuarterly + totalAnnual;
