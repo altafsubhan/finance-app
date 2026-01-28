@@ -4,8 +4,8 @@
 
 If you deleted your wife's profile row from the `profiles` table:
 - ✅ **Good news**: If the user still exists in `auth.users`, we can easily restore it
-- ⚠️ **Issue**: Without a profile row, the RLS policies may block access to data because `get_shared_user_ids()` only returns IDs from the `profiles` table
-- ⚠️ **Issue**: Her transactions/categories/budgets might still exist but she won't be able to access them
+- ⚠️ **Issue**: Without a profile row, sharing and profile lookups will fail (the `shared_access` table references profiles)
+- ⚠️ **Issue**: Inserts into categories/budgets/transactions may fail due to foreign key checks
 
 ## Recovery Steps
 

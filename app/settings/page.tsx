@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import SharedAccessPanel from '@/components/SharedAccessPanel';
 
 export default function SettingsPage() {
   return (
@@ -10,6 +11,8 @@ export default function SettingsPage() {
             Manage budgets, categories, payment methods, and automation rules.
           </p>
         </div>
+
+        <SharedAccessPanel />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <section className="bg-white border rounded-lg p-6 space-y-3">
