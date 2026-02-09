@@ -854,7 +854,7 @@ export default function TransactionsPage() {
               }
 
               setSelectedTransactionIds(new Set());
-              loadData();
+              loadTransactions();
             }}
             onBulkDelete={async (ids: string[]) => {
               // Delete all selected transactions in parallel
@@ -873,7 +873,7 @@ export default function TransactionsPage() {
               }
 
               setSelectedTransactionIds(new Set());
-              loadData();
+              loadTransactions();
             }}
             onBulkEdit={(transactionId: string) => {
               const transaction = transactions.find(t => t.id === transactionId);
