@@ -912,7 +912,7 @@ export default function TransactionsPage() {
               }
 
               setSplittingTransaction(null);
-              loadData();
+              loadTransactions();
             }}
           />
         )}
@@ -924,7 +924,7 @@ export default function TransactionsPage() {
             onClose={() => setEditingTransactionModal(null)}
             onSuccess={() => {
               setEditingTransactionModal(null);
-              loadData();
+              loadTransactions();
             }}
           />
         )}
