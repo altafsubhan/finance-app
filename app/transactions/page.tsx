@@ -275,14 +275,10 @@ export default function TransactionsPage() {
     }
   }, [loadCategoryRules, initialLoading]);
 
-  const loadData = async () => {
-    await loadTransactions();
-  };
-
   const handleSuccess = () => {
     setShowForm(false);
     setEditingTransaction(null);
-    loadData();
+    loadTransactions();
   };
 
   const handleEdit = (transaction: Transaction) => {
@@ -290,8 +286,9 @@ export default function TransactionsPage() {
     setEditingTransactionModal(transaction);
   };
 
-  const handleDelete = () => {
-    loadData();
+  const handleDelete = (id: string) => {
+    // Optimistically update local state; server delete is handled in TransactionList
+    setTransactions(prev => prev.filter(t => t.id !== id));
   };
 
   const handleCancel = () => {
