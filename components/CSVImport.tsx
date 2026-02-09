@@ -24,10 +24,72 @@ interface ParsedTransaction {
   quarter?: number;
 }
 
+type ColumnMapping = {
+  date: string;
+  amount: string;
+  description: string;
+  category: string;
+  payment_method: string;
+  paid_by: string;
+};
+
+const EMPTY_MAPPING: ColumnMapping = {
+  date: '',
+  amount: '',
+  description: '',
+  category: '',
+  payment_method: '',
+  paid_by: '',
+};
+
+const REQUIRED_MAPPING_FIELDS: Array<keyof ColumnMapping> = ['date', 'amount', 'description'];
+
+const CSV_TEMPLATE = `Date,Amount,Description,Category,Payment Method,Paid By
+2025-01-15,45.99,Grocery Store,Grocery,Chase Sapphire,joint
+2025-01-16,12.50,Coffee Shop,Food - Cafe,BOA Travel,mano
+2025-01-17,89.00,Gas Station,Car - Gas,Chase Freedom,sobi
+`;
+
+const normalizeHeader = (header: string) =>
+  header
+    .toLowerCase()
+    .trim()
+    .replace(/^\ufeff/, '')
+    .replace(/[\s_-]+/g, ' ');
+
+const findHeaderIndex = (normalizedHeaders: string[], candidates: string[]) => {
+  for (const candidate of candidates) {
+    const index = normalizedHeaders.findIndex(
+      (header) => header === candidate || header.includes(candidate)
+    );
+    if (index !== -1) return index;
+  }
+  return -1;
+};
+
+const detectMapping = (headers: string[]): ColumnMapping => {
+  const normalizedHeaders = headers.map(normalizeHeader);
+  const pickHeader = (candidates: string[]) => {
+    const index = findHeaderIndex(normalizedHeaders, candidates);
+    return index >= 0 ? headers[index] : '';
+  };
+
+  return {
+    date: pickHeader(['transaction date', 'post date', 'date']),
+    amount: pickHeader(['amount', 'amt', 'value', 'total', 'debit', 'credit']),
+    description: pickHeader(['description', 'details', 'merchant', 'payee', 'memo', 'note']),
+    category: pickHeader(['category']),
+    payment_method: pickHeader(['payment method', 'card', 'account']),
+    paid_by: pickHeader(['paid by', 'owner', 'who']),
+  };
+};
+
 export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
   const { paymentMethods } = usePaymentMethods();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ParsedTransaction[]>([]);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [rawRows, setRawRows] = useState<string[][]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoCategorizeEnabled, setAutoCategorizeEnabled] = useState(true);
@@ -37,21 +99,7 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [periodType, setPeriodType] = useState<'month' | 'quarter' | 'year'>('month');
   const [periodValue, setPeriodValue] = useState<number>(new Date().getMonth() + 1);
-  const [mapping, setMapping] = useState<{
-    date: string;
-    amount: string;
-    description: string;
-    category: string;
-    payment_method: string;
-    paid_by: string;
-  }>({
-    date: '',
-    amount: '',
-    description: '',
-    category: '',
-    payment_method: '',
-    paid_by: '',
-  });
+  const [mapping, setMapping] = useState<ColumnMapping>(EMPTY_MAPPING);
 
   useEffect(() => {
     // Load rules once; if migration isn't applied yet, this will just no-op with an error shown in console.
@@ -103,36 +151,135 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
     if (selectedFile) {
       setFile(selectedFile);
       setPreview([]);
+      setHeaders([]);
+      setRawRows([]);
+      setMapping(EMPTY_MAPPING);
       setError(null);
     }
   };
 
   const parseCSV = (text: string): string[][] => {
-    const lines = text.split('\n').filter(line => line.trim());
     const rows: string[][] = [];
-    
-    for (const line of lines) {
-      // Simple CSV parser (handles quoted fields)
-      const row: string[] = [];
-      let current = '';
-      let inQuotes = false;
-      
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-          inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-          row.push(current.trim());
-          current = '';
+    let row: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const nextChar = text[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          current += '"';
+          i++;
         } else {
-          current += char;
+          inQuotes = !inQuotes;
         }
+        continue;
       }
-      row.push(current.trim());
+
+      if (char === ',' && !inQuotes) {
+        row.push(current.trim());
+        current = '';
+        continue;
+      }
+
+      if ((char === '\n' || char === '\r') && !inQuotes) {
+        if (char === '\r' && nextChar === '\n') {
+          i++;
+        }
+        row.push(current.trim());
+        if (row.some(value => value !== '')) {
+          rows.push(row);
+        }
+        row = [];
+        current = '';
+        continue;
+      }
+
+      current += char;
+    }
+
+    row.push(current.trim());
+    if (row.some(value => value !== '')) {
       rows.push(row);
     }
-    
+
     return rows;
+  };
+
+  const rebuildPreview = (rows: string[][], currentMapping: ColumnMapping) => {
+    const missingRequired = REQUIRED_MAPPING_FIELDS.filter((field) => !currentMapping[field]);
+    if (missingRequired.length > 0) {
+      setPreview([]);
+      setError(`Select CSV columns for: ${missingRequired.join(', ')}`);
+      return;
+    }
+
+    const headerRow = rows[0] || [];
+    const headerIndex = new Map(headerRow.map((header, index) => [header, index]));
+    const getValue = (row: string[], columnName: string) => {
+      if (!columnName) return '';
+      const index = headerIndex.get(columnName);
+      return index === undefined ? '' : row[index] ?? '';
+    };
+
+    const previewData: ParsedTransaction[] = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row) continue;
+
+      const date = getValue(row, currentMapping.date);
+      const amount = getValue(row, currentMapping.amount);
+      const description = getValue(row, currentMapping.description);
+      const category = currentMapping.category ? getValue(row, currentMapping.category) : '';
+      const paidByValue = currentMapping.paid_by ? getValue(row, currentMapping.paid_by) : '';
+      const paymentMethod =
+        paymentMethodOverride ||
+        (currentMapping.payment_method ? getValue(row, currentMapping.payment_method) : '') ||
+        'Other';
+
+      if (!date && !amount && !description && !category && !paidByValue) continue;
+
+      previewData.push({
+        id: `csv-${i}`,
+        date,
+        amount,
+        description,
+        category,
+        payment_method: paymentMethod,
+        paid_by: paidByValue ? paidByValue : null,
+        year: selectedYear,
+        month: periodType === 'month' ? periodValue : undefined,
+        quarter: periodType === 'quarter' ? periodValue : undefined,
+      });
+    }
+
+    setError(null);
+    setPreview(applyRulesToPreview(previewData));
+  };
+
+  const handleMappingChange = (field: keyof ColumnMapping, value: string) => {
+    setMapping((prev) => {
+      const next = { ...prev, [field]: value };
+      if (rawRows.length > 0) {
+        rebuildPreview(rawRows, next);
+      }
+      return next;
+    });
+  };
+
+  const handleDownloadTemplate = () => {
+    const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'transactions-import-template.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   };
 
   const handlePreview = () => {
@@ -143,59 +290,23 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
       try {
         const text = e.target?.result as string;
         const rows = parseCSV(text);
-        
+
         if (rows.length < 2) {
           setError('CSV file must have at least a header row and one data row');
+          setPreview([]);
+          setHeaders([]);
+          setRawRows([]);
           return;
         }
 
-        const headers = rows[0].map(h => h.toLowerCase().trim());
-        
-        // Try to auto-detect column mapping
-        const autoMapping = {
-          date: headers.findIndex(h => h.includes('date')),
-          amount: headers.findIndex(h => h.includes('amount') || h.includes('price') || h.includes('cost')),
-          description: headers.findIndex(h => h.includes('description') || h.includes('note') || h.includes('memo') || h.includes('details')),
-          category: headers.findIndex(h => h.includes('category') || h.includes('type')),
-          payment_method: headers.findIndex(h => h.includes('payment') || h.includes('method') || h.includes('card')),
-          paid_by: headers.findIndex(h => h.includes('paid') || h.includes('who')),
-        };
+        const rawHeaders = rows[0].map((header) => header.replace(/^\ufeff/, '').trim());
+        rows[0] = rawHeaders;
+        const autoMapping = detectMapping(rawHeaders);
 
-        // Set mapping to header names (auto-detected, can be adjusted later with UI if needed)
-        setMapping({
-          date: headers[autoMapping.date] || headers[0] || '',
-          amount: headers[autoMapping.amount] || headers[1] || '',
-          description: headers[autoMapping.description] || headers[2] || '',
-          category: headers[autoMapping.category] || '',
-          payment_method: headers[autoMapping.payment_method] || '',
-          paid_by: headers[autoMapping.paid_by] || '',
-        });
-
-        // Parse preview data for all rows (skip header)
-        const previewData: ParsedTransaction[] = [];
-          const dateIdx = autoMapping.date >= 0 ? autoMapping.date : 0;
-          const amountIdx = autoMapping.amount >= 0 ? autoMapping.amount : 1;
-          const descIdx = autoMapping.description >= 0 ? autoMapping.description : 2;
-
-        for (let i = 1; i < rows.length; i++) {
-          const row = rows[i];
-          if (!row || row.length === 0) continue;
-          
-          previewData.push({
-            id: `csv-${i}`,
-            date: row[dateIdx] || '',
-            amount: row[amountIdx] || '',
-            description: row[descIdx] || '',
-            category: autoMapping.category >= 0 ? (row[autoMapping.category] || '') : '',
-            payment_method: paymentMethodOverride || (autoMapping.payment_method >= 0 ? (row[autoMapping.payment_method] || '') : '') || 'Other',
-            paid_by: autoMapping.paid_by >= 0 ? (row[autoMapping.paid_by] || null) : null,
-              year: selectedYear,
-              month: periodType === 'month' ? periodValue : undefined,
-              quarter: periodType === 'quarter' ? periodValue : undefined,
-            });
-        }
-        
-        setPreview(applyRulesToPreview(previewData));
+        setHeaders(rawHeaders);
+        setRawRows(rows);
+        setMapping(autoMapping);
+        rebuildPreview(rows, autoMapping);
       } catch (err: any) {
         setError(`Failed to parse CSV: ${err.message}`);
       }
@@ -273,9 +384,22 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
           onChange={handleFileChange}
           className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <p className="text-sm text-gray-500 mt-1">
-          CSV should have columns: Date, Amount, Description, Category, Payment Method, Paid By (optional)
-        </p>
+        <div className="text-sm text-gray-500 mt-1 space-y-1">
+          <p>
+            Required columns: Date, Amount, Description. Optional: Category, Payment Method, Paid By.
+          </p>
+          <p>
+            We auto-detect common headers like Transaction Date, Post Date, Details, Memo, or
+            Merchant. Extra columns are ignored.
+          </p>
+          <button
+            type="button"
+            onClick={handleDownloadTemplate}
+            className="text-blue-600 hover:text-blue-800 underline text-sm"
+          >
+            Download CSV template
+          </button>
+        </div>
       </div>
 
       {file && (
@@ -407,6 +531,108 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
           >
             Preview CSV
           </button>
+
+          {headers.length > 0 && (
+            <div className="space-y-3">
+              <div className="text-sm font-medium">Column Mapping</div>
+              <p className="text-sm text-gray-500">
+                Match your CSV columns to fields. Required: Date, Amount, Description. Optional
+                fields can be left blank.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Date Column *</label>
+                  <select
+                    value={mapping.date}
+                    onChange={(e) => handleMappingChange('date', e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select column</option>
+                    {headers.map((header) => (
+                      <option key={`date-${header}`} value={header}>
+                        {header}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Amount Column *</label>
+                  <select
+                    value={mapping.amount}
+                    onChange={(e) => handleMappingChange('amount', e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select column</option>
+                    {headers.map((header) => (
+                      <option key={`amount-${header}`} value={header}>
+                        {header}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Description Column *</label>
+                  <select
+                    value={mapping.description}
+                    onChange={(e) => handleMappingChange('description', e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select column</option>
+                    {headers.map((header) => (
+                      <option key={`description-${header}`} value={header}>
+                        {header}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Category Column</label>
+                  <select
+                    value={mapping.category}
+                    onChange={(e) => handleMappingChange('category', e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">(Not in file)</option>
+                    {headers.map((header) => (
+                      <option key={`category-${header}`} value={header}>
+                        {header}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Payment Method Column</label>
+                  <select
+                    value={mapping.payment_method}
+                    onChange={(e) => handleMappingChange('payment_method', e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">(Not in file)</option>
+                    {headers.map((header) => (
+                      <option key={`payment-${header}`} value={header}>
+                        {header}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Paid By Column</label>
+                  <select
+                    value={mapping.paid_by}
+                    onChange={(e) => handleMappingChange('paid_by', e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">(Not in file)</option>
+                    {headers.map((header) => (
+                      <option key={`paidby-${header}`} value={header}>
+                        {header}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
           {preview.length > 0 && (
             <div className="space-y-4">
