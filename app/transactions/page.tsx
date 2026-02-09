@@ -486,7 +486,7 @@ export default function TransactionsPage() {
               categories={categories}
               onSuccess={() => {
                 setShowCSVImport(false);
-                loadData();
+                loadTransactions();
               }}
             />
           </div>
@@ -509,7 +509,7 @@ export default function TransactionsPage() {
               categories={categories}
               onSuccess={() => {
                 setShowScreenshotImport(false);
-                loadData();
+                loadTransactions();
               }}
             />
           </div>
