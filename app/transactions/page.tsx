@@ -29,11 +29,9 @@ export default function TransactionsPage() {
   const [showScreenshotImport, setShowScreenshotImport] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<string>('');
-  const [selectedQuarter, setSelectedQuarter] = useState<string>('');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(''); // '' for all, '1'-'12' for months, 'Q1'-'Q4' for quarters
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
-  const [selectedCategoryType, setSelectedCategoryType] = useState<'monthly' | 'quarterly' | 'yearly' | ''>('');
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>('');
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
   const [loadingTransactions, setLoadingTransactions] = useState(false);
@@ -58,20 +56,23 @@ export default function TransactionsPage() {
       // Filter by year
       if (transaction.year !== selectedYear) return false;
       
-      // Filter by month if category type is monthly and month is selected
-      if (selectedMonth && selectedCategoryType === 'monthly') {
-        if (transaction.month !== parseInt(selectedMonth)) return false;
-      }
-      
-      // Filter by quarter if category type is quarterly and quarter is selected
-      if (selectedQuarter && selectedCategoryType === 'quarterly') {
-        if (transaction.quarter !== parseInt(selectedQuarter)) return false;
-      }
-      
-      // Filter by category type (if selected)
-      if (selectedCategoryType) {
-        const category = categories.find(c => c.id === transaction.category_id);
-        if (!category || category.type !== selectedCategoryType) return false;
+      // Filter by period (month or quarter)
+      if (selectedPeriod) {
+        if (selectedPeriod.startsWith('Q')) {
+          // Quarter filter
+          const quarterNum = parseInt(selectedPeriod.substring(1));
+          if (transaction.quarter !== quarterNum) return false;
+          // Also filter by category type to only show quarterly categories
+          const category = categories.find(c => c.id === transaction.category_id);
+          if (!category || category.type !== 'quarterly') return false;
+        } else {
+          // Month filter
+          const monthNum = parseInt(selectedPeriod);
+          if (transaction.month !== monthNum) return false;
+          // Also filter by category type to only show monthly categories
+          const category = categories.find(c => c.id === transaction.category_id);
+          if (!category || category.type !== 'monthly') return false;
+        }
       }
       
       // Filter by selected categories (if any selected)
@@ -149,9 +150,7 @@ export default function TransactionsPage() {
     // Generate filename with current filters
     const filterParts: string[] = [];
     if (selectedYear) filterParts.push(`year-${selectedYear}`);
-    if (selectedCategoryType) filterParts.push(selectedCategoryType);
-    if (selectedMonth) filterParts.push(`month-${selectedMonth}`);
-    if (selectedQuarter) filterParts.push(`quarter-${selectedQuarter}`);
+    if (selectedPeriod) filterParts.push(`period-${selectedPeriod}`);
     if (selectedPaymentMethod) filterParts.push(`payment-${selectedPaymentMethod.replace(/\s+/g, '-')}`);
     const filterSuffix = filterParts.length > 0 ? `-${filterParts.join('-')}` : '';
     const filename = `transactions${filterSuffix}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
@@ -171,11 +170,15 @@ export default function TransactionsPage() {
       // Load transactions
       const params = new URLSearchParams();
       params.append('year', selectedYear.toString());
-      if (selectedMonth && selectedCategoryType === 'monthly') {
-        params.append('month', selectedMonth);
-      }
-      if (selectedQuarter && selectedCategoryType === 'quarterly') {
-        params.append('quarter', selectedQuarter);
+      if (selectedPeriod) {
+        if (selectedPeriod.startsWith('Q')) {
+          // Quarter filter
+          const quarterNum = selectedPeriod.substring(1);
+          params.append('quarter', quarterNum);
+        } else {
+          // Month filter
+          params.append('month', selectedPeriod);
+        }
       }
       // Append multiple category IDs
       selectedCategories.forEach(categoryId => {
@@ -200,7 +203,7 @@ export default function TransactionsPage() {
     } finally {
       setLoadingTransactions(false);
     }
-  }, [selectedYear, selectedMonth, selectedQuarter, selectedCategories, selectedPaymentMethod, selectedCategoryType, selectedPaidBy]);
+  }, [selectedYear, selectedPeriod, selectedCategories, selectedPaymentMethod, selectedPaidBy]);
 
   const loadBudgets = useCallback(async () => {
     try {
@@ -300,17 +303,23 @@ export default function TransactionsPage() {
     (transaction: Transaction) => {
       if (transaction.year !== selectedYear) return false;
 
-      if (selectedCategoryType) {
-        const category = categories.find(c => c.id === transaction.category_id);
-        if (!category || category.type !== selectedCategoryType) return false;
-      }
-
-      if (selectedCategoryType === 'monthly' && selectedMonth) {
-        if (transaction.month !== parseInt(selectedMonth)) return false;
-      }
-
-      if (selectedCategoryType === 'quarterly' && selectedQuarter) {
-        if (transaction.quarter !== parseInt(selectedQuarter)) return false;
+      // Filter by period (month or quarter)
+      if (selectedPeriod) {
+        if (selectedPeriod.startsWith('Q')) {
+          // Quarter filter
+          const quarterNum = parseInt(selectedPeriod.substring(1));
+          if (transaction.quarter !== quarterNum) return false;
+          // Also filter by category type to only show quarterly categories
+          const category = categories.find(c => c.id === transaction.category_id);
+          if (!category || category.type !== 'quarterly') return false;
+        } else {
+          // Month filter
+          const monthNum = parseInt(selectedPeriod);
+          if (transaction.month !== monthNum) return false;
+          // Also filter by category type to only show monthly categories
+          const category = categories.find(c => c.id === transaction.category_id);
+          if (!category || category.type !== 'monthly') return false;
+        }
       }
 
       if (selectedCategories.size > 0) {
@@ -334,11 +343,9 @@ export default function TransactionsPage() {
     [
       categories,
       selectedCategories,
-      selectedCategoryType,
-      selectedMonth,
+      selectedPeriod,
       selectedPaidBy,
       selectedPaymentMethod,
-      selectedQuarter,
       selectedYear,
     ]
   );
@@ -367,13 +374,18 @@ export default function TransactionsPage() {
   );
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
-  const activeSummaryMonth = selectedMonth ? parseInt(selectedMonth) : new Date().getMonth() + 1;
+  // Determine active month/quarter from selectedPeriod
+  const activeSummaryMonth = selectedPeriod && !selectedPeriod.startsWith('Q') 
+    ? parseInt(selectedPeriod) 
+    : new Date().getMonth() + 1;
   const summaryMonthLabel = new Date(2000, activeSummaryMonth - 1).toLocaleString('default', { month: 'long' });
-  const showMonthHint = !selectedMonth;
+  const showMonthHint = !selectedPeriod || selectedPeriod.startsWith('Q');
 
-  const activeSummaryQuarter = selectedQuarter ? parseInt(selectedQuarter) : Math.floor(new Date().getMonth() / 3) + 1;
+  const activeSummaryQuarter = selectedPeriod && selectedPeriod.startsWith('Q')
+    ? parseInt(selectedPeriod.substring(1))
+    : Math.floor(new Date().getMonth() / 3) + 1;
   const summaryQuarterLabel = `Q${activeSummaryQuarter}`;
-  const showQuarterHint = !selectedQuarter;
+  const showQuarterHint = !selectedPeriod || !selectedPeriod.startsWith('Q');
 
   const uncategorizedCount = transactions.filter(t => t.category_id === null).length;
 
@@ -546,79 +558,27 @@ export default function TransactionsPage() {
                 </div>
 
           <div>
-            <label htmlFor="category_type" className="block text-sm font-medium mb-1">
-              Category Type
+            <label htmlFor="period" className="block text-sm font-medium mb-1">
+              Period
             </label>
             <select
-              id="category_type"
-              value={selectedCategoryType}
-              onChange={(e) => {
-                const newType = e.target.value as 'monthly' | 'quarterly' | 'yearly' | '';
-                setSelectedCategoryType(newType);
-                // Clear period-specific filters when changing category type
-                setSelectedMonth('');
-                setSelectedQuarter('');
-              }}
+              id="period"
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
               className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">All Types</option>
-              <option value="monthly">Monthly</option>
-              <option value="quarterly">Quarterly</option>
-              <option value="yearly">Yearly</option>
+              <option value="">All Periods</option>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                <option key={month} value={month.toString()}>
+                  {new Date(2000, month - 1).toLocaleString('default', { month: 'long' })}
+                </option>
+              ))}
+              <option value="Q1">Q1</option>
+              <option value="Q2">Q2</option>
+              <option value="Q3">Q3</option>
+              <option value="Q4">Q4</option>
             </select>
           </div>
-
-          {selectedCategoryType === 'monthly' && (
-            <div>
-              <label htmlFor="month" className="block text-sm font-medium mb-1">
-                Month
-              </label>
-              <select
-                id="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Months</option>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                  <option key={month} value={month}>
-                    {new Date(2000, month - 1).toLocaleString('default', { month: 'long' })}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {selectedCategoryType === 'quarterly' && (
-            <div>
-              <label htmlFor="quarter" className="block text-sm font-medium mb-1">
-                Quarter
-              </label>
-              <select
-                id="quarter"
-                value={selectedQuarter}
-                onChange={(e) => setSelectedQuarter(e.target.value)}
-                className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Quarters</option>
-                <option value="1">Q1 (Jan-Mar)</option>
-                <option value="2">Q2 (Apr-Jun)</option>
-                <option value="3">Q3 (Jul-Sep)</option>
-                <option value="4">Q4 (Oct-Dec)</option>
-              </select>
-            </div>
-          )}
-
-          {selectedCategoryType === 'yearly' && (
-            <div>
-              <label htmlFor="year_only" className="block text-sm font-medium mb-1">
-                Year
-              </label>
-              <div className="px-4 py-2 border rounded-lg bg-gray-100 text-gray-500">
-                {selectedYear} (All transactions for this year)
-              </div>
-            </div>
-          )}
 
           <div className="relative" ref={categoryFilterRef}>
             <label className="block text-sm font-medium mb-1">
@@ -627,10 +587,10 @@ export default function TransactionsPage() {
             <button
               type="button"
               onClick={() => setCategoryFilterOpen(!categoryFilterOpen)}
-              className="w-full px-4 py-2 text-left border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between"
+              className="w-full px-4 py-2 text-left border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between min-h-[42px]"
             >
-              <span>{getCategoryFilterText()}</span>
-              <span className="text-gray-400">{categoryFilterOpen ? '▲' : '▼'}</span>
+              <span className="truncate">{getCategoryFilterText()}</span>
+              <span className="text-gray-400 flex-shrink-0 ml-2">{categoryFilterOpen ? '▲' : '▼'}</span>
             </button>
             {categoryFilterOpen && (
               <div className="absolute z-10 mt-1 w-full border rounded-lg bg-white shadow-lg max-h-60 overflow-y-auto">
@@ -649,7 +609,17 @@ export default function TransactionsPage() {
                     <span className="text-sm text-gray-700">All Categories</span>
                   </label>
                   {categories
-                    .filter(cat => !selectedCategoryType || cat.type === selectedCategoryType)
+                    .filter(cat => {
+                      // If period is selected, filter by category type
+                      if (selectedPeriod) {
+                        if (selectedPeriod.startsWith('Q')) {
+                          return cat.type === 'quarterly';
+                        } else {
+                          return cat.type === 'monthly';
+                        }
+                      }
+                      return true;
+                    })
                     .map((cat) => (
                       <label key={cat.id} className="flex items-center">
                         <input
@@ -733,7 +703,7 @@ export default function TransactionsPage() {
               <OutstandingSummary
                 transactions={transactions}
                 categories={categories}
-                categoryTypeFilter={selectedCategoryType}
+                categoryTypeFilter={selectedPeriod.startsWith('Q') ? 'quarterly' : (selectedPeriod ? 'monthly' : '')}
                 onMarkPaid={loadTransactions}
                 defaultExpanded={false}
               />
@@ -741,7 +711,7 @@ export default function TransactionsPage() {
               <PaymentsMadeSummary
                 transactions={transactions}
                 categories={categories}
-                categoryTypeFilter={selectedCategoryType}
+                categoryTypeFilter={selectedPeriod.startsWith('Q') ? 'quarterly' : (selectedPeriod ? 'monthly' : '')}
                 defaultExpanded={false}
               />
               <BudgetVsSpendingPanel
@@ -787,7 +757,7 @@ export default function TransactionsPage() {
             onClick={() => setTransactionsExpanded(!transactionsExpanded)}
             className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
           >
-            <h2 className="text-lg font-semibold">Transactions</h2>
+            <h2 className="text-lg">Transactions</h2>
             <span className="text-gray-500">{transactionsExpanded ? '−' : '+'}</span>
           </button>
           {transactionsExpanded && (
@@ -802,7 +772,7 @@ export default function TransactionsPage() {
                  categories={categories}
                  onEdit={handleEdit}
                  onDelete={handleDelete}
-                 categoryTypeFilter={selectedCategoryType}
+                 categoryTypeFilter={selectedPeriod.startsWith('Q') ? 'quarterly' : (selectedPeriod ? 'monthly' : '')}
                  selectedIds={selectedTransactionIds}
                  onSelectionChange={setSelectedTransactionIds}
                  onAddTransaction={async (data) => {
