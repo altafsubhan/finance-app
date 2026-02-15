@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Budget, Category, Transaction } from '@/types/database';
 import CategoryBreakdownModal from '@/components/CategoryBreakdownModal';
 
@@ -40,11 +40,7 @@ export default function DashboardPage() {
     periodLabel: '',
   });
 
-  useEffect(() => {
-    loadDashboardData();
-  }, [selectedYear]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -88,7 +84,11 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedYear]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

@@ -34,8 +34,8 @@ export default function TransactionsPage() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [selectedPaidBy, setSelectedPaidBy] = useState<string>('');
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
-  const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const hasMountedRef = useRef(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [summariesExpanded, setSummariesExpanded] = useState(false);
   const [transactionsExpanded, setTransactionsExpanded] = useState(false);
@@ -165,8 +165,6 @@ export default function TransactionsPage() {
 
   const loadTransactions = useCallback(async () => {
     try {
-      setLoadingTransactions(true);
-      
       // Load transactions
       const params = new URLSearchParams();
       params.append('year', selectedYear.toString());
@@ -200,8 +198,6 @@ export default function TransactionsPage() {
       }
     } catch (error) {
       console.error('Failed to load transactions:', error);
-    } finally {
-      setLoadingTransactions(false);
     }
   }, [selectedYear, selectedPeriod, selectedCategories, selectedPaymentMethod, selectedPaidBy]);
 
@@ -231,7 +227,7 @@ export default function TransactionsPage() {
     }
   }, []);
 
-  // Load categories and transactions on mount
+  // Load categories, budgets, rules, and transactions on mount (once only)
   useEffect(() => {
     const loadCategories = async () => {
       try {
@@ -249,34 +245,28 @@ export default function TransactionsPage() {
     
     const initialLoad = async () => {
       setInitialLoading(true);
-      await loadCategories();
-      await loadBudgets();
-      await loadCategoryRules();
-      await loadTransactions();
+      await Promise.all([loadCategories(), loadBudgets(), loadCategoryRules(), loadTransactions()]);
       setInitialLoading(false);
+      hasMountedRef.current = true;
     };
     
     initialLoad();
-  }, [loadBudgets, loadCategoryRules, loadTransactions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
-  // Reload transactions when filters change (but not on initial mount)
+  // Reload transactions silently when filters change (after initial mount)
   useEffect(() => {
-    if (!initialLoading) {
+    if (hasMountedRef.current) {
       loadTransactions();
     }
-  }, [loadTransactions, initialLoading]);
+  }, [loadTransactions]);
 
+  // Reload budgets when year changes (after initial mount)
   useEffect(() => {
-    if (!initialLoading) {
+    if (hasMountedRef.current) {
       loadBudgets();
     }
-  }, [loadBudgets, initialLoading]);
-
-  useEffect(() => {
-    if (!initialLoading) {
-      loadCategoryRules();
-    }
-  }, [loadCategoryRules, initialLoading]);
+  }, [loadBudgets]);
 
   const handleSuccess = () => {
     setShowForm(false);
@@ -587,10 +577,9 @@ export default function TransactionsPage() {
             <button
               type="button"
               onClick={() => setCategoryFilterOpen(!categoryFilterOpen)}
-              className="w-full px-4 py-2 text-left border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between min-h-[42px]"
+              className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-left whitespace-nowrap"
             >
-              <span className="truncate">{getCategoryFilterText()}</span>
-              <span className="text-gray-400 flex-shrink-0 ml-2">{categoryFilterOpen ? '▲' : '▼'}</span>
+              {getCategoryFilterText()}<span className="text-gray-400 ml-2">{categoryFilterOpen ? '▲' : '▼'}</span>
             </button>
             {categoryFilterOpen && (
               <div className="absolute z-10 mt-1 w-full border rounded-lg bg-white shadow-lg max-h-60 overflow-y-auto">
@@ -762,7 +751,7 @@ export default function TransactionsPage() {
           </button>
           {transactionsExpanded && (
             <div className="p-4 border-t border-gray-200">
-              {loadingTransactions ? (
+              {initialLoading && transactions.length === 0 ? (
                 <div className="p-8 text-center">
                   <div className="text-gray-500">Loading transactions...</div>
                 </div>

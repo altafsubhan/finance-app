@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { Transaction, Category, PaymentMethod, PaidBy } from '@/types/database';
 import MarkPaidModal from './MarkPaidModal';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
@@ -38,11 +38,11 @@ export default function OutstandingSummary({ transactions, categories, categoryT
   )?.name || 'Mano Personal';
 
   // Helper function to get category type
-  const getCategoryType = (categoryId: string | null): 'monthly' | 'quarterly' | 'yearly' | null => {
+  const getCategoryType = useCallback((categoryId: string | null): 'monthly' | 'quarterly' | 'yearly' | null => {
     if (!categoryId) return null;
     const category = categories.find(c => c.id === categoryId);
     return category?.type || null;
-  };
+  }, [categories]);
 
   // Calculate outstanding amounts by payment method
   const outstandingByPaymentMethod = useMemo(() => {
@@ -86,12 +86,14 @@ export default function OutstandingSummary({ transactions, categories, categoryT
     });
 
     return result;
-  }, [transactions, categories, categoryTypeFilter, subiPersonalCategoryName, manoPersonalCategoryName]);
+  }, [transactions, categories, categoryTypeFilter, subiPersonalCategoryName, manoPersonalCategoryName, getCategoryType]);
 
   // Get the selected payment method breakdown or all payment methods
-  const displayData = selectedPaymentMethod
-    ? { [selectedPaymentMethod]: outstandingByPaymentMethod[selectedPaymentMethod] || { joint: 0, subi: 0, mano: 0, total: 0 } }
-    : outstandingByPaymentMethod;
+  const displayData = useMemo(() => {
+    return selectedPaymentMethod
+      ? { [selectedPaymentMethod]: outstandingByPaymentMethod[selectedPaymentMethod] || { joint: 0, subi: 0, mano: 0, total: 0 } }
+      : outstandingByPaymentMethod;
+  }, [selectedPaymentMethod, outstandingByPaymentMethod]);
 
   // Calculate totals across all displayed payment methods
   const totals = useMemo(() => {

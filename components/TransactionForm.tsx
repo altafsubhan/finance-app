@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { PaymentMethod, PaidBy, Category } from '@/types/database';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
@@ -25,7 +25,7 @@ interface TransactionFormProps {
 
 export default function TransactionForm({ categories, onSuccess, initialData }: TransactionFormProps) {
   const { paymentMethods } = usePaymentMethods();
-  const currentDate = new Date();
+  const currentDate = useMemo(() => new Date(), []);
   const [date, setDate] = useState<string>('');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');

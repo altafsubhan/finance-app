@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Budget, Category } from '@/types/database';
 import BudgetForm from '@/components/BudgetForm';
 
@@ -16,11 +16,7 @@ export default function BudgetsPage() {
   const [editingBudget, setEditingBudget] = useState<BudgetWithCategory | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  useEffect(() => {
-    loadData();
-  }, [selectedYear]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -46,7 +42,11 @@ export default function BudgetsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedYear]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSuccess = () => {
     setShowForm(false);
