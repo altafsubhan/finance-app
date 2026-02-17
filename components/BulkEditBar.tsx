@@ -173,8 +173,8 @@ export default function BulkEditBar({ selectedCount, selectedIds, selectedTransa
             </div>
           </div>
           
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex-1 min-w-[100px] sm:min-w-[120px]">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
               <label htmlFor="bulk-date" className="sr-only">Date</label>
               <input
                 id="bulk-date"
@@ -185,7 +185,7 @@ export default function BulkEditBar({ selectedCount, selectedIds, selectedTransa
               />
             </div>
 
-            <div className="flex-1 min-w-[120px] sm:min-w-[140px]">
+            <div>
               <label htmlFor="bulk-category" className="sr-only">Category</label>
               <select
                 id="bulk-category"
@@ -203,7 +203,7 @@ export default function BulkEditBar({ selectedCount, selectedIds, selectedTransa
               </select>
             </div>
 
-            <div className="flex-1 min-w-[140px]">
+            <div>
               <label htmlFor="bulk-payment-method" className="sr-only">Payment Method</label>
               <select
                 id="bulk-payment-method"
@@ -220,7 +220,7 @@ export default function BulkEditBar({ selectedCount, selectedIds, selectedTransa
               </select>
             </div>
 
-            <div className="flex-1 min-w-[120px]">
+            <div>
               <label htmlFor="bulk-paid-by" className="sr-only">Paid By</label>
               <select
                 id="bulk-paid-by"
