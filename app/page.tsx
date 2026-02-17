@@ -20,6 +20,13 @@ export default function Home() {
             <h2 className="text-2xl font-semibold mb-2">Transactions</h2>
             <p className="text-gray-600">View and manage your transactions</p>
           </Link>
+          <Link 
+            href="/accounts" 
+            className="block p-6 border rounded-lg hover:bg-gray-50 transition"
+          >
+            <h2 className="text-2xl font-semibold mb-2">Account Balances</h2>
+            <p className="text-gray-600">Track balances and segment money across your accounts</p>
+          </Link>
         </div>
       </div>
     </main>

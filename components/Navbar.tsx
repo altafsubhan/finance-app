@@ -45,6 +45,9 @@ export default function Navbar() {
             <Link href="/transactions" className="flex items-center text-sm sm:text-base text-gray-700 hover:text-gray-900 whitespace-nowrap px-1 sm:px-0">
               Transactions
             </Link>
+            <Link href="/accounts" className="flex items-center text-sm sm:text-base text-gray-700 hover:text-gray-900 whitespace-nowrap px-1 sm:px-0">
+              Accounts
+            </Link>
             <Link href="/settings" className="flex items-center text-sm sm:text-base text-gray-700 hover:text-gray-900 whitespace-nowrap px-1 sm:px-0">
               Settings
             </Link>
