@@ -12,6 +12,7 @@ A personal finance tracking application built with Next.js, Supabase, and Tailwi
 - 📸 Screenshot import with OCR (Tesseract.js)
 - 👥 Multi-user support (you and your partner)
 - 🔐 Secure authentication with Supabase
+- 💸 Private income tracking by month with account destination
 
 ## CSV Import Format
 
