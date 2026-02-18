@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Account {
@@ -33,6 +34,19 @@ interface Allocation {
   color: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface IncomeEntry {
+  id: string;
+  account_id: string;
+  amount: number;
+  received_date: string;
+}
+
+interface IncomeAdjustment {
+  amount: number;
+  entryCount: number;
+  snapshotDate: string;
 }
 
 const ACCOUNT_TYPES = [
@@ -89,6 +103,8 @@ export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [snapshotsByAccount, setSnapshotsByAccount] = useState<Record<string, Snapshot[]>>({});
   const [allocationsByAccount, setAllocationsByAccount] = useState<Record<string, Allocation[]>>({});
+  const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
+  const [autoAdjustBalancesFromIncome, setAutoAdjustBalancesFromIncome] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [expandedAccountId, setExpandedAccountId] = useState<string | null>(null);
 
@@ -159,17 +175,45 @@ export default function AccountsPage() {
     }
   }, []);
 
+  const loadIncomeEntries = useCallback(async () => {
+    try {
+      const res = await fetch('/api/income', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setIncomeEntries(data);
+      }
+    } catch (err) {
+      console.error('Failed to load income entries:', err);
+    }
+  }, []);
+
+  const loadPreferences = useCallback(async () => {
+    try {
+      const res = await fetch('/api/preferences', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setAutoAdjustBalancesFromIncome(Boolean(data.auto_adjust_balances_from_income));
+      }
+    } catch (err) {
+      console.error('Failed to load preferences:', err);
+    }
+  }, []);
+
   // Initial load
   useEffect(() => {
     const init = async () => {
       setInitialLoading(true);
       const accts = await loadAccounts();
-      // Load snapshots + allocations for all accounts in parallel
-      await Promise.all(
-        accts.map((a: Account) =>
-          Promise.all([loadSnapshots(a.id), loadAllocations(a.id)])
-        )
-      );
+      // Load snapshots + allocations + related preferences in parallel
+      await Promise.all([
+        Promise.all(
+          accts.map((a: Account) =>
+            Promise.all([loadSnapshots(a.id), loadAllocations(a.id)])
+          )
+        ),
+        loadIncomeEntries(),
+        loadPreferences(),
+      ]);
       setInitialLoading(false);
       hasMountedRef.current = true;
     };
@@ -327,10 +371,59 @@ export default function AccountsPage() {
   };
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
+  const latestSnapshotByAccount = useMemo(() => {
+    const map: Record<string, Snapshot | null> = {};
+    accounts.forEach((account) => {
+      const snapshots = snapshotsByAccount[account.id];
+      map[account.id] = snapshots && snapshots.length > 0 ? snapshots[0] : null;
+    });
+    return map;
+  }, [accounts, snapshotsByAccount]);
+
+  const incomeAdjustmentsByAccount = useMemo(() => {
+    const map: Record<string, IncomeAdjustment> = {};
+
+    if (!autoAdjustBalancesFromIncome) {
+      return map;
+    }
+
+    incomeEntries.forEach((entry) => {
+      const snapshot = latestSnapshotByAccount[entry.account_id];
+      if (!snapshot) return;
+      if (entry.received_date <= snapshot.snapshot_date) return;
+
+      if (!map[entry.account_id]) {
+        map[entry.account_id] = {
+          amount: 0,
+          entryCount: 0,
+          snapshotDate: snapshot.snapshot_date,
+        };
+      }
+
+      map[entry.account_id].amount += Number(entry.amount);
+      map[entry.account_id].entryCount += 1;
+    });
+
+    return map;
+  }, [autoAdjustBalancesFromIncome, incomeEntries, latestSnapshotByAccount]);
+
+  const getLatestManualBalance = (accountId: string): number | null => {
+    const latestSnapshot = latestSnapshotByAccount[accountId];
+    if (!latestSnapshot) return null;
+    return Number(latestSnapshot.balance);
+  };
+
+  const getIncomeAdjustment = (accountId: string): IncomeAdjustment | null => {
+    return incomeAdjustmentsByAccount[accountId] || null;
+  };
+
   const getLatestBalance = (accountId: string): number | null => {
-    const snapshots = snapshotsByAccount[accountId];
-    if (!snapshots || snapshots.length === 0) return null;
-    return Number(snapshots[0].balance);
+    const manualBalance = getLatestManualBalance(accountId);
+    if (manualBalance === null) return null;
+    if (!autoAdjustBalancesFromIncome) return manualBalance;
+
+    const adjustment = getIncomeAdjustment(accountId);
+    return manualBalance + (adjustment?.amount || 0);
   };
 
   const resolveAllocAmount = (alloc: Allocation, balance: number | null): number => {
@@ -358,6 +451,22 @@ export default function AccountsPage() {
       percent: ((current - previous) / Math.abs(previous)) * 100,
     };
   };
+
+  const accountsWithUnrecordedAdjustments = useMemo(
+    () =>
+      Object.values(incomeAdjustmentsByAccount).filter(
+        (adjustment) => adjustment.amount !== 0
+      ).length,
+    [incomeAdjustmentsByAccount]
+  );
+
+  const incomeEntryCountByAccount = useMemo(() => {
+    const counts: Record<string, number> = {};
+    incomeEntries.forEach((entry) => {
+      counts[entry.account_id] = (counts[entry.account_id] || 0) + 1;
+    });
+    return counts;
+  }, [incomeEntries]);
 
   const getTotalNetWorth = (): number => {
     return accounts.reduce((sum, acct) => {
@@ -404,6 +513,35 @@ export default function AccountsPage() {
           >
             + Add Account
           </button>
+        </div>
+
+        <div
+          className={`border rounded-xl px-4 py-3 text-sm ${
+            autoAdjustBalancesFromIncome
+              ? 'bg-blue-50 border-blue-200 text-blue-800'
+              : 'bg-gray-50 border-gray-200 text-gray-600'
+          }`}
+        >
+          {autoAdjustBalancesFromIncome ? (
+            <>
+              Income-based auto-adjustments are enabled. Income entries after the latest manual
+              balance snapshot are shown as unrecorded adjustments.
+              {accountsWithUnrecordedAdjustments > 0 && (
+                <span className="ml-1 font-medium">
+                  {accountsWithUnrecordedAdjustments} account
+                  {accountsWithUnrecordedAdjustments === 1 ? '' : 's'} currently adjusted.
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              Income-based auto-adjustments are disabled. You can enable them in{' '}
+              <Link href="/settings" className="font-medium underline hover:text-gray-800">
+                Settings
+              </Link>
+              .
+            </>
+          )}
         </div>
 
         {/* ─── Net Worth Summary ───────────────────────────────── */}
@@ -568,6 +706,8 @@ export default function AccountsPage() {
               <div className="space-y-2">
                 {typeAccounts.map(account => {
                   const latestBalance = getLatestBalance(account.id);
+                  const latestManualBalance = getLatestManualBalance(account.id);
+                  const incomeAdjustment = getIncomeAdjustment(account.id);
                   const change = getBalanceChange(account.id);
                   const allocations = allocationsByAccount[account.id] || [];
                   const totalAllocated = getTotalAllocated(account.id);
@@ -575,6 +715,7 @@ export default function AccountsPage() {
                   const isExpanded = expandedAccountId === account.id;
                   const snapshots = snapshotsByAccount[account.id] || [];
                   const isEditing = editingAccountId === account.id;
+                  const relatedIncomeEntryCount = incomeEntryCountByAccount[account.id] || 0;
 
                   return (
                     <div
@@ -611,6 +752,29 @@ export default function AccountsPage() {
                                 }`}>
                                   {formatCurrency(latestBalance)}
                                 </p>
+                                {autoAdjustBalancesFromIncome &&
+                                  latestManualBalance !== null &&
+                                  incomeAdjustment &&
+                                  incomeAdjustment.amount !== 0 && (
+                                    <p
+                                      className={`text-xs ${
+                                        incomeAdjustment.amount >= 0
+                                          ? 'text-blue-600'
+                                          : 'text-red-600'
+                                      }`}
+                                    >
+                                      {incomeAdjustment.amount >= 0 ? '+' : ''}
+                                      {formatCurrency(incomeAdjustment.amount)} unrecorded adjustment
+                                    </p>
+                                  )}
+                                {autoAdjustBalancesFromIncome &&
+                                  latestManualBalance !== null &&
+                                  incomeAdjustment &&
+                                  incomeAdjustment.amount !== 0 && (
+                                    <p className="text-xs text-gray-400">
+                                      Manual snapshot: {formatCurrency(latestManualBalance)}
+                                    </p>
+                                  )}
                                 {change && (
                                   <p className={`text-xs ${change.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                     {change.amount >= 0 ? '+' : ''}{formatCurrency(change.amount)}
@@ -685,6 +849,57 @@ export default function AccountsPage() {
                               Delete
                             </button>
                           </div>
+
+                          {autoAdjustBalancesFromIncome &&
+                            latestManualBalance !== null &&
+                            incomeAdjustment &&
+                            incomeAdjustment.amount !== 0 && (
+                              <div className="px-4 sm:px-6 py-3 bg-blue-50 border-b border-blue-100">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                  <p className="text-sm text-blue-800">
+                                    Unrecorded adjustment{' '}
+                                    <span className="font-semibold">
+                                      {incomeAdjustment.amount >= 0 ? '+' : ''}
+                                      {formatCurrency(incomeAdjustment.amount)}
+                                    </span>{' '}
+                                    from {incomeAdjustment.entryCount} income entr
+                                    {incomeAdjustment.entryCount === 1 ? 'y' : 'ies'} after{' '}
+                                    {formatDate(incomeAdjustment.snapshotDate)}.
+                                  </p>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSnapshotAccountId(account.id);
+                                      setNewSnapshot({
+                                        balance:
+                                          latestBalance !== null
+                                            ? latestBalance.toFixed(2)
+                                            : '',
+                                        snapshot_date: new Date()
+                                          .toISOString()
+                                          .split('T')[0],
+                                        notes: 'Applied unrecorded income adjustment',
+                                      });
+                                    }}
+                                    className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
+                                  >
+                                    Prefill adjusted balance
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                          {autoAdjustBalancesFromIncome &&
+                            latestManualBalance === null &&
+                            relatedIncomeEntryCount > 0 && (
+                              <div className="px-4 sm:px-6 py-3 bg-amber-50 border-b border-amber-100">
+                                <p className="text-sm text-amber-800">
+                                  Income entries exist for this account, but no manual balance
+                                  snapshot has been recorded yet. Record a baseline balance to
+                                  start automatic adjustments.
+                                </p>
+                              </div>
+                            )}
 
                           {/* Edit account form */}
                           {isEditing && (

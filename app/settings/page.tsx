@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import SharedAccessPanel from '@/components/SharedAccessPanel';
+import BalanceAutomationSettings from '@/components/BalanceAutomationSettings';
 
 export default function SettingsPage() {
   return (
@@ -15,6 +16,8 @@ export default function SettingsPage() {
         <SharedAccessPanel />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <BalanceAutomationSettings />
+
           <section className="bg-white border rounded-lg p-6 space-y-3">
             <div>
               <h2 className="text-xl font-semibold">Budgets &amp; Categories</h2>
