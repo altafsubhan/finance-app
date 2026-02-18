@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+type IncomeEntryType = 'income' | '401k' | 'hsa';
+
 interface Account {
   id: string;
   name: string;
@@ -12,6 +14,7 @@ interface Account {
 
 interface IncomeEntry {
   id: string;
+  entry_type: IncomeEntryType;
   account_id: string;
   amount: number;
   received_date: string;
@@ -21,12 +24,19 @@ interface IncomeEntry {
 }
 
 interface IncomeFormState {
+  entry_type: IncomeEntryType;
   account_id: string;
   amount: string;
   received_date: string;
   source: string;
   notes: string;
 }
+
+const ENTRY_TYPE_OPTIONS: Array<{ value: IncomeEntryType; label: string }> = [
+  { value: 'income', label: 'Income' },
+  { value: '401k', label: '401k Contribution' },
+  { value: 'hsa', label: 'HSA Contribution' },
+];
 
 const MONTH_NAMES = [
   'Jan',
@@ -66,6 +76,7 @@ function getTodayDate(): string {
 
 function makeDefaultForm(accountId = ''): IncomeFormState {
   return {
+    entry_type: 'income',
     account_id: accountId,
     amount: '',
     received_date: getTodayDate(),
@@ -99,16 +110,37 @@ export default function IncomePage() {
     }, {});
   }, [accounts]);
 
+  const incomeEntries = useMemo(
+    () => entries.filter((entry) => entry.entry_type === 'income'),
+    [entries]
+  );
+
+  const total401kContribution = useMemo(
+    () =>
+      entries
+        .filter((entry) => entry.entry_type === '401k')
+        .reduce((sum, entry) => sum + Number(entry.amount), 0),
+    [entries]
+  );
+
+  const totalHsaContribution = useMemo(
+    () =>
+      entries
+        .filter((entry) => entry.entry_type === 'hsa')
+        .reduce((sum, entry) => sum + Number(entry.amount), 0),
+    [entries]
+  );
+
   const monthlyTotals = useMemo(() => {
     const totals = Array.from({ length: 12 }, () => 0);
-    entries.forEach((entry) => {
+    incomeEntries.forEach((entry) => {
       const monthIndex = new Date(`${entry.received_date}T00:00:00`).getMonth();
       if (monthIndex >= 0 && monthIndex < 12) {
         totals[monthIndex] += Number(entry.amount);
       }
     });
     return totals;
-  }, [entries]);
+  }, [incomeEntries]);
 
   const totalIncomeForYear = useMemo(
     () => monthlyTotals.reduce((sum, value) => sum + value, 0),
@@ -219,6 +251,7 @@ export default function IncomePage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
+          entry_type: newEntry.entry_type,
           account_id: newEntry.account_id,
           amount,
           received_date: newEntry.received_date,
@@ -249,6 +282,7 @@ export default function IncomePage() {
     setError(null);
     setEditingId(entry.id);
     setEditEntry({
+      entry_type: entry.entry_type,
       account_id: entry.account_id,
       amount: String(entry.amount),
       received_date: entry.received_date,
@@ -288,6 +322,7 @@ export default function IncomePage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
+          entry_type: editEntry.entry_type,
           account_id: editEntry.account_id,
           amount: parsedAmount,
           received_date: editEntry.received_date,
@@ -397,7 +432,26 @@ export default function IncomePage() {
               .
             </div>
           ) : (
-            <form onSubmit={handleAddIncome} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+            <form onSubmit={handleAddIncome} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Type *</label>
+                <select
+                  value={newEntry.entry_type}
+                  onChange={(e) =>
+                    setNewEntry((prev) => ({
+                      ...prev,
+                      entry_type: e.target.value as IncomeEntryType,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {ENTRY_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="lg:col-span-2">
                 <label className="block text-xs text-gray-500 mb-1">Deposited Into *</label>
                 <select
@@ -458,7 +512,7 @@ export default function IncomePage() {
                   className="w-full px-3 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <div className="sm:col-span-2 lg:col-span-6 flex justify-end">
+              <div className="sm:col-span-2 lg:col-span-7 flex justify-end">
                 <button
                   type="submit"
                   disabled={saving || accounts.length === 0}
@@ -475,6 +529,7 @@ export default function IncomePage() {
           <div className="bg-white border rounded-xl p-4 shadow-sm">
             <p className="text-sm text-gray-500">Total Income ({selectedYear})</p>
             <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalIncomeForYear)}</p>
+            <p className="text-xs text-gray-400 mt-1">Excludes 401k and HSA contributions</p>
           </div>
           <div className="bg-white border rounded-xl p-4 shadow-sm">
             <p className="text-sm text-gray-500">Average Active Month</p>
@@ -485,7 +540,22 @@ export default function IncomePage() {
           </div>
           <div className="bg-white border rounded-xl p-4 shadow-sm">
             <p className="text-sm text-gray-500">Income Entries</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{entries.length}</p>
+            <p className="text-2xl font-bold text-gray-900 mt-1">{incomeEntries.length}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-white border rounded-xl p-4 shadow-sm">
+            <p className="text-sm text-gray-500">401k Contribution ({selectedYear})</p>
+            <p className="text-2xl font-bold text-indigo-600 mt-1">
+              {formatCurrency(total401kContribution)}
+            </p>
+          </div>
+          <div className="bg-white border rounded-xl p-4 shadow-sm">
+            <p className="text-sm text-gray-500">HSA Contribution ({selectedYear})</p>
+            <p className="text-2xl font-bold text-teal-600 mt-1">
+              {formatCurrency(totalHsaContribution)}
+            </p>
           </div>
         </div>
 
@@ -517,7 +587,7 @@ export default function IncomePage() {
           </div>
           {entries.length === 0 ? (
             <div className="p-8 text-center text-sm text-gray-500">
-              No income entries recorded for {selectedYear} yet.
+              No entries recorded for {selectedYear} yet.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -525,6 +595,7 @@ export default function IncomePage() {
                 <thead>
                   <tr className="text-left text-gray-500 border-b">
                     <th className="py-3 px-4 sm:px-6 font-medium">Date</th>
+                    <th className="py-3 px-4 font-medium">Type</th>
                     <th className="py-3 px-4 font-medium">Account</th>
                     <th className="py-3 px-4 font-medium">Source</th>
                     <th className="py-3 px-4 font-medium">Notes</th>
@@ -549,6 +620,31 @@ export default function IncomePage() {
                             />
                           ) : (
                             <span className="text-gray-700">{formatDate(entry.received_date)}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {isEditing ? (
+                            <select
+                              value={editEntry.entry_type}
+                              onChange={(e) =>
+                                setEditEntry((prev) => ({
+                                  ...prev,
+                                  entry_type: e.target.value as IncomeEntryType,
+                                }))
+                              }
+                              className="px-2 py-1 border rounded bg-white text-gray-900"
+                            >
+                              {ENTRY_TYPE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-gray-700">
+                              {ENTRY_TYPE_OPTIONS.find((option) => option.value === entry.entry_type)
+                                ?.label || entry.entry_type}
+                            </span>
                           )}
                         </td>
                         <td className="py-3 px-4">

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+const ALLOWED_ENTRY_TYPES = ['income', '401k', 'hsa'] as const;
+type IncomeEntryType = (typeof ALLOWED_ENTRY_TYPES)[number];
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -51,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { account_id, amount, received_date, source, notes } = body;
+    const { account_id, amount, received_date, source, notes, entry_type } = body;
 
     if (!account_id || typeof account_id !== 'string') {
       return NextResponse.json({ error: 'Account is required' }, { status: 400 });
@@ -65,6 +68,14 @@ export async function POST(request: NextRequest) {
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       return NextResponse.json(
         { error: 'Amount must be a number greater than zero' },
+        { status: 400 }
+      );
+    }
+
+    const parsedEntryType = (entry_type ?? 'income') as IncomeEntryType;
+    if (!ALLOWED_ENTRY_TYPES.includes(parsedEntryType)) {
+      return NextResponse.json(
+        { error: 'Entry type must be one of: income, 401k, hsa' },
         { status: 400 }
       );
     }
@@ -88,6 +99,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: user.id,
         account_id,
+        entry_type: parsedEntryType,
         amount: parsedAmount,
         received_date,
         source: typeof source === 'string' && source.trim().length > 0 ? source.trim() : null,

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+const ALLOWED_ENTRY_TYPES = ['income', '401k', 'hsa'] as const;
+type IncomeEntryType = (typeof ALLOWED_ENTRY_TYPES)[number];
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -17,7 +20,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { account_id, amount, received_date, source, notes } = body;
+    const { account_id, amount, received_date, source, notes, entry_type } = body;
 
     const updateFields: Record<string, unknown> = {};
 
@@ -58,6 +61,19 @@ export async function PUT(
         return NextResponse.json({ error: 'Invalid received date' }, { status: 400 });
       }
       updateFields.received_date = received_date;
+    }
+
+    if (entry_type !== undefined) {
+      if (
+        typeof entry_type !== 'string' ||
+        !ALLOWED_ENTRY_TYPES.includes(entry_type as IncomeEntryType)
+      ) {
+        return NextResponse.json(
+          { error: 'Entry type must be one of: income, 401k, hsa' },
+          { status: 400 }
+        );
+      }
+      updateFields.entry_type = entry_type;
     }
 
     if (source !== undefined) {
