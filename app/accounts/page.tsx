@@ -1091,22 +1091,6 @@ export default function AccountsPage() {
                                 }`}>
                                   {formatCurrency(latestBalance)}
                                 </p>
-                                {hasLiveBalance && (
-                                  <p className="text-xs text-indigo-600">
-                                    Live portfolio value
-                                    {quotesLastUpdated ? ` as of ${formatDateTime(quotesLastUpdated)}` : ''}
-                                  </p>
-                                )}
-                                {account.type === 'investment' &&
-                                  account.investment_portfolio_enabled &&
-                                  account.investment_live_pricing_enabled &&
-                                  livePortfolioSummary &&
-                                  livePortfolioSummary.hasHoldings &&
-                                  livePortfolioSummary.value === null && (
-                                    <p className="text-xs text-amber-600">
-                                      Live quotes unavailable for some symbols ({livePortfolioSummary.missingSymbols.join(', ')})
-                                    </p>
-                                  )}
                                 {autoAdjustBalancesFromIncome &&
                                   latestManualBalance !== null &&
                                   incomeAdjustment &&
