@@ -8,7 +8,7 @@ import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 interface BulkEditBarProps {
   selectedCount: number;
   selectedIds: string[];
-  selectedTransactions: Array<{ id: string; amount: number }>; // For calculating total
+  selectedTransactions: Array<{ id: string; amount: number }>;
   categories: Category[];
   onBulkUpdate: (updates: {
     category_id?: string | null;
@@ -20,9 +20,10 @@ interface BulkEditBarProps {
   onBulkEdit: (transactionId: string) => void;
   onBulkSplit: (transactionId: string) => void;
   onCancel: () => void;
+  extraActions?: React.ReactNode;
 }
 
-export default function BulkEditBar({ selectedCount, selectedIds, selectedTransactions, categories, onBulkUpdate, onBulkDelete, onBulkEdit, onBulkSplit, onCancel }: BulkEditBarProps) {
+export default function BulkEditBar({ selectedCount, selectedIds, selectedTransactions, categories, onBulkUpdate, onBulkDelete, onBulkEdit, onBulkSplit, onCancel, extraActions }: BulkEditBarProps) {
   const { paymentMethods } = usePaymentMethods();
   const [categoryId, setCategoryId] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('');
@@ -150,6 +151,7 @@ export default function BulkEditBar({ selectedCount, selectedIds, selectedTransa
                   </button>
                 </>
               )}
+              {extraActions}
               <button
                 onClick={handleDelete}
                 disabled={deleteLoading}
