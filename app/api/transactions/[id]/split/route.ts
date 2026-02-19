@@ -54,6 +54,7 @@ export async function POST(
       month: originalTransaction.month,
       quarter: originalTransaction.quarter,
       year: originalTransaction.year,
+      is_shared: originalTransaction.is_shared,
       user_id: originalTransaction.user_id,
     }));
 

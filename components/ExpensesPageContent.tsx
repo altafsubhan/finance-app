@@ -493,6 +493,7 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
             </div>
             <CSVImport
               categories={categories}
+              isShared={isShared}
               onSuccess={() => {
                 setShowCSVImport(false);
                 loadTransactions();
@@ -516,6 +517,7 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
             </div>
             <ScreenshotImport
               categories={categories}
+              isShared={isShared}
               onSuccess={() => {
                 setShowScreenshotImport(false);
                 loadTransactions();

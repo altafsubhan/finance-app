@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { transactions } = body;
+    const { transactions, is_shared } = body;
 
     if (!Array.isArray(transactions) || transactions.length === 0) {
       return NextResponse.json({ error: 'No transactions provided' }, { status: 400 });
@@ -45,12 +45,13 @@ export async function POST(request: NextRequest) {
         date: t.date || null,
         amount: parseFloat(t.amount),
         description: t.description || '',
-        category_id: category?.id || null, // Allow null if no category provided
+        category_id: category?.id || null,
         payment_method: t.payment_method || 'Other',
         paid_by: t.paid_by || null,
         year: parseInt(t.year) || new Date().getFullYear(),
         month: t.month ? parseInt(t.month) : null,
         quarter: quarter,
+        is_shared: is_shared !== undefined ? is_shared : true,
         user_id: user.id,
       };
     });

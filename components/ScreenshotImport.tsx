@@ -9,6 +9,7 @@ import { suggestCategoryIdForDescription } from '@/lib/rules/categoryRules';
 interface ScreenshotImportProps {
   categories: Category[];
   onSuccess: () => void;
+  isShared?: boolean;
 }
 
 interface ParsedTransaction {
@@ -26,7 +27,7 @@ interface ParsedTransaction {
   error?: string; // Parsing errors
 }
 
-export default function ScreenshotImport({ categories, onSuccess }: ScreenshotImportProps) {
+export default function ScreenshotImport({ categories, onSuccess, isShared }: ScreenshotImportProps) {
   const { paymentMethods } = usePaymentMethods();
   const [files, setFiles] = useState<File[]>([]);
   const [preview, setPreview] = useState<ParsedTransaction[]>([]);
@@ -813,7 +814,7 @@ export default function ScreenshotImport({ categories, onSuccess }: ScreenshotIm
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ transactions }),
+        body: JSON.stringify({ transactions, is_shared: isShared !== undefined ? isShared : true }),
       });
 
       if (!response.ok) {

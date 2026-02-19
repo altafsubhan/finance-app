@@ -9,6 +9,7 @@ import { suggestCategoryIdForDescription } from '@/lib/rules/categoryRules';
 interface CSVImportProps {
   categories: Category[];
   onSuccess: () => void;
+  isShared?: boolean;
 }
 
 interface ParsedTransaction {
@@ -84,7 +85,7 @@ const detectMapping = (headers: string[]): ColumnMapping => {
   };
 };
 
-export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
+export default function CSVImport({ categories, onSuccess, isShared }: CSVImportProps) {
   const { paymentMethods } = usePaymentMethods();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ParsedTransaction[]>([]);
@@ -337,8 +338,8 @@ export default function CSVImport({ categories, onSuccess }: CSVImportProps) {
           const response = await fetch('/api/transactions/import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include', // Include cookies for authentication
-            body: JSON.stringify({ transactions }),
+            credentials: 'include',
+            body: JSON.stringify({ transactions, is_shared: isShared !== undefined ? isShared : true }),
           });
 
           if (!response.ok) {

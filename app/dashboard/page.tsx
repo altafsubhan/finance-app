@@ -44,8 +44,7 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       
-      // Load dashboard summaries
-      const dashboardRes = await fetch(`/api/dashboard?year=${selectedYear}`, {
+      const dashboardRes = await fetch(`/api/dashboard?year=${selectedYear}&is_shared=true`, {
         credentials: 'include',
       });
       if (dashboardRes.ok) {
@@ -53,8 +52,7 @@ export default function DashboardPage() {
         setDashboardData(data);
       }
 
-      // Load transactions for breakdown modal
-      const transactionsRes = await fetch(`/api/transactions?year=${selectedYear}`, {
+      const transactionsRes = await fetch(`/api/transactions?year=${selectedYear}&is_shared=true`, {
         credentials: 'include',
       });
       if (transactionsRes.ok) {
@@ -62,8 +60,7 @@ export default function DashboardPage() {
         setTransactions(transactionsData);
       }
 
-      // Load categories
-      const categoriesRes = await fetch('/api/categories', {
+      const categoriesRes = await fetch('/api/categories?is_shared=true', {
         credentials: 'include',
       });
       if (categoriesRes.ok) {
