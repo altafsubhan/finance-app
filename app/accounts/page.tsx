@@ -11,6 +11,8 @@ interface Account {
   type: string;
   institution: string | null;
   is_shared: boolean;
+  investment_portfolio_enabled: boolean;
+  investment_live_pricing_enabled: boolean;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -49,6 +51,29 @@ interface IncomeAdjustment {
   snapshotDate: string;
 }
 
+interface PortfolioHolding {
+  id: string;
+  account_id: string;
+  user_id: string;
+  symbol: string;
+  shares: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface MarketQuote {
+  price: number | null;
+  change_percent: number | null;
+  currency: string | null;
+  as_of: string | null;
+}
+
+interface LivePortfolioSummary {
+  value: number | null;
+  hasHoldings: boolean;
+  missingSymbols: string[];
+}
+
 const ACCOUNT_TYPES = [
   { value: 'checking', label: 'Checking' },
   { value: 'savings', label: 'Savings' },
@@ -79,6 +104,16 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function formatDateTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 function getTypeIcon(type: string): string {
   const icons: Record<string, string> = {
     checking: '🏦',
@@ -104,6 +139,24 @@ export default function AccountsPage() {
   const [snapshotsByAccount, setSnapshotsByAccount] = useState<Record<string, Snapshot[]>>({});
   const [allocationsByAccount, setAllocationsByAccount] = useState<Record<string, Allocation[]>>({});
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
+  const [portfolioByAccount, setPortfolioByAccount] = useState<Record<string, PortfolioHolding[]>>(
+    {}
+  );
+  const [newHoldingByAccount, setNewHoldingByAccount] = useState<
+    Record<string, { symbol: string; shares: string }>
+  >({});
+  const [savingHoldingsByAccount, setSavingHoldingsByAccount] = useState<
+    Record<string, boolean>
+  >({});
+  const [updatingInvestmentSettingsByAccount, setUpdatingInvestmentSettingsByAccount] = useState<
+    Record<string, boolean>
+  >({});
+  const [editingHoldingId, setEditingHoldingId] = useState<string | null>(null);
+  const [editHolding, setEditHolding] = useState({ symbol: '', shares: '' });
+  const [quotesBySymbol, setQuotesBySymbol] = useState<Record<string, MarketQuote>>({});
+  const [quotesLoading, setQuotesLoading] = useState(false);
+  const [quotesError, setQuotesError] = useState<string | null>(null);
+  const [quotesLastUpdated, setQuotesLastUpdated] = useState<string | null>(null);
   const [autoAdjustBalancesFromIncome, setAutoAdjustBalancesFromIncome] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [expandedAccountId, setExpandedAccountId] = useState<string | null>(null);
@@ -175,6 +228,18 @@ export default function AccountsPage() {
     }
   }, []);
 
+  const loadPortfolio = useCallback(async (accountId: string) => {
+    try {
+      const res = await fetch(`/api/accounts/${accountId}/portfolio`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setPortfolioByAccount(prev => ({ ...prev, [accountId]: data }));
+      }
+    } catch (err) {
+      console.error('Failed to load portfolio holdings:', err);
+    }
+  }, []);
+
   const loadIncomeEntries = useCallback(async () => {
     try {
       const res = await fetch('/api/income', { credentials: 'include' });
@@ -208,7 +273,11 @@ export default function AccountsPage() {
       await Promise.all([
         Promise.all(
           accts.map((a: Account) =>
-            Promise.all([loadSnapshots(a.id), loadAllocations(a.id)])
+            Promise.all([
+              loadSnapshots(a.id),
+              loadAllocations(a.id),
+              a.type === 'investment' ? loadPortfolio(a.id) : Promise.resolve(),
+            ])
           )
         ),
         loadIncomeEntries(),
@@ -238,6 +307,7 @@ export default function AccountsPage() {
         setAccounts(prev => [...prev, created]);
         setSnapshotsByAccount(prev => ({ ...prev, [created.id]: [] }));
         setAllocationsByAccount(prev => ({ ...prev, [created.id]: [] }));
+        setPortfolioByAccount(prev => ({ ...prev, [created.id]: [] }));
         setNewAccount({ name: '', type: 'checking', institution: '', notes: '' });
         setShowAddAccount(false);
         setExpandedAccountId(created.id);
@@ -260,6 +330,15 @@ export default function AccountsPage() {
       if (res.ok) {
         const updated = await res.json();
         setAccounts(prev => prev.map(a => a.id === accountId ? updated : a));
+        if (updated.type === 'investment') {
+          await loadPortfolio(accountId);
+        } else {
+          setPortfolioByAccount(prev => {
+            const next = { ...prev };
+            delete next[accountId];
+            return next;
+          });
+        }
         setEditingAccountId(null);
       }
     } catch (err) {
@@ -281,6 +360,11 @@ export default function AccountsPage() {
           return next;
         });
         setAllocationsByAccount(prev => {
+          const next = { ...prev };
+          delete next[accountId];
+          return next;
+        });
+        setPortfolioByAccount(prev => {
           const next = { ...prev };
           delete next[accountId];
           return next;
@@ -313,6 +397,115 @@ export default function AccountsPage() {
       console.error('Failed to add snapshot:', err);
     } finally {
       setAddingSnapshot(false);
+    }
+  };
+
+  // ─── Investment Portfolio + Live Pricing ──────────────────────────────────
+  const setHoldingDraft = (
+    accountId: string,
+    updates: Partial<{ symbol: string; shares: string }>
+  ) => {
+    setNewHoldingByAccount(prev => ({
+      ...prev,
+      [accountId]: {
+        symbol: prev[accountId]?.symbol || '',
+        shares: prev[accountId]?.shares || '',
+        ...updates,
+      },
+    }));
+  };
+
+  const handleAddHolding = async (accountId: string) => {
+    const draft = newHoldingByAccount[accountId] || { symbol: '', shares: '' };
+    if (!draft.symbol.trim()) return;
+    const parsedShares = Number(draft.shares);
+    if (!Number.isFinite(parsedShares) || parsedShares <= 0) return;
+
+    setSavingHoldingsByAccount(prev => ({ ...prev, [accountId]: true }));
+    try {
+      const res = await fetch(`/api/accounts/${accountId}/portfolio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          symbol: draft.symbol.trim().toUpperCase(),
+          shares: parsedShares,
+        }),
+      });
+      if (res.ok) {
+        await loadPortfolio(accountId);
+        setHoldingDraft(accountId, { symbol: '', shares: '' });
+      }
+    } catch (err) {
+      console.error('Failed to add portfolio holding:', err);
+    } finally {
+      setSavingHoldingsByAccount(prev => ({ ...prev, [accountId]: false }));
+    }
+  };
+
+  const handleUpdateHolding = async (accountId: string, holdingId: string) => {
+    const parsedShares = Number(editHolding.shares);
+    if (!Number.isFinite(parsedShares) || parsedShares <= 0) return;
+
+    try {
+      const res = await fetch(`/api/accounts/${accountId}/portfolio/${holdingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          symbol: editHolding.symbol.trim().toUpperCase(),
+          shares: parsedShares,
+        }),
+      });
+      if (res.ok) {
+        await loadPortfolio(accountId);
+        setEditingHoldingId(null);
+      }
+    } catch (err) {
+      console.error('Failed to update portfolio holding:', err);
+    }
+  };
+
+  const handleDeleteHolding = async (accountId: string, holdingId: string) => {
+    try {
+      const res = await fetch(`/api/accounts/${accountId}/portfolio/${holdingId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        await loadPortfolio(accountId);
+        if (editingHoldingId === holdingId) setEditingHoldingId(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete portfolio holding:', err);
+    }
+  };
+
+  const handleUpdateInvestmentSettings = async (
+    accountId: string,
+    updates: Partial<
+      Pick<Account, 'investment_portfolio_enabled' | 'investment_live_pricing_enabled'>
+    >
+  ) => {
+    setUpdatingInvestmentSettingsByAccount(prev => ({ ...prev, [accountId]: true }));
+    try {
+      const res = await fetch(`/api/accounts/${accountId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setAccounts(prev => prev.map(a => (a.id === accountId ? updated : a)));
+        if (updated.type === 'investment' && updated.investment_portfolio_enabled) {
+          await loadPortfolio(accountId);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update investment settings:', err);
+    } finally {
+      setUpdatingInvestmentSettingsByAccount(prev => ({ ...prev, [accountId]: false }));
     }
   };
 
@@ -371,6 +564,83 @@ export default function AccountsPage() {
   };
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
+  const accountById = useMemo(() => {
+    return accounts.reduce<Record<string, Account>>((map, account) => {
+      map[account.id] = account;
+      return map;
+    }, {});
+  }, [accounts]);
+
+  const isLivePricingModeEnabled = (accountId: string): boolean => {
+    const account = accountById[accountId];
+    return Boolean(
+      account &&
+      account.type === 'investment' &&
+      account.investment_portfolio_enabled &&
+      account.investment_live_pricing_enabled
+    );
+  };
+
+  const trackedPortfolioSymbols = useMemo(() => {
+    const symbols = new Set<string>();
+    accounts.forEach((account) => {
+      if (!isLivePricingModeEnabled(account.id)) return;
+      const holdings = portfolioByAccount[account.id] || [];
+      holdings.forEach((holding) => symbols.add(String(holding.symbol || '').toUpperCase()));
+    });
+    return Array.from(symbols).sort();
+  }, [accounts, portfolioByAccount, accountById]);
+
+  const trackedPortfolioSymbolsKey = useMemo(
+    () => trackedPortfolioSymbols.join(','),
+    [trackedPortfolioSymbols]
+  );
+
+  useEffect(() => {
+    if (trackedPortfolioSymbols.length === 0) {
+      setQuotesBySymbol({});
+      setQuotesError(null);
+      setQuotesLastUpdated(null);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const refreshQuotes = async () => {
+      try {
+        setQuotesLoading(true);
+        const res = await fetch(
+          `/api/market/quotes?symbols=${encodeURIComponent(trackedPortfolioSymbols.join(','))}`,
+          { credentials: 'include' }
+        );
+        if (!res.ok) {
+          const payload = await res.json();
+          throw new Error(payload.error || 'Failed to load live market data');
+        }
+        const data = await res.json();
+        if (!isCancelled) {
+          setQuotesBySymbol(data.quotes || {});
+          setQuotesLastUpdated(data.fetched_at || new Date().toISOString());
+          setQuotesError(null);
+        }
+      } catch (err: any) {
+        if (!isCancelled) {
+          console.error('Failed to refresh market quotes:', err);
+          setQuotesError(err?.message || 'Failed to load live market data');
+        }
+      } finally {
+        if (!isCancelled) setQuotesLoading(false);
+      }
+    };
+
+    refreshQuotes();
+    const intervalId = setInterval(refreshQuotes, 15 * 60 * 1000);
+    return () => {
+      isCancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [trackedPortfolioSymbolsKey]);
+
   const latestSnapshotByAccount = useMemo(() => {
     const map: Record<string, Snapshot | null> = {};
     accounts.forEach((account) => {
@@ -380,6 +650,38 @@ export default function AccountsPage() {
     return map;
   }, [accounts, snapshotsByAccount]);
 
+  const livePortfolioByAccount = useMemo(() => {
+    const map: Record<string, LivePortfolioSummary> = {};
+    accounts.forEach((account) => {
+      if (!isLivePricingModeEnabled(account.id)) return;
+      const holdings = portfolioByAccount[account.id] || [];
+      if (holdings.length === 0) {
+        map[account.id] = { value: null, hasHoldings: false, missingSymbols: [] };
+        return;
+      }
+
+      let totalValue = 0;
+      const missingSymbols: string[] = [];
+      holdings.forEach((holding) => {
+        const symbol = String(holding.symbol || '').toUpperCase();
+        const quote = quotesBySymbol[symbol];
+        if (!quote || quote.price === null) {
+          missingSymbols.push(symbol);
+          return;
+        }
+        totalValue += Number(holding.shares) * Number(quote.price);
+      });
+
+      map[account.id] = {
+        value: missingSymbols.length === 0 ? totalValue : null,
+        hasHoldings: true,
+        missingSymbols: Array.from(new Set(missingSymbols)),
+      };
+    });
+
+    return map;
+  }, [accounts, portfolioByAccount, quotesBySymbol, accountById]);
+
   const incomeAdjustmentsByAccount = useMemo(() => {
     const map: Record<string, IncomeAdjustment> = {};
 
@@ -388,6 +690,14 @@ export default function AccountsPage() {
     }
 
     incomeEntries.forEach((entry) => {
+      const account = accountById[entry.account_id];
+      const isLiveTrackedInvestment = Boolean(
+        account &&
+        account.type === 'investment' &&
+        account.investment_portfolio_enabled &&
+        account.investment_live_pricing_enabled
+      );
+      if (isLiveTrackedInvestment) return;
       const snapshot = latestSnapshotByAccount[entry.account_id];
       if (!snapshot) return;
       if (entry.received_date <= snapshot.snapshot_date) return;
@@ -405,7 +715,7 @@ export default function AccountsPage() {
     });
 
     return map;
-  }, [autoAdjustBalancesFromIncome, incomeEntries, latestSnapshotByAccount]);
+  }, [autoAdjustBalancesFromIncome, incomeEntries, latestSnapshotByAccount, accountById]);
 
   const getLatestManualBalance = (accountId: string): number | null => {
     const latestSnapshot = latestSnapshotByAccount[accountId];
@@ -417,7 +727,25 @@ export default function AccountsPage() {
     return incomeAdjustmentsByAccount[accountId] || null;
   };
 
+  const getLivePortfolioSummary = (accountId: string): LivePortfolioSummary | null => {
+    return livePortfolioByAccount[accountId] || null;
+  };
+
   const getLatestBalance = (accountId: string): number | null => {
+    const account = accountById[accountId];
+    const liveSummary = getLivePortfolioSummary(accountId);
+    const hasLivePortfolioValue = Boolean(
+      account &&
+      account.type === 'investment' &&
+      account.investment_portfolio_enabled &&
+      account.investment_live_pricing_enabled &&
+      liveSummary &&
+      liveSummary.value !== null
+    );
+    if (hasLivePortfolioValue) {
+      return liveSummary?.value ?? null;
+    }
+
     const manualBalance = getLatestManualBalance(accountId);
     if (manualBalance === null) return null;
     if (!autoAdjustBalancesFromIncome) return manualBalance;
@@ -708,14 +1036,27 @@ export default function AccountsPage() {
                   const latestBalance = getLatestBalance(account.id);
                   const latestManualBalance = getLatestManualBalance(account.id);
                   const incomeAdjustment = getIncomeAdjustment(account.id);
+                  const livePortfolioSummary = getLivePortfolioSummary(account.id);
+                  const hasLiveBalance = Boolean(
+                    account.type === 'investment' &&
+                    account.investment_portfolio_enabled &&
+                    account.investment_live_pricing_enabled &&
+                    livePortfolioSummary &&
+                    livePortfolioSummary.value !== null
+                  );
                   const change = getBalanceChange(account.id);
                   const allocations = allocationsByAccount[account.id] || [];
+                  const holdings = portfolioByAccount[account.id] || [];
                   const totalAllocated = getTotalAllocated(account.id);
                   const unallocated = latestBalance !== null ? latestBalance - totalAllocated : 0;
                   const isExpanded = expandedAccountId === account.id;
                   const snapshots = snapshotsByAccount[account.id] || [];
                   const isEditing = editingAccountId === account.id;
                   const relatedIncomeEntryCount = incomeEntryCountByAccount[account.id] || 0;
+                  const holdingDraft = newHoldingByAccount[account.id] || { symbol: '', shares: '' };
+                  const updatingInvestmentSettings =
+                    updatingInvestmentSettingsByAccount[account.id] || false;
+                  const savingHolding = savingHoldingsByAccount[account.id] || false;
 
                   return (
                     <div
@@ -752,6 +1093,22 @@ export default function AccountsPage() {
                                 }`}>
                                   {formatCurrency(latestBalance)}
                                 </p>
+                                {hasLiveBalance && (
+                                  <p className="text-xs text-indigo-600">
+                                    Live portfolio value
+                                    {quotesLastUpdated ? ` as of ${formatDateTime(quotesLastUpdated)}` : ''}
+                                  </p>
+                                )}
+                                {account.type === 'investment' &&
+                                  account.investment_portfolio_enabled &&
+                                  account.investment_live_pricing_enabled &&
+                                  livePortfolioSummary &&
+                                  livePortfolioSummary.hasHoldings &&
+                                  livePortfolioSummary.value === null && (
+                                    <p className="text-xs text-amber-600">
+                                      Live quotes unavailable for some symbols ({livePortfolioSummary.missingSymbols.join(', ')})
+                                    </p>
+                                  )}
                                 {autoAdjustBalancesFromIncome &&
                                   latestManualBalance !== null &&
                                   incomeAdjustment &&
@@ -775,7 +1132,7 @@ export default function AccountsPage() {
                                       Manual snapshot: {formatCurrency(latestManualBalance)}
                                     </p>
                                   )}
-                                {change && (
+                                {!hasLiveBalance && change && (
                                   <p className={`text-xs ${change.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                     {change.amount >= 0 ? '+' : ''}{formatCurrency(change.amount)}
                                     {' '}
@@ -849,6 +1206,271 @@ export default function AccountsPage() {
                               Delete
                             </button>
                           </div>
+
+                          {account.type === 'investment' && (
+                            <div className="px-4 sm:px-6 py-4 bg-indigo-50 border-b border-indigo-100 space-y-4">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div>
+                                  <h4 className="text-sm font-semibold text-gray-700">
+                                    Portfolio Composition (Optional)
+                                  </h4>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Keep this account static with manual balance snapshots, or
+                                    enable portfolio + live pricing to auto-update from market
+                                    quotes.
+                                  </p>
+                                </div>
+                                {account.investment_portfolio_enabled &&
+                                  account.investment_live_pricing_enabled && (
+                                    <p className="text-xs text-gray-500">
+                                      {quotesLoading
+                                        ? 'Refreshing quotes...'
+                                        : quotesLastUpdated
+                                          ? `Quotes refreshed ${formatDateTime(quotesLastUpdated)}`
+                                          : 'Quotes not loaded yet'}
+                                    </p>
+                                  )}
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label className="flex items-center gap-2 text-sm text-gray-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={account.investment_portfolio_enabled}
+                                    disabled={updatingInvestmentSettings}
+                                    onChange={(e) =>
+                                      handleUpdateInvestmentSettings(account.id, {
+                                        investment_portfolio_enabled: e.target.checked,
+                                        investment_live_pricing_enabled: e.target.checked
+                                          ? account.investment_live_pricing_enabled
+                                          : false,
+                                      })
+                                    }
+                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                  />
+                                  Track portfolio composition
+                                </label>
+                                <label className="flex items-center gap-2 text-sm text-gray-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={account.investment_live_pricing_enabled}
+                                    disabled={
+                                      updatingInvestmentSettings ||
+                                      !account.investment_portfolio_enabled
+                                    }
+                                    onChange={(e) =>
+                                      handleUpdateInvestmentSettings(account.id, {
+                                        investment_live_pricing_enabled: e.target.checked,
+                                      })
+                                    }
+                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                  />
+                                  Auto-update from live market prices (15 min)
+                                </label>
+                              </div>
+
+                              {!account.investment_portfolio_enabled ? (
+                                <p className="text-xs text-gray-500">
+                                  Portfolio tracking is off. This account behaves like a static
+                                  balance account and only changes when you record manual snapshots.
+                                </p>
+                              ) : (
+                                <div className="space-y-3">
+                                  {quotesError && account.investment_live_pricing_enabled && (
+                                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                                      {quotesError}
+                                    </p>
+                                  )}
+                                  <div className="overflow-x-auto bg-white border rounded-lg">
+                                    <table className="w-full text-sm">
+                                      <thead>
+                                        <tr className="text-left text-gray-500 border-b">
+                                          <th className="py-2 px-3 font-medium">Symbol</th>
+                                          <th className="py-2 px-3 font-medium text-right">Shares</th>
+                                          <th className="py-2 px-3 font-medium text-right">Price</th>
+                                          <th className="py-2 px-3 font-medium text-right">Value</th>
+                                          <th className="py-2 px-3 font-medium text-right">Actions</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {holdings.length === 0 ? (
+                                          <tr>
+                                            <td colSpan={5} className="py-3 px-3 text-gray-400">
+                                              No holdings yet. Add symbols below.
+                                            </td>
+                                          </tr>
+                                        ) : (
+                                          holdings.map((holding) => {
+                                            const quote = quotesBySymbol[holding.symbol];
+                                            const price = quote?.price ?? null;
+                                            const marketValue =
+                                              price !== null
+                                                ? Number(holding.shares) * Number(price)
+                                                : null;
+                                            const isEditingHolding = editingHoldingId === holding.id;
+                                            return (
+                                              <tr key={holding.id} className="border-b border-gray-50">
+                                                <td className="py-2 px-3 font-medium text-gray-900">
+                                                  {isEditingHolding ? (
+                                                    <input
+                                                      type="text"
+                                                      value={editHolding.symbol}
+                                                      onChange={(e) =>
+                                                        setEditHolding((prev) => ({
+                                                          ...prev,
+                                                          symbol: e.target.value.toUpperCase(),
+                                                        }))
+                                                      }
+                                                      className="px-2 py-1 border rounded bg-white text-gray-900 w-24"
+                                                    />
+                                                  ) : (
+                                                    holding.symbol
+                                                  )}
+                                                </td>
+                                                <td className="py-2 px-3 text-right text-gray-700">
+                                                  {isEditingHolding ? (
+                                                    <input
+                                                      type="number"
+                                                      step="0.000001"
+                                                      value={editHolding.shares}
+                                                      onChange={(e) =>
+                                                        setEditHolding((prev) => ({
+                                                          ...prev,
+                                                          shares: e.target.value,
+                                                        }))
+                                                      }
+                                                      className="px-2 py-1 border rounded bg-white text-gray-900 w-24 text-right"
+                                                    />
+                                                  ) : (
+                                                    Number(holding.shares).toLocaleString('en-US', {
+                                                      minimumFractionDigits: 0,
+                                                      maximumFractionDigits: 6,
+                                                    })
+                                                  )}
+                                                </td>
+                                                <td className="py-2 px-3 text-right text-gray-700">
+                                                  {price !== null ? formatCurrency(Number(price)) : '—'}
+                                                </td>
+                                                <td className="py-2 px-3 text-right font-medium text-gray-900">
+                                                  {marketValue !== null
+                                                    ? formatCurrency(marketValue)
+                                                    : '—'}
+                                                </td>
+                                                <td className="py-2 px-3">
+                                                  <div className="flex justify-end gap-2">
+                                                    {isEditingHolding ? (
+                                                      <>
+                                                        <button
+                                                          onClick={() =>
+                                                            handleUpdateHolding(
+                                                              account.id,
+                                                              holding.id
+                                                            )
+                                                          }
+                                                          className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+                                                        >
+                                                          Save
+                                                        </button>
+                                                        <button
+                                                          onClick={() => setEditingHoldingId(null)}
+                                                          className="text-xs px-2 py-1 text-gray-500 hover:text-gray-700"
+                                                        >
+                                                          Cancel
+                                                        </button>
+                                                      </>
+                                                    ) : (
+                                                      <>
+                                                        <button
+                                                          onClick={() => {
+                                                            setEditingHoldingId(holding.id);
+                                                            setEditHolding({
+                                                              symbol: holding.symbol,
+                                                              shares: String(holding.shares),
+                                                            });
+                                                          }}
+                                                          className="text-xs text-blue-600 hover:text-blue-800"
+                                                        >
+                                                          Edit
+                                                        </button>
+                                                        <button
+                                                          onClick={() =>
+                                                            handleDeleteHolding(
+                                                              account.id,
+                                                              holding.id
+                                                            )
+                                                          }
+                                                          className="text-xs text-red-500 hover:text-red-700"
+                                                        >
+                                                          Remove
+                                                        </button>
+                                                      </>
+                                                    )}
+                                                  </div>
+                                                </td>
+                                              </tr>
+                                            );
+                                          })
+                                        )}
+                                      </tbody>
+                                    </table>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-end gap-3">
+                                    <div>
+                                      <label className="block text-xs text-gray-500 mb-1">
+                                        Symbol
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={holdingDraft.symbol}
+                                        onChange={(e) =>
+                                          setHoldingDraft(account.id, {
+                                            symbol: e.target.value.toUpperCase(),
+                                          })
+                                        }
+                                        placeholder="e.g. VOO"
+                                        className="px-3 py-2 text-sm border rounded-lg bg-white text-gray-900 w-32"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs text-gray-500 mb-1">
+                                        Shares
+                                      </label>
+                                      <input
+                                        type="number"
+                                        step="0.000001"
+                                        value={holdingDraft.shares}
+                                        onChange={(e) =>
+                                          setHoldingDraft(account.id, {
+                                            shares: e.target.value,
+                                          })
+                                        }
+                                        placeholder="0"
+                                        className="px-3 py-2 text-sm border rounded-lg bg-white text-gray-900 w-32"
+                                      />
+                                    </div>
+                                    <button
+                                      onClick={() => handleAddHolding(account.id)}
+                                      disabled={
+                                        savingHolding ||
+                                        !holdingDraft.symbol.trim() ||
+                                        !holdingDraft.shares
+                                      }
+                                      className="text-sm px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+                                    >
+                                      {savingHolding ? 'Saving...' : 'Add Holding'}
+                                    </button>
+                                  </div>
+
+                                  {hasLiveBalance && livePortfolioSummary?.value !== null && (
+                                    <p className="text-xs text-indigo-700">
+                                      Live computed total: {formatCurrency(livePortfolioSummary.value)}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           {autoAdjustBalancesFromIncome &&
                             latestManualBalance !== null &&
