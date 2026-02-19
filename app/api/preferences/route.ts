@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { syncIncomeSnapshotsForAccount } from '@/lib/accounts/incomeSnapshotAutomation';
 
 export async function GET() {
   try {
@@ -65,6 +66,18 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    if (auto_adjust_balances_from_income) {
+      const { data: ownedAccounts, error: ownedAccountsError } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('user_id', user.id);
+      if (ownedAccountsError) throw ownedAccountsError;
+
+      for (const account of ownedAccounts || []) {
+        await syncIncomeSnapshotsForAccount(supabase, account.id, user.id);
+      }
+    }
 
     return NextResponse.json({
       auto_adjust_balances_from_income: data.auto_adjust_balances_from_income,

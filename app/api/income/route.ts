@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import {
+  isIncomeAutoAdjustEnabledForUser,
+  syncIncomeSnapshotsForAccount,
+} from '@/lib/accounts/incomeSnapshotAutomation';
 
 const ALLOWED_ENTRY_TYPES = ['income', '401k', 'hsa'] as const;
 type IncomeEntryType = (typeof ALLOWED_ENTRY_TYPES)[number];
@@ -83,7 +87,7 @@ export async function POST(request: NextRequest) {
     // RLS-aware lookup ensures the selected account is visible to this user.
     const { data: account, error: accountError } = await supabase
       .from('accounts')
-      .select('id')
+      .select('id,user_id')
       .eq('id', account_id)
       .single();
 
@@ -109,6 +113,13 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    const shouldAutoAdjustBalances =
+      account?.user_id === user.id &&
+      (await isIncomeAutoAdjustEnabledForUser(supabase, user.id));
+    if (shouldAutoAdjustBalances) {
+      await syncIncomeSnapshotsForAccount(supabase, account_id, user.id);
+    }
 
     return NextResponse.json(data, { status: 201 });
   } catch (error: any) {

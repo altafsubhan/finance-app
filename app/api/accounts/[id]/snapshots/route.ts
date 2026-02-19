@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import {
+  getAccountOwnerId,
+  isIncomeAutoAdjustEnabledForUser,
+  syncIncomeSnapshotsForAccount,
+} from '@/lib/accounts/incomeSnapshotAutomation';
 
 export async function GET(
   request: NextRequest,
@@ -62,6 +67,7 @@ export async function POST(
           balance: parseFloat(balance),
           snapshot_date,
           notes: notes || null,
+          snapshot_source: 'manual',
         },
         { onConflict: 'account_id,snapshot_date' }
       )
@@ -69,6 +75,14 @@ export async function POST(
       .single();
 
     if (error) throw error;
+
+    const ownerId = await getAccountOwnerId(supabase, id);
+    if (ownerId === user.id) {
+      const shouldAutoAdjust = await isIncomeAutoAdjustEnabledForUser(supabase, user.id);
+      if (shouldAutoAdjust) {
+        await syncIncomeSnapshotsForAccount(supabase, id, user.id);
+      }
+    }
 
     return NextResponse.json(data, { status: 201 });
   } catch (error: any) {

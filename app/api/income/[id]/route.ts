@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import {
+  getAccountOwnerId,
+  isIncomeAutoAdjustEnabledForUser,
+  syncIncomeSnapshotsForAccount,
+} from '@/lib/accounts/incomeSnapshotAutomation';
 
 const ALLOWED_ENTRY_TYPES = ['income', '401k', 'hsa'] as const;
 type IncomeEntryType = (typeof ALLOWED_ENTRY_TYPES)[number];
@@ -19,6 +24,17 @@ export async function PUT(
     }
 
     const { id } = await params;
+    const { data: existingEntry, error: existingEntryError } = await supabase
+      .from('income_entries')
+      .select('id,account_id')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (existingEntryError || !existingEntry) {
+      return NextResponse.json({ error: 'Income entry not found' }, { status: 404 });
+    }
+
     const body = await request.json();
     const { account_id, amount, received_date, source, notes, entry_type } = body;
 
@@ -105,6 +121,26 @@ export async function PUT(
       throw error;
     }
 
+    const affectedAccountIds = Array.from(
+      new Set([
+        String(existingEntry.account_id),
+        String(data.account_id),
+      ])
+    );
+
+    let autoAdjustEnabled: boolean | null = null;
+    for (const affectedAccountId of affectedAccountIds) {
+      const ownerId = await getAccountOwnerId(supabase, affectedAccountId);
+      if (!ownerId || ownerId !== user.id) continue;
+
+      if (autoAdjustEnabled === null) {
+        autoAdjustEnabled = await isIncomeAutoAdjustEnabledForUser(supabase, user.id);
+      }
+      if (!autoAdjustEnabled) continue;
+
+      await syncIncomeSnapshotsForAccount(supabase, affectedAccountId, user.id);
+    }
+
     return NextResponse.json(data);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -127,6 +163,17 @@ export async function DELETE(
 
     const { id } = await params;
 
+    const { data: existingEntry, error: existingEntryError } = await supabase
+      .from('income_entries')
+      .select('id,account_id')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (existingEntryError || !existingEntry) {
+      return NextResponse.json({ error: 'Income entry not found' }, { status: 404 });
+    }
+
     const { error } = await supabase
       .from('income_entries')
       .delete()
@@ -134,6 +181,18 @@ export async function DELETE(
       .eq('user_id', user.id);
 
     if (error) throw error;
+
+    const ownerId = await getAccountOwnerId(supabase, String(existingEntry.account_id));
+    if (ownerId === user.id) {
+      const shouldAutoAdjust = await isIncomeAutoAdjustEnabledForUser(supabase, user.id);
+      if (shouldAutoAdjust) {
+        await syncIncomeSnapshotsForAccount(
+          supabase,
+          String(existingEntry.account_id),
+          user.id
+        );
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

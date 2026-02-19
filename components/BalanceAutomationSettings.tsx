@@ -67,8 +67,8 @@ export default function BalanceAutomationSettings() {
       <div>
         <h2 className="text-xl font-semibold">Account Balance Automation</h2>
         <p className="text-sm text-gray-600 mt-1">
-          Automatically apply new income entries as unrecorded adjustments after your latest manual
-          balance snapshot. Income dated on or before that snapshot is ignored.
+          Automatically write balance history rows from income entries after your latest manual
+          snapshot. Income dated on or before that snapshot is ignored.
         </p>
       </div>
 
@@ -95,8 +95,8 @@ export default function BalanceAutomationSettings() {
       </div>
 
       <p className="text-xs text-gray-500">
-        Manual balance updates are still available anytime and remain the baseline for future
-        auto-adjustments.
+        Manual balance updates are still available anytime and become the new baseline for future
+        income-driven rows.
       </p>
 
       {error && (
