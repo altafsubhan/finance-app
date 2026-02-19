@@ -10,12 +10,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data, error } = await supabase
+    const isSharedParam = request.nextUrl.searchParams.get('is_shared');
+
+    let query = supabase
       .from('categories')
       .select('*')
-      // RLS policies now handle user filtering for shared access
       .order('type', { ascending: true })
       .order('name', { ascending: true });
+
+    if (isSharedParam !== null) {
+      query = query.eq('is_shared', isSharedParam === 'true');
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw error;
@@ -37,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, type, default_budget } = body;
+    const { name, type, default_budget, is_shared } = body;
 
     const { data, error } = await supabase
       .from('categories')
@@ -45,6 +52,7 @@ export async function POST(request: NextRequest) {
         name,
         type,
         default_budget,
+        is_shared: is_shared !== undefined ? is_shared : true,
         user_id: user.id,
       })
       .select()

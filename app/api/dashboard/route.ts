@@ -14,16 +14,21 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get('year') || new Date().getFullYear().toString();
     const yearNum = parseInt(year);
 
-    // Get all categories (RLS handles shared access)
-    const { data: categories, error: categoriesError } = await supabase
+    const isSharedParam = request.nextUrl.searchParams.get('is_shared');
+    const filterShared = isSharedParam !== null ? isSharedParam === 'true' : true;
+
+    let categoriesQuery = supabase
       .from('categories')
       .select('*')
       .order('type', { ascending: true })
       .order('name', { ascending: true });
+    if (isSharedParam !== null) {
+      categoriesQuery = categoriesQuery.eq('is_shared', filterShared);
+    }
+    const { data: categories, error: categoriesError } = await categoriesQuery;
 
     if (categoriesError) throw categoriesError;
 
-    // Get budgets for the year (RLS handles shared access)
     const { data: budgets, error: budgetsError } = await supabase
       .from('budgets')
       .select('*')
@@ -31,11 +36,14 @@ export async function GET(request: NextRequest) {
 
     if (budgetsError) throw budgetsError;
 
-    // Get all transactions for the year (RLS handles shared access)
-    const { data: transactions, error: transactionsError } = await supabase
+    let transactionsQuery = supabase
       .from('transactions')
       .select('*')
       .eq('year', yearNum);
+    if (isSharedParam !== null) {
+      transactionsQuery = transactionsQuery.eq('is_shared', filterShared);
+    }
+    const { data: transactions, error: transactionsError } = await transactionsQuery;
 
     if (transactionsError) throw transactionsError;
 

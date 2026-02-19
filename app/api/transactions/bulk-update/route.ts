@@ -21,12 +21,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No updates provided' }, { status: 400 });
     }
 
-    // Build update object (only include fields that are provided)
     const updateData: any = {};
     if (updates.category_id !== undefined) updateData.category_id = updates.category_id;
     if (updates.payment_method !== undefined) updateData.payment_method = updates.payment_method;
     if (updates.paid_by !== undefined) updateData.paid_by = updates.paid_by;
     if (updates.date !== undefined) updateData.date = updates.date;
+    if (updates.is_shared !== undefined) updateData.is_shared = updates.is_shared;
 
     // Update all transactions (RLS policies handle authorization)
     const { data, error } = await supabase

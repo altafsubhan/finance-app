@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -10,12 +10,19 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // RLS handles visibility (own + shared accounts)
-    const { data, error } = await supabase
+    const isSharedParam = request.nextUrl.searchParams.get('is_shared');
+
+    let query = supabase
       .from('accounts')
       .select('*')
       .order('type')
       .order('name');
+
+    if (isSharedParam !== null) {
+      query = query.eq('is_shared', isSharedParam === 'true');
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 

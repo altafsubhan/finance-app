@@ -19,15 +19,16 @@ export type PaymentMethod =
 
 export interface Transaction {
   id: string;
-  date: string | null; // Optional - can be null
+  date: string | null;
   amount: number;
   description: string;
-  category_id: string | null; // Optional - can be null for uncategorized transactions
+  category_id: string | null;
   payment_method: PaymentMethod;
   paid_by: PaidBy;
-  month: number | null; // 1-12, required for monthly categories
-  quarter: number | null; // 1-4, required for quarterly categories
-  year: number; // Required
+  month: number | null;
+  quarter: number | null;
+  year: number;
+  is_shared: boolean;
   user_id: string;
   created_at: string;
   updated_at: string;
@@ -38,6 +39,7 @@ export interface Category {
   name: string;
   type: CategoryType;
   default_budget: number | null;
+  is_shared: boolean;
   user_id: string;
   created_at: string;
 }

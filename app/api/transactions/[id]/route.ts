@@ -14,9 +14,8 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { date, amount, description, category_id, payment_method, paid_by, month, quarter, year } = body;
+    const { date, amount, description, category_id, payment_method, paid_by, month, quarter, year, is_shared } = body;
 
-    // Calculate quarter from month if not provided
     let calculatedQuarter = quarter;
     if (!calculatedQuarter && month) {
       calculatedQuarter = Math.ceil(parseInt(month) / 3);
@@ -31,10 +30,10 @@ export async function PUT(
       paid_by,
     };
 
-    // Only update period fields if provided
     if (month !== undefined) updateData.month = month ? parseInt(month) : null;
     if (calculatedQuarter !== undefined) updateData.quarter = calculatedQuarter ? parseInt(calculatedQuarter) : null;
     if (year !== undefined) updateData.year = parseInt(year);
+    if (is_shared !== undefined) updateData.is_shared = is_shared;
 
     const { data, error } = await supabase
       .from('transactions')

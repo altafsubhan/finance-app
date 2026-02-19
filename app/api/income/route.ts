@@ -20,9 +20,11 @@ export async function GET(request: NextRequest) {
     }
 
     const yearParam = request.nextUrl.searchParams.get('year');
+    const isSharedParam = request.nextUrl.searchParams.get('is_shared');
+
     let query = supabase
       .from('income_entries')
-      .select('*')
+      .select('*, account:accounts(id, is_shared)')
       .order('received_date', { ascending: false })
       .order('created_at', { ascending: false });
 
@@ -40,7 +42,16 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
     if (error) throw error;
 
-    return NextResponse.json(data || []);
+    let filtered = data || [];
+    if (isSharedParam !== null) {
+      const wantShared = isSharedParam === 'true';
+      filtered = filtered.filter((entry: any) => {
+        const account = entry.account;
+        return account ? account.is_shared === wantShared : false;
+      });
+    }
+
+    return NextResponse.json(filtered);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

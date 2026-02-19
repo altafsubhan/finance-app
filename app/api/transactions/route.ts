@@ -14,8 +14,9 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get('year');
     const month = searchParams.get('month');
     const quarter = searchParams.get('quarter');
-    const categoryIds = searchParams.getAll('category_id'); // Get all category_id parameters
+    const categoryIds = searchParams.getAll('category_id');
     const paymentMethod = searchParams.get('payment_method');
+    const isSharedParam = searchParams.get('is_shared');
 
     let query = supabase
       .from('transactions')
@@ -23,11 +24,14 @@ export async function GET(request: NextRequest) {
         *,
         category:categories(*)
       `)
-      // RLS policies now handle user filtering for shared access
       .order('year', { ascending: false })
       .order('quarter', { ascending: false, nullsFirst: false })
       .order('month', { ascending: false, nullsFirst: false })
       .order('date', { ascending: false, nullsFirst: true });
+
+    if (isSharedParam !== null) {
+      query = query.eq('is_shared', isSharedParam === 'true');
+    }
 
     // Filter by year (using year field)
     if (year) {
@@ -83,9 +87,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { date, amount, description, category_id, payment_method, paid_by, month, quarter, year } = body;
+    const { date, amount, description, category_id, payment_method, paid_by, month, quarter, year, is_shared } = body;
 
-    // Calculate quarter from month if not provided
     let calculatedQuarter = quarter;
     if (!calculatedQuarter && month) {
       calculatedQuarter = Math.ceil(month / 3);
@@ -103,7 +106,8 @@ export async function POST(request: NextRequest) {
         month: month ? parseInt(month) : null,
         quarter: calculatedQuarter ? parseInt(calculatedQuarter) : null,
         year: parseInt(year),
-        user_id: user.id, // Still set user_id for tracking, but RLS allows partners to see it
+        is_shared: is_shared !== undefined ? is_shared : true,
+        user_id: user.id,
       })
       .select()
       .single();

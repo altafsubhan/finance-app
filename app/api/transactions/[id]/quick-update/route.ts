@@ -14,12 +14,13 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { category_id, paid_by, payment_method } = body;
+    const { category_id, paid_by, payment_method, is_shared } = body;
 
     const updateData: any = {};
     if (category_id !== undefined) updateData.category_id = category_id;
     if (paid_by !== undefined) updateData.paid_by = paid_by;
     if (payment_method !== undefined) updateData.payment_method = payment_method;
+    if (is_shared !== undefined) updateData.is_shared = is_shared;
 
     const { data, error } = await supabase
       .from('transactions')
