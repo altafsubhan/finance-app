@@ -74,6 +74,8 @@ interface LivePortfolioSummary {
   missingSymbols: string[];
 }
 
+const CASH_HOLDING_SYMBOL = 'CASH';
+
 const ACCOUNT_TYPES = [
   { value: 'checking', label: 'Checking' },
   { value: 'savings', label: 'Savings' },
@@ -443,6 +445,33 @@ export default function AccountsPage() {
     }
   };
 
+  const handleAddCashHolding = async (accountId: string) => {
+    const draft = newHoldingByAccount[accountId] || { symbol: '', shares: '' };
+    const parsedCashAmount = Number(draft.shares);
+    if (!Number.isFinite(parsedCashAmount) || parsedCashAmount <= 0) return;
+
+    setSavingHoldingsByAccount(prev => ({ ...prev, [accountId]: true }));
+    try {
+      const res = await fetch(`/api/accounts/${accountId}/portfolio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          symbol: CASH_HOLDING_SYMBOL,
+          shares: parsedCashAmount,
+        }),
+      });
+      if (res.ok) {
+        await loadPortfolio(accountId);
+        setHoldingDraft(accountId, { symbol: '', shares: '' });
+      }
+    } catch (err) {
+      console.error('Failed to add cash holding:', err);
+    } finally {
+      setSavingHoldingsByAccount(prev => ({ ...prev, [accountId]: false }));
+    }
+  };
+
   const handleUpdateHolding = async (accountId: string, holdingId: string) => {
     const parsedShares = Number(editHolding.shares);
     if (!Number.isFinite(parsedShares) || parsedShares <= 0) return;
@@ -589,7 +618,11 @@ export default function AccountsPage() {
     accounts.forEach((account) => {
       if (!isLivePricingModeEnabled(account.id)) return;
       const holdings = portfolioByAccount[account.id] || [];
-      holdings.forEach((holding) => symbols.add(String(holding.symbol || '').toUpperCase()));
+      holdings.forEach((holding) => {
+        const symbol = String(holding.symbol || '').toUpperCase();
+        if (!symbol || symbol === CASH_HOLDING_SYMBOL) return;
+        symbols.add(symbol);
+      });
     });
     return Array.from(symbols).sort();
   }, [accounts, portfolioByAccount, isLivePricingModeEnabled]);
@@ -662,6 +695,10 @@ export default function AccountsPage() {
       const missingSymbols: string[] = [];
       holdings.forEach((holding) => {
         const symbol = String(holding.symbol || '').toUpperCase();
+        if (symbol === CASH_HOLDING_SYMBOL) {
+          totalValue += Number(holding.shares);
+          return;
+        }
         const quote = quotesBySymbol[symbol];
         if (!quote || quote.price === null) {
           missingSymbols.push(symbol);
@@ -1045,6 +1082,9 @@ export default function AccountsPage() {
                   const change = getBalanceChange(account.id);
                   const allocations = allocationsByAccount[account.id] || [];
                   const holdings = portfolioByAccount[account.id] || [];
+                  const hasCashHolding = holdings.some(
+                    (holding) => String(holding.symbol || '').toUpperCase() === CASH_HOLDING_SYMBOL
+                  );
                   const totalAllocated = getTotalAllocated(account.id);
                   const unallocated = latestBalance !== null ? latestBalance - totalAllocated : 0;
                   const isExpanded = expandedAccountId === account.id;
@@ -1283,8 +1323,14 @@ export default function AccountsPage() {
                                           </tr>
                                         ) : (
                                           holdings.map((holding) => {
-                                            const quote = quotesBySymbol[holding.symbol];
-                                            const price = quote?.price ?? null;
+                                            const normalizedSymbol = String(holding.symbol || '')
+                                              .toUpperCase();
+                                            const isCashHolding =
+                                              normalizedSymbol === CASH_HOLDING_SYMBOL;
+                                            const quote = quotesBySymbol[normalizedSymbol];
+                                            const price = isCashHolding
+                                              ? 1
+                                              : quote?.price ?? null;
                                             const marketValue =
                                               price !== null
                                                 ? Number(holding.shares) * Number(price)
@@ -1306,7 +1352,7 @@ export default function AccountsPage() {
                                                       className="px-2 py-1 border rounded bg-white text-gray-900 w-24"
                                                     />
                                                   ) : (
-                                                    holding.symbol
+                                                    isCashHolding ? 'Cash' : holding.symbol
                                                   )}
                                                 </td>
                                                 <td className="py-2 px-3 text-right text-gray-700">
@@ -1324,10 +1370,12 @@ export default function AccountsPage() {
                                                       className="px-2 py-1 border rounded bg-white text-gray-900 w-24 text-right"
                                                     />
                                                   ) : (
-                                                    Number(holding.shares).toLocaleString('en-US', {
-                                                      minimumFractionDigits: 0,
-                                                      maximumFractionDigits: 6,
-                                                    })
+                                                    isCashHolding
+                                                      ? formatCurrency(Number(holding.shares))
+                                                      : Number(holding.shares).toLocaleString('en-US', {
+                                                          minimumFractionDigits: 0,
+                                                          maximumFractionDigits: 6,
+                                                        })
                                                   )}
                                                 </td>
                                                 <td className="py-2 px-3 text-right text-gray-700">
@@ -1410,13 +1458,13 @@ export default function AccountsPage() {
                                             symbol: e.target.value.toUpperCase(),
                                           })
                                         }
-                                        placeholder="e.g. VOO"
+                                        placeholder="e.g. VOO or CASH"
                                         className="px-3 py-2 text-sm border rounded-lg bg-white text-gray-900 w-32"
                                       />
                                     </div>
                                     <div>
                                       <label className="block text-xs text-gray-500 mb-1">
-                                        Shares
+                                        Shares / Cash Amount
                                       </label>
                                       <input
                                         type="number"
@@ -1442,7 +1490,25 @@ export default function AccountsPage() {
                                     >
                                       {savingHolding ? 'Saving...' : 'Add Holding'}
                                     </button>
+                                    <button
+                                      onClick={() => handleAddCashHolding(account.id)}
+                                      disabled={
+                                        savingHolding || !holdingDraft.shares || hasCashHolding
+                                      }
+                                      className="text-sm px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                                    >
+                                      {hasCashHolding
+                                        ? 'Cash Added'
+                                        : savingHolding
+                                          ? 'Saving...'
+                                          : 'Add Cash'}
+                                    </button>
                                   </div>
+
+                                  <p className="text-xs text-gray-500">
+                                    Tip: Add uninvested balance as CASH (amount in dollars) so it is
+                                    included in live portfolio total.
+                                  </p>
 
                                   {hasLiveBalance && livePortfolioSummary?.value !== null && (
                                     <p className="text-xs text-indigo-700">

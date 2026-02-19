@@ -8,6 +8,8 @@ interface MarketQuote {
   as_of: string | null;
 }
 
+const CASH_HOLDING_SYMBOL = 'CASH';
+
 const REQUEST_HEADERS = {
   'User-Agent': 'finance-app/1.0',
   Accept: 'application/json,text/plain,*/*',
@@ -203,21 +205,33 @@ export async function GET(request: NextRequest) {
 
     const quotes: Record<string, MarketQuote> = {};
     uniqueSymbols.forEach((symbol) => {
+      if (symbol === CASH_HOLDING_SYMBOL) {
+        quotes[symbol] = {
+          price: 1,
+          change_percent: null,
+          currency: 'USD',
+          as_of: new Date().toISOString(),
+        };
+        return;
+      }
       quotes[symbol] = emptyQuote();
     });
 
     const providerErrors: string[] = [];
+    const fetchSymbols = uniqueSymbols.filter((symbol) => symbol !== CASH_HOLDING_SYMBOL);
 
     // Primary provider: Yahoo batch quote endpoint.
-    try {
-      const results = await fetchYahooBatchQuotes(uniqueSymbols);
-      results.forEach((quote: any) => {
-        const symbol = normalizeSymbol(String(quote?.symbol || ''));
-        if (!quotes[symbol]) return;
-        quotes[symbol] = parseYahooQuoteResult(quote);
-      });
-    } catch (error: any) {
-      providerErrors.push(error?.message || 'Yahoo batch quote fetch failed');
+    if (fetchSymbols.length > 0) {
+      try {
+        const results = await fetchYahooBatchQuotes(fetchSymbols);
+        results.forEach((quote: any) => {
+          const symbol = normalizeSymbol(String(quote?.symbol || ''));
+          if (!quotes[symbol]) return;
+          quotes[symbol] = parseYahooQuoteResult(quote);
+        });
+      } catch (error: any) {
+        providerErrors.push(error?.message || 'Yahoo batch quote fetch failed');
+      }
     }
 
     // Fallback 1: Yahoo chart endpoint per missing symbol.
