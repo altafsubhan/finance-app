@@ -98,6 +98,18 @@ export async function PATCH(request: NextRequest) {
       throw error;
     }
 
+    // When a category's scope changes, move all its transactions to match
+    if (is_shared !== undefined) {
+      const { error: txError } = await supabase
+        .from('transactions')
+        .update({ is_shared })
+        .eq('category_id', id);
+
+      if (txError) {
+        console.error('Failed to update transactions for category scope change:', txError);
+      }
+    }
+
     return NextResponse.json(data);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
