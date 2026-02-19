@@ -13,6 +13,7 @@ import BudgetVsSpendingPanel from '@/components/BudgetVsSpendingPanel';
 import SplitTransactionModal, { Split } from '@/components/SplitTransactionModal';
 import EditTransactionModal from '@/components/EditTransactionModal';
 import UncategorizedAutoAssignModal from '@/components/UncategorizedAutoAssignModal';
+import RecordTransferModal from '@/components/RecordTransferModal';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 import { format } from 'date-fns';
@@ -49,6 +50,7 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
   const [editingTransactionModal, setEditingTransactionModal] = useState<Transaction | null>(null);
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const categoryFilterRef = useRef<HTMLDivElement>(null);
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   const scopeLabel = isShared ? 'Shared' : 'Personal';
   const accentColor = isShared ? 'blue' : 'purple';
@@ -423,9 +425,17 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
             </div>
             {!showForm && !showCSVImport && !showScreenshotImport && (
               <div className="flex flex-wrap gap-2 justify-end">
+                {!isShared && (
+                  <button
+                    onClick={() => setShowTransferModal(true)}
+                    className="bg-amber-600 text-white px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm rounded-lg hover:bg-amber-700 whitespace-nowrap flex-1 sm:flex-none"
+                  >
+                    Record Transfer
+                  </button>
+                )}
                 <button
                   onClick={exportToCSV}
-                  className={`bg-${accentColor}-600 text-white px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm rounded-lg hover:bg-${accentColor}-700 whitespace-nowrap flex-1 sm:flex-none`}
+                  className="bg-blue-600 text-white px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm rounded-lg hover:bg-blue-700 whitespace-nowrap flex-1 sm:flex-none"
                   disabled={transactions.length === 0}
                 >
                   Export CSV
@@ -908,6 +918,14 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
           blocklist={blocklist}
           onTransactionUpdated={applyTransactionUpdate}
         />
+
+        {!isShared && (
+          <RecordTransferModal
+            isOpen={showTransferModal}
+            onClose={() => setShowTransferModal(false)}
+            onSuccess={loadTransactions}
+          />
+        )}
       </div>
     </main>
   );
