@@ -38,7 +38,7 @@ export default function TransactionsPage() {
   const hasMountedRef = useRef(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [summariesExpanded, setSummariesExpanded] = useState(false);
-  const [transactionsExpanded, setTransactionsExpanded] = useState(false);
+  const [transactionsExpanded, setTransactionsExpanded] = useState(true);
   const [uncategorizedModalOpen, setUncategorizedModalOpen] = useState(false);
   const [splittingTransaction, setSplittingTransaction] = useState<Transaction | null>(null);
   const [editingTransactionModal, setEditingTransactionModal] = useState<Transaction | null>(null);
@@ -300,7 +300,7 @@ export default function TransactionsPage() {
           const quarterNum = parseInt(selectedPeriod.substring(1));
           if (transaction.quarter !== quarterNum) return false;
           // Also filter by category type to only show quarterly categories
-          const category = categories.find(c => c.id === transaction.category_id);
+        const category = categories.find(c => c.id === transaction.category_id);
           if (!category || category.type !== 'quarterly') return false;
         } else {
           // Month filter
@@ -558,17 +558,17 @@ export default function TransactionsPage() {
               className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Periods</option>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
                 <option key={month} value={month.toString()}>
-                  {new Date(2000, month - 1).toLocaleString('default', { month: 'long' })}
-                </option>
-              ))}
+                    {new Date(2000, month - 1).toLocaleString('default', { month: 'long' })}
+                  </option>
+                ))}
               <option value="Q1">Q1</option>
               <option value="Q2">Q2</option>
               <option value="Q3">Q3</option>
               <option value="Q4">Q4</option>
-            </select>
-          </div>
+              </select>
+            </div>
 
           <div className="relative" ref={categoryFilterRef}>
             <label className="block text-sm font-medium mb-1">
