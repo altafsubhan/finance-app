@@ -76,6 +76,7 @@ export default function RecordTransferModal({ isOpen, onClose, onSuccess }: Reco
           amount: parsedAmount,
           from_account_name: fromName,
           to_account_name: toName,
+          to_account_id: toAccount || null,
           date,
           notes,
           year,
@@ -109,7 +110,7 @@ export default function RecordTransferModal({ isOpen, onClose, onSuccess }: Reco
           <h2 className="text-xl font-semibold mb-1">Record Transfer</h2>
           <p className="text-sm text-gray-500 mb-4">
             Record a money transfer from a personal account to a shared account.
-            This creates a personal expense entry.
+            This creates a personal expense and a shared income entry.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -128,13 +129,14 @@ export default function RecordTransferModal({ isOpen, onClose, onSuccess }: Reco
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">To (Shared Account)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">To (Shared Account) *</label>
               <select
                 value={toAccount}
                 onChange={(e) => setToAccount(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                required
               >
-                <option value="">Select account (optional)</option>
+                <option value="">Select shared account</option>
                 {sharedAccounts.map((a) => (
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
@@ -193,7 +195,7 @@ export default function RecordTransferModal({ isOpen, onClose, onSuccess }: Reco
               </button>
               <button
                 type="submit"
-                disabled={saving || !amount}
+                disabled={saving || !amount || !toAccount}
                 className="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
               >
                 {saving ? 'Recording...' : 'Record Transfer'}
