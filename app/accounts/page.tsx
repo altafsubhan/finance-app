@@ -571,15 +571,18 @@ export default function AccountsPage() {
     }, {});
   }, [accounts]);
 
-  const isLivePricingModeEnabled = (accountId: string): boolean => {
-    const account = accountById[accountId];
-    return Boolean(
-      account &&
-      account.type === 'investment' &&
-      account.investment_portfolio_enabled &&
-      account.investment_live_pricing_enabled
-    );
-  };
+  const isLivePricingModeEnabled = useCallback(
+    (accountId: string): boolean => {
+      const account = accountById[accountId];
+      return Boolean(
+        account &&
+        account.type === 'investment' &&
+        account.investment_portfolio_enabled &&
+        account.investment_live_pricing_enabled
+      );
+    },
+    [accountById]
+  );
 
   const trackedPortfolioSymbols = useMemo(() => {
     const symbols = new Set<string>();
@@ -589,12 +592,7 @@ export default function AccountsPage() {
       holdings.forEach((holding) => symbols.add(String(holding.symbol || '').toUpperCase()));
     });
     return Array.from(symbols).sort();
-  }, [accounts, portfolioByAccount, accountById]);
-
-  const trackedPortfolioSymbolsKey = useMemo(
-    () => trackedPortfolioSymbols.join(','),
-    [trackedPortfolioSymbols]
-  );
+  }, [accounts, portfolioByAccount, isLivePricingModeEnabled]);
 
   useEffect(() => {
     if (trackedPortfolioSymbols.length === 0) {
@@ -639,7 +637,7 @@ export default function AccountsPage() {
       isCancelled = true;
       clearInterval(intervalId);
     };
-  }, [trackedPortfolioSymbolsKey]);
+  }, [trackedPortfolioSymbols]);
 
   const latestSnapshotByAccount = useMemo(() => {
     const map: Record<string, Snapshot | null> = {};
@@ -680,7 +678,7 @@ export default function AccountsPage() {
     });
 
     return map;
-  }, [accounts, portfolioByAccount, quotesBySymbol, accountById]);
+  }, [accounts, portfolioByAccount, quotesBySymbol, isLivePricingModeEnabled]);
 
   const incomeAdjustmentsByAccount = useMemo(() => {
     const map: Record<string, IncomeAdjustment> = {};
@@ -1464,7 +1462,8 @@ export default function AccountsPage() {
 
                                   {hasLiveBalance && livePortfolioSummary?.value !== null && (
                                     <p className="text-xs text-indigo-700">
-                                      Live computed total: {formatCurrency(livePortfolioSummary.value)}
+                                      Live computed total:{' '}
+                                      {formatCurrency(livePortfolioSummary?.value ?? 0)}
                                     </p>
                                   )}
                                 </div>
