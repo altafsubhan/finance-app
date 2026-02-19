@@ -122,7 +122,11 @@ function getTypeLabel(type: string): string {
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
-export default function AccountsPage() {
+interface AccountsPageContentProps {
+  scope?: 'personal' | 'shared';
+}
+
+export default function AccountsPage({ scope }: AccountsPageContentProps = {}) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [snapshotsByAccount, setSnapshotsByAccount] = useState<Record<string, Snapshot[]>>({});
   const [allocationsByAccount, setAllocationsByAccount] = useState<Record<string, Allocation[]>>({});
@@ -176,9 +180,16 @@ export default function AccountsPage() {
   const hasMountedRef = useRef(false);
 
   // ─── Data Loading ────────────────────────────────────────────────────────
+  const isShared = scope === 'shared';
+  const isPersonal = scope === 'personal';
+  const scopeLabel = isShared ? 'Shared' : isPersonal ? 'Personal' : '';
+
   const loadAccounts = useCallback(async () => {
     try {
-      const res = await fetch('/api/accounts', { credentials: 'include' });
+      const url = scope
+        ? `/api/accounts?is_shared=${isShared}`
+        : '/api/accounts';
+      const res = await fetch(url, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setAccounts(data);
@@ -188,7 +199,7 @@ export default function AccountsPage() {
       console.error('Failed to load accounts:', err);
     }
     return [];
-  }, []);
+  }, [scope, isShared]);
 
   const loadSnapshots = useCallback(async (accountId: string) => {
     try {
@@ -256,11 +267,14 @@ export default function AccountsPage() {
     if (!newAccount.name.trim()) return;
     setAddingAccount(true);
     try {
+      const accountPayload = scope
+        ? { ...newAccount, is_shared: isShared }
+        : newAccount;
       const res = await fetch('/api/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(newAccount),
+        body: JSON.stringify(accountPayload),
       });
       if (res.ok) {
         const created = await res.json();
@@ -765,8 +779,21 @@ export default function AccountsPage() {
         {/* ─── Header ─────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Account Balances</h1>
-            <p className="text-sm text-gray-500 mt-1">Track your balances across all accounts</p>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                {scopeLabel ? `${scopeLabel} ` : ''}Accounts
+              </h1>
+              {scope && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  isShared ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                }`}>
+                  {isShared ? 'Shared' : 'Private'}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-gray-500 mt-1">
+              {isShared ? 'Track balances for shared/joint accounts' : isPersonal ? 'Track balances for your personal accounts' : 'Track your balances across all accounts'}
+            </p>
           </div>
           <button
             onClick={() => setShowAddAccount(true)}
