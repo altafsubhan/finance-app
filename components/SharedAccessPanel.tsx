@@ -97,8 +97,8 @@ export default function SharedAccessPanel() {
       <div>
         <h2 className="text-xl font-semibold">Shared access</h2>
         <p className="text-sm text-gray-600 mt-1">
-          Share your data with specific users. Sharing is one-way, so both users must
-          add each other to see each other&apos;s data.
+          Share your data with specific users. Sharing creates a connection, and once either
+          person shares, both users can view shared data.
         </p>
       </div>
 
@@ -132,7 +132,7 @@ export default function SharedAccessPanel() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-            Shared with
+            Connected by you
           </h3>
           {loading ? (
             <div className="text-sm text-gray-500">Loading...</div>
@@ -167,12 +167,12 @@ export default function SharedAccessPanel() {
 
         <div className="space-y-2">
           <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-            Shared by
+            Connected to you
           </h3>
           {loading ? (
             <div className="text-sm text-gray-500">Loading...</div>
           ) : incoming.length === 0 ? (
-            <div className="text-sm text-gray-500">No shared access granted.</div>
+            <div className="text-sm text-gray-500">No one has connected with you yet.</div>
           ) : (
             <ul className="space-y-2">
               {incoming.map((entry) => (
