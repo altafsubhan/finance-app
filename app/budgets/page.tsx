@@ -9,11 +9,14 @@ interface BudgetWithCategory extends Budget {
 }
 
 interface CategoryFormState {
-  id?: string;
   name: string;
   type: CategoryType;
   default_budget: string;
   is_shared: boolean;
+}
+
+interface CategoryEditState extends CategoryFormState {
+  id: string;
 }
 
 const EMPTY_CATEGORY_FORM: CategoryFormState = {
@@ -31,7 +34,8 @@ export default function BudgetsPage() {
   const [editingBudget, setEditingBudget] = useState<BudgetWithCategory | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  const [categoryForm, setCategoryForm] = useState<CategoryFormState>(EMPTY_CATEGORY_FORM);
+  const [newCategoryForm, setNewCategoryForm] = useState<CategoryFormState>(EMPTY_CATEGORY_FORM);
+  const [editingCategory, setEditingCategory] = useState<CategoryEditState | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [categorySaving, setCategorySaving] = useState(false);
 
@@ -101,36 +105,71 @@ export default function BudgetsPage() {
     setEditingBudget(null);
   };
 
-  const handleCategorySubmit = async (e: React.FormEvent) => {
+  const saveCategory = async (payload: Record<string, any>, method: 'POST' | 'PATCH') => {
+    const response = await fetch('/api/categories', {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Failed to save category');
+    }
+  };
+
+  const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     setCategorySaving(true);
     setCategoryError(null);
 
     try {
-      const payload = {
-        id: categoryForm.id,
-        name: categoryForm.name,
-        type: categoryForm.type,
-        default_budget: categoryForm.default_budget === '' ? null : parseFloat(categoryForm.default_budget),
-        is_shared: categoryForm.is_shared,
-      };
+      await saveCategory(
+        {
+          name: newCategoryForm.name,
+          type: newCategoryForm.type,
+          default_budget: newCategoryForm.default_budget === '' ? null : parseFloat(newCategoryForm.default_budget),
+          is_shared: newCategoryForm.is_shared,
+        },
+        'POST'
+      );
 
-      const response = await fetch('/api/categories', {
-        method: categoryForm.id ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to save category');
-      }
-
-      setCategoryForm(EMPTY_CATEGORY_FORM);
+      setNewCategoryForm(EMPTY_CATEGORY_FORM);
       await loadData();
     } catch (error: any) {
-      setCategoryError(error.message || 'Failed to save category');
+      setCategoryError(error.message || 'Failed to create category');
+    } finally {
+      setCategorySaving(false);
+    }
+  };
+
+  const handleUpdateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!editingCategory) {
+      return;
+    }
+
+    setCategorySaving(true);
+    setCategoryError(null);
+
+    try {
+      await saveCategory(
+        {
+          id: editingCategory.id,
+          name: editingCategory.name,
+          type: editingCategory.type,
+          default_budget: editingCategory.default_budget === '' ? null : parseFloat(editingCategory.default_budget),
+          is_shared: editingCategory.is_shared,
+        },
+        'PATCH'
+      );
+
+      setEditingCategory(null);
+      await loadData();
+    } catch (error: any) {
+      setCategoryError(error.message || 'Failed to update category');
     } finally {
       setCategorySaving(false);
     }
@@ -138,18 +177,13 @@ export default function BudgetsPage() {
 
   const startEditCategory = (category: Category) => {
     setCategoryError(null);
-    setCategoryForm({
+    setEditingCategory({
       id: category.id,
       name: category.name,
       type: category.type,
       default_budget: category.default_budget?.toString() || '',
       is_shared: category.is_shared,
     });
-  };
-
-  const cancelEditCategory = () => {
-    setCategoryError(null);
-    setCategoryForm(EMPTY_CATEGORY_FORM);
   };
 
   const deleteCategory = async (category: Category) => {
@@ -170,8 +204,8 @@ export default function BudgetsPage() {
         throw new Error(data.error || 'Failed to delete category');
       }
 
-      if (categoryForm.id === category.id) {
-        setCategoryForm(EMPTY_CATEGORY_FORM);
+      if (editingCategory?.id === category.id) {
+        setEditingCategory(null);
       }
 
       await loadData();
@@ -203,9 +237,7 @@ export default function BudgetsPage() {
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
   const getPeriodLabel = (budget: BudgetWithCategory) => {
-    if (budget.period === 'year') {
-      return 'Yearly';
-    }
+    if (budget.period === 'year') return 'Yearly';
 
     if (budget.period === 'quarter') {
       if (budget.period_value) {
@@ -256,7 +288,7 @@ export default function BudgetsPage() {
                 onClick={() => setShowBudgetForm(true)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
               >
-                Add Budget
+                Assign New Budget
               </button>
             )}
           </div>
@@ -268,12 +300,12 @@ export default function BudgetsPage() {
             <p className="text-sm text-gray-600 mt-1">Add, edit, delete, and toggle category privacy. Default budget is used as your baseline planning amount.</p>
           </div>
 
-          <form onSubmit={handleCategorySubmit} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+          <form onSubmit={handleCreateCategory} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
             <div>
               <label className="text-sm font-medium">Name</label>
               <input
-                value={categoryForm.name}
-                onChange={(e) => setCategoryForm((prev) => ({ ...prev, name: e.target.value }))}
+                value={newCategoryForm.name}
+                onChange={(e) => setNewCategoryForm((prev) => ({ ...prev, name: e.target.value }))}
                 required
                 className="w-full mt-1 px-3 py-2 border rounded-lg"
               />
@@ -281,8 +313,8 @@ export default function BudgetsPage() {
             <div>
               <label className="text-sm font-medium">Type</label>
               <select
-                value={categoryForm.type}
-                onChange={(e) => setCategoryForm((prev) => ({ ...prev, type: e.target.value as CategoryType }))}
+                value={newCategoryForm.type}
+                onChange={(e) => setNewCategoryForm((prev) => ({ ...prev, type: e.target.value as CategoryType }))}
                 className="w-full mt-1 px-3 py-2 border rounded-lg"
               >
                 <option value="monthly">Monthly</option>
@@ -295,16 +327,16 @@ export default function BudgetsPage() {
               <input
                 type="number"
                 step="0.01"
-                value={categoryForm.default_budget}
-                onChange={(e) => setCategoryForm((prev) => ({ ...prev, default_budget: e.target.value }))}
+                value={newCategoryForm.default_budget}
+                onChange={(e) => setNewCategoryForm((prev) => ({ ...prev, default_budget: e.target.value }))}
                 className="w-full mt-1 px-3 py-2 border rounded-lg"
               />
             </div>
             <div>
               <label className="text-sm font-medium">Visibility</label>
               <select
-                value={categoryForm.is_shared ? 'shared' : 'personal'}
-                onChange={(e) => setCategoryForm((prev) => ({ ...prev, is_shared: e.target.value === 'shared' }))}
+                value={newCategoryForm.is_shared ? 'shared' : 'personal'}
+                onChange={(e) => setNewCategoryForm((prev) => ({ ...prev, is_shared: e.target.value === 'shared' }))}
                 className="w-full mt-1 px-3 py-2 border rounded-lg"
               >
                 <option value="shared">Shared</option>
@@ -313,11 +345,8 @@ export default function BudgetsPage() {
             </div>
             <div className="flex gap-2">
               <button type="submit" disabled={categorySaving} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                {categorySaving ? 'Saving...' : categoryForm.id ? 'Update' : 'Add'}
+                {categorySaving ? 'Saving...' : 'Add'}
               </button>
-              {categoryForm.id && (
-                <button type="button" onClick={cancelEditCategory} className="px-4 py-2 rounded-lg border hover:bg-gray-50">Cancel</button>
-              )}
             </div>
           </form>
 
@@ -369,7 +398,7 @@ export default function BudgetsPage() {
         {showBudgetForm && (
           <div className="p-6 bg-white border rounded-lg">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-semibold">{editingBudget ? 'Edit Budget' : 'New Budget'}</h2>
+              <h2 className="text-2xl font-semibold">{editingBudget ? 'Edit Budget' : 'Assign New Budget'}</h2>
               <button onClick={handleCancelBudget} className="text-gray-600 hover:text-gray-900">Cancel</button>
             </div>
             <BudgetForm categories={categories} year={selectedYear} onSuccess={handleBudgetSuccess} initialData={editingBudget || null} />
@@ -378,8 +407,7 @@ export default function BudgetsPage() {
 
         {budgets.length === 0 ? (
           <div className="text-center py-12 bg-white border rounded-lg">
-            <p className="text-gray-600 mb-4">No budgets set for {selectedYear}.</p>
-            <p className="text-gray-500">Click &quot;Add Budget&quot; to create one.</p>
+            <p className="text-gray-600">Using default budget for all categories in {selectedYear}.</p>
           </div>
         ) : (
           <div className="bg-white border rounded-lg overflow-hidden">
@@ -411,6 +439,90 @@ export default function BudgetsPage() {
           </div>
         )}
       </div>
+
+      {editingCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">Edit Category</h3>
+              <button
+                type="button"
+                onClick={() => setEditingCategory(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateCategory} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Name</label>
+                <input
+                  value={editingCategory.name}
+                  onChange={(e) => setEditingCategory((prev) => prev ? { ...prev, name: e.target.value } : prev)}
+                  required
+                  className="w-full mt-1 px-3 py-2 border rounded-lg"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">Type</label>
+                  <select
+                    value={editingCategory.type}
+                    onChange={(e) => setEditingCategory((prev) => prev ? { ...prev, type: e.target.value as CategoryType } : prev)}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Visibility</label>
+                  <select
+                    value={editingCategory.is_shared ? 'shared' : 'personal'}
+                    onChange={(e) => setEditingCategory((prev) => prev ? { ...prev, is_shared: e.target.value === 'shared' } : prev)}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg"
+                  >
+                    <option value="shared">Shared</option>
+                    <option value="personal">Personal</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Default budget</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editingCategory.default_budget}
+                  onChange={(e) => setEditingCategory((prev) => prev ? { ...prev, default_budget: e.target.value } : prev)}
+                  className="w-full mt-1 px-3 py-2 border rounded-lg"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingCategory(null)}
+                  className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={categorySaving}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {categorySaving ? 'Saving...' : 'Save changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
