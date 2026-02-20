@@ -78,7 +78,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, is_shared } = body;
+    const { id, is_shared, name, type, default_budget } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Category ID is required' }, { status: 400 });
@@ -95,6 +95,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     const updateData: any = {};
+
+    if (name !== undefined) updateData.name = name;
+    if (type !== undefined) updateData.type = type;
+    if (default_budget !== undefined) updateData.default_budget = default_budget;
+
     if (is_shared !== undefined) {
       updateData.is_shared = is_shared;
 
@@ -103,6 +108,10 @@ export async function PATCH(request: NextRequest) {
       if (is_shared === false && existingCategory.user_id !== user.id) {
         updateData.user_id = user.id;
       }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No fields provided to update' }, { status: 400 });
     }
 
     const { data, error } = await supabase
@@ -130,6 +139,37 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Category ID is required' }, { status: 400 });
+    }
+
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      throw error;
+    }
+
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

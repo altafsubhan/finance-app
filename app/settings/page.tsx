@@ -22,7 +22,7 @@ export default function SettingsPage() {
             <div>
               <h2 className="text-xl font-semibold">Budgets &amp; Categories</h2>
               <p className="text-sm text-gray-600 mt-1">
-                Review category defaults and set budgets by period.
+                Manage categories, privacy, default budgets, and budget periods in one place.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -30,13 +30,7 @@ export default function SettingsPage() {
                 href="/budgets"
                 className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
               >
-                Open budgets
-              </Link>
-              <Link
-                href="/categories"
-                className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-100 text-gray-800 hover:bg-gray-200"
-              >
-                Category setup
+                Manage budgets &amp; categories
               </Link>
             </div>
           </section>
