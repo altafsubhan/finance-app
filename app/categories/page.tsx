@@ -71,6 +71,9 @@ export default function CategoriesPage() {
             c.id === category.id ? { ...c, is_shared: !c.is_shared } : c
           )
         );
+      } else {
+        const data = await response.json().catch(() => ({}));
+        alert(data.error || 'Failed to update category');
       }
     } catch (error) {
       console.error('Failed to update category:', error);

@@ -84,8 +84,26 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Category ID is required' }, { status: 400 });
     }
 
+    const { data: existingCategory, error: fetchError } = await supabase
+      .from('categories')
+      .select('id, user_id, is_shared')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existingCategory) {
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+    }
+
     const updateData: any = {};
-    if (is_shared !== undefined) updateData.is_shared = is_shared;
+    if (is_shared !== undefined) {
+      updateData.is_shared = is_shared;
+
+      // If a partner converts a shared category to personal,
+      // make it personal to the actor instead of the original owner.
+      if (is_shared === false && existingCategory.user_id !== user.id) {
+        updateData.user_id = user.id;
+      }
+    }
 
     const { data, error } = await supabase
       .from('categories')
@@ -98,12 +116,13 @@ export async function PATCH(request: NextRequest) {
       throw error;
     }
 
-    // When a category's scope changes, move all its transactions to match
+    // When a category's scope changes, move only the actor's transactions to match
     if (is_shared !== undefined) {
       const { error: txError } = await supabase
         .from('transactions')
         .update({ is_shared })
-        .eq('category_id', id);
+        .eq('category_id', id)
+        .eq('user_id', user.id);
 
       if (txError) {
         console.error('Failed to update transactions for category scope change:', txError);
@@ -115,4 +134,3 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-
