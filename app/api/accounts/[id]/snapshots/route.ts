@@ -48,23 +48,52 @@ export async function POST(
 
     const { id } = await params;
     const body = await request.json();
-    const { balance, snapshot_date, notes } = body;
+    const { balance, balance_adjustment, snapshot_date, notes } = body;
 
-    if (balance === undefined || !snapshot_date) {
+    if (balance === undefined && balance_adjustment === undefined) {
       return NextResponse.json(
-        { error: 'Balance and snapshot_date are required' },
+        { error: 'Either balance or balance_adjustment is required' },
         { status: 400 }
       );
     }
 
-    // Upsert: if a snapshot for this date exists, update it
+    if (!snapshot_date) {
+      return NextResponse.json(
+        { error: 'snapshot_date is required' },
+        { status: 400 }
+      );
+    }
+
+    let finalBalance: number;
+
+    if (balance_adjustment !== undefined) {
+      const { data: latestSnap, error: snapErr } = await supabase
+        .from('account_snapshots')
+        .select('balance')
+        .eq('account_id', id)
+        .order('snapshot_date', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (snapErr || !latestSnap) {
+        return NextResponse.json(
+          { error: 'No existing balance snapshot found to adjust' },
+          { status: 400 }
+        );
+      }
+
+      finalBalance = parseFloat(latestSnap.balance) + parseFloat(balance_adjustment);
+    } else {
+      finalBalance = parseFloat(balance);
+    }
+
     const { data, error } = await supabase
       .from('account_snapshots')
       .upsert(
         {
           account_id: id,
           user_id: user.id,
-          balance: parseFloat(balance),
+          balance: finalBalance,
           snapshot_date,
           notes: notes || null,
           snapshot_source: 'manual',

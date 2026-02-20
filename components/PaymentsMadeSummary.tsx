@@ -11,42 +11,22 @@ interface PaymentsMadeSummaryProps {
   defaultExpanded?: boolean;
 }
 
-interface PaymentsBreakdown {
-  joint: number;
-  subi: number;
-  mano: number;
-  total: number;
-}
-
 export default function PaymentsMadeSummary({ transactions, categories, categoryTypeFilter = '', defaultExpanded = true }: PaymentsMadeSummaryProps) {
   const { paymentMethods } = usePaymentMethods();
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
-  // Get category names for personal identification
-  const subiPersonalCategoryName = categories.find(c => 
-    c.name.toLowerCase().includes('subi') && c.name.toLowerCase().includes('personal')
-  )?.name || 'Subi Personal';
-  
-  const manoPersonalCategoryName = categories.find(c => 
-    c.name.toLowerCase().includes('mano') && c.name.toLowerCase().includes('personal')
-  )?.name || 'Mano Personal';
-
-  // Helper function to get category type
   const getCategoryType = useCallback((categoryId: string | null): 'monthly' | 'quarterly' | 'yearly' | null => {
     if (!categoryId) return null;
     const category = categories.find(c => c.id === categoryId);
     return category?.type || null;
   }, [categories]);
 
-  // Calculate payments made by payment method
   const paymentsByPaymentMethod = useMemo(() => {
-    const result: Record<string, PaymentsBreakdown> = {};
+    const result: Record<string, { total: number; paidBy: Record<string, number> }> = {};
 
-    // Filter to only paid transactions (paid_by is not null) and ignore uncategorized transactions
     let paidTransactions = transactions.filter(t => t.paid_by !== null && t.category_id !== null);
-    
-    // If category type filter is set, only include transactions matching that category type
+
     if (categoryTypeFilter) {
       paidTransactions = paidTransactions.filter(t => {
         const categoryType = getCategoryType(t.category_id);
@@ -55,63 +35,25 @@ export default function PaymentsMadeSummary({ transactions, categories, category
     }
 
     paidTransactions.forEach(transaction => {
-      const paymentMethod = transaction.payment_method;
-      if (!result[paymentMethod]) {
-        result[paymentMethod] = { joint: 0, subi: 0, mano: 0, total: 0 };
-      }
-
-      const category = categories.find(c => c.id === transaction.category_id);
-      // Skip if category not found (shouldn't happen since we filter for category_id !== null, but safety check)
-      if (!category) return;
-      
-      const categoryName = category.name;
+      const pm = transaction.payment_method;
+      if (!result[pm]) result[pm] = { total: 0, paidBy: {} };
       const amount = Math.abs(transaction.amount);
-
-      // Categorize based on paid_by field first, then category name as fallback
-      // If paid_by is explicitly set, use that; otherwise check category name
-      if (transaction.paid_by === 'sobi') {
-        result[paymentMethod].subi += amount;
-      } else if (transaction.paid_by === 'mano') {
-        result[paymentMethod].mano += amount;
-      } else if (transaction.paid_by === 'joint') {
-        // Explicitly marked as joint, count as joint
-        result[paymentMethod].joint += amount;
-      } else {
-        // paid_by is null or not set - use category name to determine
-        if (categoryName.toLowerCase() === subiPersonalCategoryName.toLowerCase()) {
-          result[paymentMethod].subi += amount;
-        } else if (categoryName.toLowerCase() === manoPersonalCategoryName.toLowerCase()) {
-          result[paymentMethod].mano += amount;
-        } else {
-          // Everything else is joint
-          result[paymentMethod].joint += amount;
-        }
-      }
-      
-      result[paymentMethod].total += amount;
+      result[pm].total += amount;
+      const payer = transaction.paid_by || 'unknown';
+      result[pm].paidBy[payer] = (result[pm].paidBy[payer] || 0) + amount;
     });
 
     return result;
-  }, [transactions, categories, categoryTypeFilter, subiPersonalCategoryName, manoPersonalCategoryName, getCategoryType]);
+  }, [transactions, categoryTypeFilter, getCategoryType]);
 
-  // Get the selected payment method breakdown or all payment methods
   const displayData = useMemo(() => {
     return selectedPaymentMethod
-      ? { [selectedPaymentMethod]: paymentsByPaymentMethod[selectedPaymentMethod] || { joint: 0, subi: 0, mano: 0, total: 0 } }
+      ? { [selectedPaymentMethod]: paymentsByPaymentMethod[selectedPaymentMethod] || { total: 0, paidBy: {} } }
       : paymentsByPaymentMethod;
   }, [selectedPaymentMethod, paymentsByPaymentMethod]);
 
-  // Calculate totals across all displayed payment methods
-  const totals = useMemo(() => {
-    return Object.values(displayData).reduce(
-      (acc, breakdown) => ({
-        joint: acc.joint + breakdown.joint,
-        subi: acc.subi + breakdown.subi,
-        mano: acc.mano + breakdown.mano,
-        total: acc.total + breakdown.total,
-      }),
-      { joint: 0, subi: 0, mano: 0, total: 0 }
-    );
+  const totalPaid = useMemo(() => {
+    return Object.values(displayData).reduce((sum, v) => sum + v.total, 0);
   }, [displayData]);
 
   const formatCurrency = (amount: number) => {
@@ -133,7 +75,6 @@ export default function PaymentsMadeSummary({ transactions, categories, category
       </button>
       {isExpanded && (
         <div className="p-4 space-y-4">
-          {/* Payment Method Filter */}
           <div>
             <label htmlFor="payments-payment-method" className="block text-sm font-medium mb-2 text-gray-700">
               Filter by Payment Method
@@ -146,68 +87,45 @@ export default function PaymentsMadeSummary({ transactions, categories, category
             >
               <option value="">All Payment Methods</option>
               {paymentMethods.map((method) => (
-                <option key={method.id} value={method.name}>
-                  {method.name}
-                </option>
+                <option key={method.id} value={method.name}>{method.name}</option>
               ))}
             </select>
           </div>
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Joint */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="text-sm font-medium text-blue-900 mb-1">Joint</div>
-              <div className="text-2xl font-bold text-blue-900">{formatCurrency(totals.joint)}</div>
-            </div>
-
-            {/* Subi */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="text-sm font-medium text-green-900 mb-1">Subi Personal</div>
-              <div className="text-2xl font-bold text-green-900">{formatCurrency(totals.subi)}</div>
-            </div>
-
-            {/* Mano */}
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <div className="text-sm font-medium text-orange-900 mb-1">Mano Personal</div>
-              <div className="text-2xl font-bold text-orange-900">{formatCurrency(totals.mano)}</div>
-            </div>
+          <div className="bg-green-50 border border-green-300 rounded-lg p-4">
+            <div className="text-sm font-medium text-green-900 mb-1">Total Payments Made</div>
+            <div className="text-2xl font-bold text-green-900">{formatCurrency(totalPaid)}</div>
           </div>
 
-          {/* Total */}
-          <div className="bg-gray-100 border border-gray-300 rounded-lg p-4">
-            <div className="text-sm font-medium text-gray-900 mb-1">Total Payments Made</div>
-            <div className="text-2xl font-bold text-gray-900">{formatCurrency(totals.total)}</div>
-          </div>
-
-          {/* Breakdown by Payment Method */}
           {Object.keys(displayData).length > 0 && (
             <div className="mt-4">
               <div className="text-sm font-medium text-gray-700 mb-2">
                 Breakdown by Payment Method:
               </div>
-              <div className="space-y-3 overflow-x-auto">
+              <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-100">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Payment Method</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase">Joint</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase">Subi</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase">Mano</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase">Total</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase">Paid</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Paid By</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {Object.entries(displayData)
-                      .filter(([_, breakdown]) => breakdown.total > 0)
+                      .filter(([_, data]) => data.total > 0)
                       .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([method, breakdown]) => (
+                      .map(([method, data]) => (
                         <tr key={method} className="hover:bg-gray-50">
                           <td className="px-3 py-2 text-sm text-gray-900">{method}</td>
-                          <td className="px-3 py-2 text-sm text-right text-blue-900">{formatCurrency(breakdown.joint)}</td>
-                          <td className="px-3 py-2 text-sm text-right text-green-900">{formatCurrency(breakdown.subi)}</td>
-                          <td className="px-3 py-2 text-sm text-right text-orange-900">{formatCurrency(breakdown.mano)}</td>
-                          <td className="px-3 py-2 text-sm text-right font-semibold text-gray-900">{formatCurrency(breakdown.total)}</td>
+                          <td className="px-3 py-2 text-sm text-right font-semibold text-green-700">{formatCurrency(data.total)}</td>
+                          <td className="px-3 py-2 text-xs text-gray-500">
+                            {Object.entries(data.paidBy).map(([payer, amt]) => (
+                              <span key={payer} className="mr-2">
+                                {payer === 'joint' ? 'Joint' : payer}: {formatCurrency(amt)}
+                              </span>
+                            ))}
+                          </td>
                         </tr>
                       ))}
                   </tbody>
@@ -220,5 +138,3 @@ export default function PaymentsMadeSummary({ transactions, categories, category
     </div>
   );
 }
-
-

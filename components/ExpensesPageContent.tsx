@@ -698,23 +698,19 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
           </button>
           {summariesExpanded && (
             <div className="px-4 pb-4 pt-2 space-y-4">
-              {isShared && (
-                <>
-                  <OutstandingSummary
-                    transactions={transactions}
-                    categories={categories}
-                    categoryTypeFilter={selectedPeriod.startsWith('Q') ? 'quarterly' : (selectedPeriod ? 'monthly' : '')}
-                    onMarkPaid={loadTransactions}
-                    defaultExpanded={false}
-                  />
-                  <PaymentsMadeSummary
-                    transactions={transactions}
-                    categories={categories}
-                    categoryTypeFilter={selectedPeriod.startsWith('Q') ? 'quarterly' : (selectedPeriod ? 'monthly' : '')}
-                    defaultExpanded={false}
-                  />
-                </>
-              )}
+              <OutstandingSummary
+                transactions={transactions}
+                categories={categories}
+                categoryTypeFilter={selectedPeriod.startsWith('Q') ? 'quarterly' : (selectedPeriod ? 'monthly' : '')}
+                onMarkPaid={loadTransactions}
+                defaultExpanded={false}
+              />
+              <PaymentsMadeSummary
+                transactions={transactions}
+                categories={categories}
+                categoryTypeFilter={selectedPeriod.startsWith('Q') ? 'quarterly' : (selectedPeriod ? 'monthly' : '')}
+                defaultExpanded={false}
+              />
               <BudgetVsSpendingPanel
                 transactions={transactions}
                 categories={categories}

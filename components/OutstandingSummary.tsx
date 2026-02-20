@@ -8,16 +8,9 @@ import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 interface OutstandingSummaryProps {
   transactions: Transaction[];
   categories: Category[];
-  categoryTypeFilter?: 'monthly' | 'quarterly' | 'yearly' | ''; // Filter by category type
-  onMarkPaid?: () => Promise<void>; // Callback to refresh transactions after marking as paid
+  categoryTypeFilter?: 'monthly' | 'quarterly' | 'yearly' | '';
+  onMarkPaid?: () => Promise<void>;
   defaultExpanded?: boolean;
-}
-
-interface OutstandingBreakdown {
-  joint: number;
-  subi: number;
-  mano: number;
-  total: number;
 }
 
 export default function OutstandingSummary({ transactions, categories, categoryTypeFilter = '', onMarkPaid, defaultExpanded = true }: OutstandingSummaryProps) {
@@ -28,31 +21,17 @@ export default function OutstandingSummary({ transactions, categories, categoryT
   const touchHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Get category names for personal identification
-  const subiPersonalCategoryName = categories.find(c => 
-    c.name.toLowerCase().includes('subi') && c.name.toLowerCase().includes('personal')
-  )?.name || 'Subi Personal';
-  
-  const manoPersonalCategoryName = categories.find(c => 
-    c.name.toLowerCase().includes('mano') && c.name.toLowerCase().includes('personal')
-  )?.name || 'Mano Personal';
-
-  // Helper function to get category type
   const getCategoryType = useCallback((categoryId: string | null): 'monthly' | 'quarterly' | 'yearly' | null => {
     if (!categoryId) return null;
     const category = categories.find(c => c.id === categoryId);
     return category?.type || null;
   }, [categories]);
 
-  // Calculate outstanding amounts by payment method
   const outstandingByPaymentMethod = useMemo(() => {
-    const result: Record<string, OutstandingBreakdown> = {};
+    const result: Record<string, number> = {};
 
-    // Filter to only unpaid transactions (paid_by is null), ignore uncategorized transactions,
-    // and filter by category type if specified
     let unpaidTransactions = transactions.filter(t => t.paid_by === null && t.category_id !== null);
-    
-    // If category type filter is set, only include transactions matching that category type
+
     if (categoryTypeFilter) {
       unpaidTransactions = unpaidTransactions.filter(t => {
         const categoryType = getCategoryType(t.category_id);
@@ -61,51 +40,22 @@ export default function OutstandingSummary({ transactions, categories, categoryT
     }
 
     unpaidTransactions.forEach(transaction => {
-      const paymentMethod = transaction.payment_method;
-      if (!result[paymentMethod]) {
-        result[paymentMethod] = { joint: 0, subi: 0, mano: 0, total: 0 };
-      }
-
-      const category = categories.find(c => c.id === transaction.category_id);
-      // Skip if category not found (shouldn't happen since we filter for category_id !== null, but safety check)
-      if (!category) return;
-      
-      const categoryName = category.name;
-      const amount = Math.abs(transaction.amount);
-
-      // Categorize based on category name
-      if (categoryName.toLowerCase() === subiPersonalCategoryName.toLowerCase()) {
-        result[paymentMethod].subi += amount;
-      } else if (categoryName.toLowerCase() === manoPersonalCategoryName.toLowerCase()) {
-        result[paymentMethod].mano += amount;
-      } else {
-        result[paymentMethod].joint += amount;
-      }
-      
-      result[paymentMethod].total += amount;
+      const pm = transaction.payment_method;
+      if (!result[pm]) result[pm] = 0;
+      result[pm] += Math.abs(transaction.amount);
     });
 
     return result;
-  }, [transactions, categories, categoryTypeFilter, subiPersonalCategoryName, manoPersonalCategoryName, getCategoryType]);
+  }, [transactions, categoryTypeFilter, getCategoryType]);
 
-  // Get the selected payment method breakdown or all payment methods
   const displayData = useMemo(() => {
     return selectedPaymentMethod
-      ? { [selectedPaymentMethod]: outstandingByPaymentMethod[selectedPaymentMethod] || { joint: 0, subi: 0, mano: 0, total: 0 } }
+      ? { [selectedPaymentMethod]: outstandingByPaymentMethod[selectedPaymentMethod] || 0 }
       : outstandingByPaymentMethod;
   }, [selectedPaymentMethod, outstandingByPaymentMethod]);
 
-  // Calculate totals across all displayed payment methods
-  const totals = useMemo(() => {
-    return Object.values(displayData).reduce(
-      (acc, breakdown) => ({
-        joint: acc.joint + breakdown.joint,
-        subi: acc.subi + breakdown.subi,
-        mano: acc.mano + breakdown.mano,
-        total: acc.total + breakdown.total,
-      }),
-      { joint: 0, subi: 0, mano: 0, total: 0 }
-    );
+  const totalOutstanding = useMemo(() => {
+    return Object.values(displayData).reduce((sum, v) => sum + v, 0);
   }, [displayData]);
 
   const formatCurrency = (amount: number) => {
@@ -116,15 +66,13 @@ export default function OutstandingSummary({ transactions, categories, categoryT
     }).format(amount);
   };
 
-  const handleMarkPaid = async (paymentMethod: PaymentMethod, paidBy: PaidBy) => {
-    // Filter unpaid transactions with this payment method
-    let filteredTransactions = transactions.filter(t => 
-      t.payment_method === paymentMethod && 
-      t.paid_by === null && 
-      t.category_id !== null // Ignore uncategorized
+  const handleMarkPaid = async (paymentMethod: PaymentMethod, paidBy: PaidBy, _accountId?: string) => {
+    let filteredTransactions = transactions.filter(t =>
+      t.payment_method === paymentMethod &&
+      t.paid_by === null &&
+      t.category_id !== null
     );
 
-    // Filter by category type if specified
     if (categoryTypeFilter) {
       filteredTransactions = filteredTransactions.filter(t => {
         const categoryType = getCategoryType(t.category_id);
@@ -132,37 +80,14 @@ export default function OutstandingSummary({ transactions, categories, categoryT
       });
     }
 
-    // Filter by category type based on who paid
-    if (paidBy === 'sobi') {
-      // Only mark Subi Personal transactions
-      filteredTransactions = filteredTransactions.filter(t => {
-        const category = categories.find(c => c.id === t.category_id);
-        return category && category.name.toLowerCase() === subiPersonalCategoryName.toLowerCase();
-      });
-    } else if (paidBy === 'mano') {
-      // Only mark Mano Personal transactions
-      filteredTransactions = filteredTransactions.filter(t => {
-        const category = categories.find(c => c.id === t.category_id);
-        return category && category.name.toLowerCase() === manoPersonalCategoryName.toLowerCase();
-      });
-    } else if (paidBy === 'joint') {
-      // Only mark joint transactions (not Subi Personal or Mano Personal)
-      filteredTransactions = filteredTransactions.filter(t => {
-        const category = categories.find(c => c.id === t.category_id);
-        if (!category) return false;
-        const categoryName = category.name.toLowerCase();
-        return categoryName !== subiPersonalCategoryName.toLowerCase() && 
-               categoryName !== manoPersonalCategoryName.toLowerCase();
-      });
-    }
-
     const transactionIds = filteredTransactions.map(t => t.id);
 
     if (transactionIds.length === 0) {
-      throw new Error(`No unpaid ${paidBy === 'sobi' ? 'Subi Personal' : paidBy === 'mano' ? 'Mano Personal' : 'joint'} transactions found for this payment method`);
+      throw new Error('No unpaid transactions found for this payment method');
     }
 
-    // Call bulk-update API to mark filtered transactions as paid
+    const totalAmount = filteredTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
     const response = await fetch('/api/transactions/bulk-update', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -178,103 +103,70 @@ export default function OutstandingSummary({ transactions, categories, categoryT
       throw new Error(data.error || 'Failed to mark transactions as paid');
     }
 
-    // Refresh transactions if callback provided
+    // Auto-adjust account balance if an account was selected
+    if (_accountId) {
+      try {
+        await fetch(`/api/accounts/${_accountId}/snapshots`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            balance_adjustment: -totalAmount,
+            snapshot_date: new Date().toISOString().split('T')[0],
+            notes: `Payment: ${paymentMethod} (${formatCurrency(totalAmount)})`,
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to auto-adjust account balance:', err);
+      }
+    }
+
     if (onMarkPaid) {
       await onMarkPaid();
     }
   };
 
-  const handleTouchStart = (e: React.TouchEvent, paymentMethod: PaymentMethod) => {
-    e.stopPropagation();
-    
-    // Store touch position
-    if (e.touches.length > 0) {
-      touchStartPosRef.current = {
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY,
-      };
-    }
-
-    // Clear any existing timer
+  const cancelHoldTimer = () => {
     if (touchHoldTimerRef.current) {
       clearTimeout(touchHoldTimerRef.current);
+      touchHoldTimerRef.current = null;
     }
+    touchStartPosRef.current = null;
+  };
 
-    // Start timer for long-press (500ms)
+  const startHoldTimer = (pos: { x: number; y: number }, paymentMethod: PaymentMethod) => {
+    touchStartPosRef.current = pos;
+    cancelHoldTimer();
     touchHoldTimerRef.current = setTimeout(() => {
       setMarkingPaidFor(paymentMethod);
       touchHoldTimerRef.current = null;
     }, 500);
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchStart = (e: React.TouchEvent, paymentMethod: PaymentMethod) => {
     e.stopPropagation();
-    
-    // Clear the timer if it hasn't fired yet
-    if (touchHoldTimerRef.current) {
-      clearTimeout(touchHoldTimerRef.current);
-      touchHoldTimerRef.current = null;
+    if (e.touches.length > 0) {
+      startHoldTimer({ x: e.touches[0].clientX, y: e.touches[0].clientY }, paymentMethod);
     }
-    
-    touchStartPosRef.current = null;
   };
 
+  const handleTouchEnd = (e: React.TouchEvent) => { e.stopPropagation(); cancelHoldTimer(); };
+
   const handleTouchMove = (e: React.TouchEvent) => {
-    // If user moves finger, cancel the hold timer
     if (touchStartPosRef.current && e.touches.length > 0) {
-      const deltaX = Math.abs(e.touches[0].clientX - touchStartPosRef.current.x);
-      const deltaY = Math.abs(e.touches[0].clientY - touchStartPosRef.current.y);
-      
-      // If moved more than 10px, cancel
-      if (deltaX > 10 || deltaY > 10) {
-        if (touchHoldTimerRef.current) {
-          clearTimeout(touchHoldTimerRef.current);
-          touchHoldTimerRef.current = null;
-        }
-        touchStartPosRef.current = null;
-      }
+      const dx = Math.abs(e.touches[0].clientX - touchStartPosRef.current.x);
+      const dy = Math.abs(e.touches[0].clientY - touchStartPosRef.current.y);
+      if (dx > 10 || dy > 10) cancelHoldTimer();
     }
   };
 
   const handleMouseDown = (e: React.MouseEvent, paymentMethod: PaymentMethod) => {
-    // For desktop, use right-click or long-press simulation
-    // For now, we'll use a simpler approach: show on right-click or double-click
-    // Actually, let's just use long-press for consistency - desktop users can hold mouse button
     e.stopPropagation();
-    
-    touchStartPosRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-    };
-
-    if (touchHoldTimerRef.current) {
-      clearTimeout(touchHoldTimerRef.current);
-    }
-
-    touchHoldTimerRef.current = setTimeout(() => {
-      setMarkingPaidFor(paymentMethod);
-      touchHoldTimerRef.current = null;
-    }, 500);
+    startHoldTimer({ x: e.clientX, y: e.clientY }, paymentMethod);
   };
 
-  const handleMouseUp = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    if (touchHoldTimerRef.current) {
-      clearTimeout(touchHoldTimerRef.current);
-      touchHoldTimerRef.current = null;
-    }
-    
-    touchStartPosRef.current = null;
-  };
-
-  const handleMouseLeave = () => {
-    if (touchHoldTimerRef.current) {
-      clearTimeout(touchHoldTimerRef.current);
-      touchHoldTimerRef.current = null;
-    }
-    touchStartPosRef.current = null;
-  };
+  const handleMouseUp = (e: React.MouseEvent) => { e.stopPropagation(); cancelHoldTimer(); };
+  const handleMouseLeave = () => cancelHoldTimer();
 
   return (
     <div className="bg-gray-50 border rounded-lg">
@@ -287,7 +179,6 @@ export default function OutstandingSummary({ transactions, categories, categoryT
       </button>
       {isExpanded && (
         <div className="p-4 space-y-4">
-          {/* Payment Method Filter */}
           <div>
             <label htmlFor="summary-payment-method" className="block text-sm font-medium mb-2 text-gray-700">
               Filter by Payment Method
@@ -298,66 +189,39 @@ export default function OutstandingSummary({ transactions, categories, categoryT
               onChange={(e) => setSelectedPaymentMethod(e.target.value as PaymentMethod | '')}
               className="w-full px-3 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-                    <option value="">All Payment Methods</option>
-                    {paymentMethods.map((method) => (
-                      <option key={method.id} value={method.name}>
-                        {method.name}
-                      </option>
-                    ))}
+              <option value="">All Payment Methods</option>
+              {paymentMethods.map((method) => (
+                <option key={method.id} value={method.name}>{method.name}</option>
+              ))}
             </select>
           </div>
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Joint */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="text-sm font-medium text-blue-900 mb-1">Joint</div>
-              <div className="text-2xl font-bold text-blue-900">{formatCurrency(totals.joint)}</div>
-            </div>
-
-            {/* Subi */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="text-sm font-medium text-green-900 mb-1">Subi Personal</div>
-              <div className="text-2xl font-bold text-green-900">{formatCurrency(totals.subi)}</div>
-            </div>
-
-            {/* Mano */}
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <div className="text-sm font-medium text-orange-900 mb-1">Mano Personal</div>
-              <div className="text-2xl font-bold text-orange-900">{formatCurrency(totals.mano)}</div>
-            </div>
-          </div>
-
-          {/* Total */}
           <div className="bg-gray-100 border border-gray-300 rounded-lg p-4">
             <div className="text-sm font-medium text-gray-900 mb-1">Total Outstanding</div>
-            <div className="text-2xl font-bold text-gray-900">{formatCurrency(totals.total)}</div>
+            <div className="text-2xl font-bold text-gray-900">{formatCurrency(totalOutstanding)}</div>
           </div>
 
-          {/* Breakdown by Payment Method */}
           {Object.keys(displayData).length > 0 && (
             <div className="mt-4">
               <div className="text-sm font-medium text-gray-700 mb-2">
                 Breakdown by Payment Method:
               </div>
-              <div className="space-y-3 overflow-x-auto">
+              <p className="text-xs text-gray-400 mb-2">Long-press a row to mark as paid</p>
+              <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-100">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Payment Method</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase">Joint</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase">Subi</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase">Mano</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase">Total</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase">Outstanding</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {Object.entries(displayData)
-                      .filter(([_, breakdown]) => breakdown.total > 0)
+                      .filter(([_, amount]) => amount > 0)
                       .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([method, breakdown]) => (
-                        <tr 
-                          key={method} 
+                      .map(([method, amount]) => (
+                        <tr
+                          key={method}
                           className="hover:bg-gray-50 cursor-pointer"
                           onTouchStart={(e) => handleTouchStart(e, method as PaymentMethod)}
                           onTouchEnd={handleTouchEnd}
@@ -366,13 +230,9 @@ export default function OutstandingSummary({ transactions, categories, categoryT
                           onMouseUp={handleMouseUp}
                           onMouseLeave={handleMouseLeave}
                           style={{ WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}
-                          title="Long-press to mark as paid"
                         >
                           <td className="px-3 py-2 text-sm text-gray-900">{method}</td>
-                          <td className="px-3 py-2 text-sm text-right text-blue-900">{formatCurrency(breakdown.joint)}</td>
-                          <td className="px-3 py-2 text-sm text-right text-green-900">{formatCurrency(breakdown.subi)}</td>
-                          <td className="px-3 py-2 text-sm text-right text-orange-900">{formatCurrency(breakdown.mano)}</td>
-                          <td className="px-3 py-2 text-sm text-right font-semibold text-gray-900">{formatCurrency(breakdown.total)}</td>
+                          <td className="px-3 py-2 text-sm text-right font-semibold text-gray-900">{formatCurrency(amount)}</td>
                         </tr>
                       ))}
                   </tbody>
@@ -387,13 +247,11 @@ export default function OutstandingSummary({ transactions, categories, categoryT
         <MarkPaidModal
           paymentMethod={markingPaidFor}
           onClose={() => setMarkingPaidFor(null)}
-          onConfirm={async (paidBy: PaidBy) => {
-            await handleMarkPaid(markingPaidFor, paidBy);
-            // Modal will close itself via onClose callback
+          onConfirm={async (paidBy: PaidBy, accountId?: string) => {
+            await handleMarkPaid(markingPaidFor, paidBy, accountId);
           }}
         />
       )}
     </div>
   );
 }
-
