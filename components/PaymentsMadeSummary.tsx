@@ -3,6 +3,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Transaction, Category, PaymentMethod } from '@/types/database';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
+import { useAccounts } from '@/lib/hooks/useAccounts';
+import { PAID_BY_OPTIONS } from '@/lib/constants';
 
 interface PaymentsMadeSummaryProps {
   transactions: Transaction[];
@@ -13,6 +15,7 @@ interface PaymentsMadeSummaryProps {
 
 export default function PaymentsMadeSummary({ transactions, categories, categoryTypeFilter = '', defaultExpanded = true }: PaymentsMadeSummaryProps) {
   const { paymentMethods } = usePaymentMethods();
+  const { accounts } = useAccounts();
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
@@ -122,7 +125,7 @@ export default function PaymentsMadeSummary({ transactions, categories, category
                           <td className="px-3 py-2 text-xs text-gray-500">
                             {Object.entries(data.paidBy).map(([payer, amt]) => (
                               <span key={payer} className="mr-2">
-                                {payer === 'joint' ? 'Joint' : payer}: {formatCurrency(amt)}
+                                {(accounts.find((a) => a.id === payer)?.name || PAID_BY_OPTIONS.find((o) => o.value === payer)?.label || payer)}: {formatCurrency(amt)}
                               </span>
                             ))}
                           </td>

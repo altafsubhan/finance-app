@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PaymentMethod, PaidBy } from '@/types/database';
+import { PaymentMethod } from '@/types/database';
 
 interface Account {
   id: string;
@@ -13,7 +13,7 @@ interface Account {
 interface MarkPaidModalProps {
   paymentMethod: PaymentMethod;
   onClose: () => void;
-  onConfirm: (paidBy: PaidBy, accountId?: string) => Promise<void>;
+  onConfirm: (accountId: string) => Promise<void>;
 }
 
 export default function MarkPaidModal({
@@ -53,11 +53,8 @@ export default function MarkPaidModal({
     setLoading(true);
     setError(null);
 
-    const account = accounts.find(a => a.id === selectedAccountId);
-    const paidBy: PaidBy = account?.is_shared ? 'joint' : 'mano';
-
     try {
-      await onConfirm(paidBy, selectedAccountId);
+      await onConfirm(selectedAccountId);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to mark transactions as paid');

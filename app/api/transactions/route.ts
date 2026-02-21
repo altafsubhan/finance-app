@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { applyBalanceDelta, isAccountId } from '@/lib/accounts/paymentBalanceAutomation';
 
 export async function GET(request: NextRequest) {
   try {
@@ -114,6 +115,16 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       throw error;
+    }
+
+    if (isAccountId(paid_by)) {
+      await applyBalanceDelta(
+        supabase,
+        paid_by,
+        user.id,
+        -Math.abs(Number(amount)),
+        `Transaction created payment: ${description || 'Expense'} (${data.id})`
+      );
     }
 
     return NextResponse.json(data, { status: 201 });

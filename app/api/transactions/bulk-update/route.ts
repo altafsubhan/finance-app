@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { applyBalanceDelta, computePaymentDeltas } from '@/lib/accounts/paymentBalanceAutomation';
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -28,7 +29,15 @@ export async function PATCH(request: NextRequest) {
     if (updates.date !== undefined) updateData.date = updates.date;
     if (updates.is_shared !== undefined) updateData.is_shared = updates.is_shared;
 
-    // Update all transactions (RLS policies handle authorization)
+    const { data: existingRows, error: existingError } = await supabase
+      .from('transactions')
+      .select('id, amount, paid_by, description')
+      .in('id', transaction_ids);
+
+    if (existingError) {
+      throw existingError;
+    }
+
     const { data, error } = await supabase
       .from('transactions')
       .update(updateData)
@@ -39,6 +48,26 @@ export async function PATCH(request: NextRequest) {
       throw error;
     }
 
+    if (updates.paid_by !== undefined && existingRows) {
+      const accountDeltaTotals: Record<string, number> = {};
+      for (const row of existingRows) {
+        const deltas = computePaymentDeltas(row.paid_by, updates.paid_by, Number(row.amount), Number(row.amount));
+        for (const [accountId, delta] of Object.entries(deltas)) {
+          accountDeltaTotals[accountId] = (accountDeltaTotals[accountId] || 0) + delta;
+        }
+      }
+
+      for (const [accountId, delta] of Object.entries(accountDeltaTotals)) {
+        await applyBalanceDelta(
+          supabase,
+          accountId,
+          user.id,
+          delta,
+          `Bulk payment update for ${existingRows.length} transactions`
+        );
+      }
+    }
+
     return NextResponse.json({
       message: `Successfully updated ${data?.length || 0} transactions`,
       count: data?.length || 0,
@@ -47,4 +76,3 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-

@@ -16,6 +16,7 @@ import UncategorizedAutoAssignModal from '@/components/UncategorizedAutoAssignMo
 import RecordTransferModal from '@/components/RecordTransferModal';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
+import { useAccounts } from '@/lib/hooks/useAccounts';
 import { format } from 'date-fns';
 
 interface ExpensesPageContentProps {
@@ -25,6 +26,7 @@ interface ExpensesPageContentProps {
 export default function ExpensesPageContent({ scope }: ExpensesPageContentProps) {
   const isShared = scope === 'shared';
   const { paymentMethods } = usePaymentMethods();
+  const { accounts } = useAccounts();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -107,8 +109,9 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
     const rows = filteredTransactions.map(transaction => {
       const category = categories.find(c => c.id === transaction.category_id);
       const categoryName = category?.name || '';
+      const account = accounts.find(a => a.id === transaction.paid_by);
       const paidByOption = PAID_BY_OPTIONS.find(opt => opt.value === transaction.paid_by);
-      const paidByLabel = paidByOption?.label || '';
+      const paidByLabel = account?.name || paidByOption?.label || '';
 
       let dateStr = '';
       if (transaction.date) {
@@ -674,9 +677,15 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
                       className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">All</option>
-                      {PAID_BY_OPTIONS.map((option) => (
-                        <option key={option.value || 'null'} value={option.value === null ? 'null' : option.value}>
-                          {option.label}
+                      <option value="null">Not Paid</option>
+                      {accounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.name}
+                        </option>
+                      ))}
+                      {PAID_BY_OPTIONS.filter((o) => o.value).map((option) => (
+                        <option key={`legacy-${option.value || 'null'}`} value={option.value || ''}>
+                          {option.label} (legacy)
                         </option>
                       ))}
                     </select>

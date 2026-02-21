@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { PaymentMethod, PaidBy, Category } from '@/types/database';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
+import { useAccounts } from '@/lib/hooks/useAccounts';
 import { format } from 'date-fns';
 
 interface TransactionFormProps {
@@ -25,6 +26,7 @@ interface TransactionFormProps {
 
 export default function TransactionForm({ categories, onSuccess, initialData }: TransactionFormProps) {
   const { paymentMethods } = usePaymentMethods();
+  const { accounts } = useAccounts();
   const currentDate = useMemo(() => new Date(), []);
   const [date, setDate] = useState<string>('');
   const [amount, setAmount] = useState('');
@@ -348,12 +350,18 @@ export default function TransactionForm({ categories, onSuccess, initialData }: 
           <select
             id="paid_by"
             value={paidBy || ''}
-            onChange={(e) => setPaidBy(e.target.value as PaidBy || null)}
+            onChange={(e) => setPaidBy(e.target.value || null)}
             className="w-full px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {PAID_BY_OPTIONS.map((option) => (
-              <option key={option.value || 'null'} value={option.value || ''}>
-                {option.label}
+            <option value="">Not paid</option>
+            {accounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name}
+              </option>
+            ))}
+            {PAID_BY_OPTIONS.filter((o) => o.value).map((option) => (
+              <option key={`legacy-${option.value}`} value={option.value || ''}>
+                {option.label} (legacy)
               </option>
             ))}
           </select>

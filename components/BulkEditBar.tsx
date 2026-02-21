@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Category, PaymentMethod, PaidBy } from '@/types/database';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
+import { useAccounts } from '@/lib/hooks/useAccounts';
 
 interface BulkEditBarProps {
   selectedCount: number;
@@ -25,6 +26,7 @@ interface BulkEditBarProps {
 
 export default function BulkEditBar({ selectedCount, selectedIds, selectedTransactions, categories, onBulkUpdate, onBulkDelete, onBulkEdit, onBulkSplit, onCancel, extraActions }: BulkEditBarProps) {
   const { paymentMethods } = usePaymentMethods();
+  const { accounts } = useAccounts();
   const [categoryId, setCategoryId] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [paidBy, setPaidBy] = useState<PaidBy | '' | 'not_paid'>(''); // 'not_paid' is used internally to represent null
@@ -241,9 +243,14 @@ export default function BulkEditBar({ selectedCount, selectedIds, selectedTransa
               >
                 <option value="">Paid By (no change)</option>
                 <option value="not_paid">Not Paid</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
                 {PAID_BY_OPTIONS.filter(opt => opt.value !== null).map((option) => (
-                  <option key={option.value || ''} value={option.value || ''}>
-                    {option.label}
+                  <option key={`legacy-${option.value || ''}`} value={option.value || ''}>
+                    {option.label} (legacy)
                   </option>
                 ))}
               </select>

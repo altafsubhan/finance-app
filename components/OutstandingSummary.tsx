@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useCallback } from 'react';
-import { Transaction, Category, PaymentMethod, PaidBy } from '@/types/database';
+import { Transaction, Category, PaymentMethod } from '@/types/database';
 import MarkPaidModal from './MarkPaidModal';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 
@@ -66,7 +66,7 @@ export default function OutstandingSummary({ transactions, categories, categoryT
     }).format(amount);
   };
 
-  const handleMarkPaid = async (paymentMethod: PaymentMethod, paidBy: PaidBy, _accountId?: string) => {
+  const handleMarkPaid = async (paymentMethod: PaymentMethod, accountId: string) => {
     let filteredTransactions = transactions.filter(t =>
       t.payment_method === paymentMethod &&
       t.paid_by === null &&
@@ -86,15 +86,13 @@ export default function OutstandingSummary({ transactions, categories, categoryT
       throw new Error('No unpaid transactions found for this payment method');
     }
 
-    const totalAmount = filteredTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-
     const response = await fetch('/api/transactions/bulk-update', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({
         transaction_ids: transactionIds,
-        updates: { paid_by: paidBy },
+        updates: { paid_by: accountId },
       }),
     });
 
@@ -103,23 +101,7 @@ export default function OutstandingSummary({ transactions, categories, categoryT
       throw new Error(data.error || 'Failed to mark transactions as paid');
     }
 
-    // Auto-adjust account balance if an account was selected
-    if (_accountId) {
-      try {
-        await fetch(`/api/accounts/${_accountId}/snapshots`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            balance_adjustment: -totalAmount,
-            snapshot_date: new Date().toISOString().split('T')[0],
-            notes: `Payment: ${paymentMethod} (${formatCurrency(totalAmount)})`,
-          }),
-        });
-      } catch (err) {
-        console.error('Failed to auto-adjust account balance:', err);
-      }
-    }
+
 
     if (onMarkPaid) {
       await onMarkPaid();
@@ -247,8 +229,8 @@ export default function OutstandingSummary({ transactions, categories, categoryT
         <MarkPaidModal
           paymentMethod={markingPaidFor}
           onClose={() => setMarkingPaidFor(null)}
-          onConfirm={async (paidBy: PaidBy, accountId?: string) => {
-            await handleMarkPaid(markingPaidFor, paidBy, accountId);
+          onConfirm={async (accountId: string) => {
+            await handleMarkPaid(markingPaidFor, accountId);
           }}
         />
       )}

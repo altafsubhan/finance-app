@@ -3,6 +3,7 @@
 import { Category, PaymentMethod, PaidBy } from '@/types/database';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
+import { useAccounts } from '@/lib/hooks/useAccounts';
 import { NewTransactionRowState } from './TransactionList';
 
 interface NewTransactionRowProps {
@@ -16,6 +17,7 @@ interface NewTransactionRowProps {
 
 export default function NewTransactionRow({ row, categories, onChange, onCancel, onSave, loading = false }: NewTransactionRowProps) {
   const { paymentMethods } = usePaymentMethods();
+  const { accounts } = useAccounts();
   const currentDate = new Date();
 
   // Handle field changes
@@ -169,13 +171,18 @@ export default function NewTransactionRow({ row, categories, onChange, onCancel,
       <td className="px-6 py-4 whitespace-nowrap">
         <select
           value={row.paid_by || ''}
-          onChange={(e) => handleFieldChange('paid_by', e.target.value as PaidBy || null)}
-          className="w-32 px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          onChange={(e) => handleFieldChange('paid_by', e.target.value || null)}
+          className="w-40 px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Not paid</option>
+          {accounts.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.name}
+            </option>
+          ))}
           {PAID_BY_OPTIONS.filter(opt => opt.value !== null).map((option) => (
-            <option key={option.value || 'null'} value={option.value || ''}>
-              {option.label}
+            <option key={`legacy-${option.value || 'null'}`} value={option.value || ''}>
+              {option.label} (legacy)
             </option>
           ))}
         </select>

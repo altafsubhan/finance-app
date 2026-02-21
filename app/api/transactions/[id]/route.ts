@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { applyBalanceDelta, computePaymentDeltas } from '@/lib/accounts/paymentBalanceAutomation';
 
 export async function PUT(
   request: NextRequest,
@@ -11,6 +12,16 @@ export async function PUT(
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: existing, error: existingError } = await supabase
+      .from('transactions')
+      .select('id, amount, paid_by')
+      .eq('id', params.id)
+      .single();
+
+    if (existingError || !existing) {
+      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
     }
 
     const body = await request.json();
@@ -39,12 +50,22 @@ export async function PUT(
       .from('transactions')
       .update(updateData)
       .eq('id', params.id)
-      // RLS policies handle authorization for shared access
       .select()
       .single();
 
     if (error) {
       throw error;
+    }
+
+    const deltas = computePaymentDeltas(existing.paid_by, paid_by ?? null, Number(existing.amount), Number(amount));
+    for (const [accountId, delta] of Object.entries(deltas)) {
+      await applyBalanceDelta(
+        supabase,
+        accountId,
+        user.id,
+        delta,
+        `Transaction payment update: ${description || 'Expense'} (${data.id})`
+      );
     }
 
     return NextResponse.json(data);
@@ -65,14 +86,34 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    void request;
+
+    const { data: existing } = await supabase
+      .from('transactions')
+      .select('id, amount, paid_by, description')
+      .eq('id', params.id)
+      .single();
+
     const { error } = await supabase
       .from('transactions')
       .delete()
       .eq('id', params.id);
-      // RLS policies handle authorization for shared access
 
     if (error) {
       throw error;
+    }
+
+    if (existing) {
+      const deltas = computePaymentDeltas(existing.paid_by, null, Number(existing.amount), 0);
+      for (const [accountId, delta] of Object.entries(deltas)) {
+        await applyBalanceDelta(
+          supabase,
+          accountId,
+          user.id,
+          delta,
+          `Transaction deleted rollback: ${existing.description || 'Expense'} (${existing.id})`
+        );
+      }
     }
 
     return NextResponse.json({ success: true });
@@ -80,4 +121,3 @@ export async function DELETE(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-

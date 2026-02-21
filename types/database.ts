@@ -1,4 +1,4 @@
-export type PaidBy = 'joint' | 'mano' | 'sobi' | null;
+export type PaidBy = string | null;
 
 export type CategoryType = 'monthly' | 'quarterly' | 'yearly';
 
@@ -24,7 +24,8 @@ export interface Transaction {
   description: string;
   category_id: string | null;
   payment_method: PaymentMethod;
-  paid_by: PaidBy;
+  paid_by: PaidBy; // legacy values or account id
+  paid_account_id?: string | null;
   month: number | null;
   quarter: number | null;
   year: number;

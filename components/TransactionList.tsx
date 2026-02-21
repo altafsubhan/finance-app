@@ -7,6 +7,7 @@ import { PAID_BY_OPTIONS } from '@/lib/constants';
 import NewTransactionRow from './NewTransactionRow';
 import { PaymentMethod } from '@/types/database';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
+import { useAccounts } from '@/lib/hooks/useAccounts';
 
 type SortField = 'date' | 'description' | 'category' | 'payment_method' | 'amount' | 'paid_by';
 type SortDirection = 'asc' | 'desc';
@@ -53,6 +54,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
   const [yearlyExpanded, setYearlyExpanded] = useState(false);
   const [uncategorizedExpanded, setUncategorizedExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const { accounts } = useAccounts();
 
   // Exit selection mode when no items are selected
   useEffect(() => {
@@ -274,8 +276,8 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
           bValue = parseFloat(b.amount.toString());
           break;
         case 'paid_by':
-          aValue = a.paid_by || '';
-          bValue = b.paid_by || '';
+          aValue = getPaidByLabel(a.paid_by);
+          bValue = getPaidByLabel(b.paid_by);
           break;
         default:
           return 0;
@@ -300,8 +302,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
   const matchesSearch = (transaction: Transaction) => {
     if (!normalizedSearch) return true;
     const categoryName = transaction.category_id ? getCategoryName(transaction.category_id) : 'Uncategorized';
-    const paidByOption = PAID_BY_OPTIONS.find(opt => opt.value === transaction.paid_by);
-    const paidByLabel = paidByOption?.label || 'Not Paid';
+    const paidByLabel = getPaidByLabel(transaction.paid_by);
     let formattedDate = '';
     if (transaction.date) {
       try {
@@ -392,8 +393,11 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
   );
 
   const getPaidByLabel = (paidBy: PaidBy) => {
+    if (!paidBy) return 'Not Paid';
+    const account = accounts.find((a) => a.id === paidBy);
+    if (account) return account.name;
     const option = PAID_BY_OPTIONS.find(opt => opt.value === paidBy);
-    return option?.label || 'Not Paid';
+    return option?.label || paidBy;
   };
 
   const handleDelete = async (id: string) => {
@@ -807,6 +811,7 @@ function TransactionTable({
   onRefresh?: () => Promise<void>;
 }) {
   const { paymentMethods } = usePaymentMethods();
+  const { accounts } = useAccounts();
   const touchHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
   const touchStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -836,13 +841,19 @@ function TransactionTable({
   };
 
   const getPaidByColor = (paidBy: PaidBy) => {
+    if (!paidBy) return 'bg-gray-200';
+    const account = accounts.find((a) => a.id === paidBy);
+    if (account) return account.is_shared ? 'bg-blue-200' : 'bg-green-200';
     const option = PAID_BY_OPTIONS.find(opt => opt.value === paidBy);
     return option?.color || 'bg-gray-200';
   };
 
   const getPaidByLabel = (paidBy: PaidBy) => {
+    if (!paidBy) return 'Not Paid';
+    const account = accounts.find((a) => a.id === paidBy);
+    if (account) return account.name;
     const option = PAID_BY_OPTIONS.find(opt => opt.value === paidBy);
-    return option?.label || 'Not Paid';
+    return option?.label || paidBy;
   };
 
   const handleCategoryChange = async (transactionId: string, categoryId: string | null) => {
