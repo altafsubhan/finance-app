@@ -9,6 +9,29 @@ import {
 const ALLOWED_ENTRY_TYPES = ['income', '401k', 'hsa'] as const;
 type IncomeEntryType = (typeof ALLOWED_ENTRY_TYPES)[number];
 
+function normalizeTags(input: unknown, legacyEntryType?: IncomeEntryType): string[] {
+  const rawTags = Array.isArray(input)
+    ? input
+    : typeof input === 'string'
+      ? input.split(',')
+      : [];
+
+  const cleaned = rawTags
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (cleaned.length > 0) {
+    return Array.from(new Set(cleaned));
+  }
+
+  if (legacyEntryType && legacyEntryType !== 'income') {
+    return [legacyEntryType];
+  }
+
+  return ['income'];
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -26,7 +49,7 @@ export async function PUT(
     const { id } = await params;
     const { data: existingEntry, error: existingEntryError } = await supabase
       .from('income_entries')
-      .select('id,account_id')
+      .select('id,account_id,entry_type')
       .eq('id', id)
       .eq('user_id', user.id)
       .single();
@@ -36,7 +59,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { account_id, amount, received_date, source, notes, entry_type } = body;
+    const { account_id, amount, received_date, source, notes, entry_type, tags, stock_symbol, stock_shares } = body;
 
     const updateFields: Record<string, unknown> = {};
 
@@ -61,6 +84,21 @@ export async function PUT(
       updateFields.account_id = account_id;
     }
 
+    let parsedEntryType: IncomeEntryType | undefined;
+    if (entry_type !== undefined) {
+      if (
+        typeof entry_type !== 'string' ||
+        !ALLOWED_ENTRY_TYPES.includes(entry_type as IncomeEntryType)
+      ) {
+        return NextResponse.json(
+          { error: 'Entry type must be one of: income, 401k, hsa' },
+          { status: 400 }
+        );
+      }
+      parsedEntryType = entry_type as IncomeEntryType;
+      updateFields.entry_type = entry_type;
+    }
+
     if (amount !== undefined) {
       const parsedAmount = Number(amount);
       if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
@@ -79,19 +117,6 @@ export async function PUT(
       updateFields.received_date = received_date;
     }
 
-    if (entry_type !== undefined) {
-      if (
-        typeof entry_type !== 'string' ||
-        !ALLOWED_ENTRY_TYPES.includes(entry_type as IncomeEntryType)
-      ) {
-        return NextResponse.json(
-          { error: 'Entry type must be one of: income, 401k, hsa' },
-          { status: 400 }
-        );
-      }
-      updateFields.entry_type = entry_type;
-    }
-
     if (source !== undefined) {
       updateFields.source =
         typeof source === 'string' && source.trim().length > 0 ? source.trim() : null;
@@ -100,6 +125,17 @@ export async function PUT(
     if (notes !== undefined) {
       updateFields.notes =
         typeof notes === 'string' && notes.trim().length > 0 ? notes.trim() : null;
+    }
+
+    if (tags !== undefined) {
+      updateFields.tags = normalizeTags(tags, parsedEntryType ?? existingEntry.entry_type);
+    }
+
+    if (stock_symbol !== undefined || stock_shares !== undefined) {
+      return NextResponse.json(
+        { error: 'Editing stock income fields is not supported yet. Delete and recreate the entry if needed.' },
+        { status: 400 }
+      );
     }
 
     if (Object.keys(updateFields).length === 0) {

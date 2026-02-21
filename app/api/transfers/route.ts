@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
     const {
       amount,
       from_account_name,
+      from_account_id,
       to_account_name,
       to_account_id,
       date,
@@ -33,7 +34,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (!to_account_id) {
-      return NextResponse.json({ error: 'Destination shared account is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Destination account is required' }, { status: 400 });
+    }
+
+    if (from_account_id && from_account_id === to_account_id) {
+      return NextResponse.json(
+        { error: 'From and to accounts must be different' },
+        { status: 400 }
+      );
     }
 
     const { data: toAccount, error: accountError } = await supabase
@@ -43,10 +51,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (accountError || !toAccount) {
-      return NextResponse.json({ error: 'Shared account not found or not accessible' }, { status: 400 });
+      return NextResponse.json({ error: 'Destination account not found or not accessible' }, { status: 400 });
     }
 
-    const description = `Transfer: ${from_account_name || 'Personal'} → ${to_account_name || 'Shared'}${notes ? ` (${notes})` : ''}`;
+    const destinationLabel = toAccount.is_shared ? 'shared account' : 'personal account';
+    const description = `Transfer: ${from_account_name || 'Personal'} → ${to_account_name || destinationLabel}${notes ? ` (${notes})` : ''}`;
 
     let calculatedQuarter = quarter;
     if (!calculatedQuarter && month) {
@@ -92,6 +101,7 @@ export async function POST(request: NextRequest) {
         received_date: receivedDate,
         source: incomeSource,
         notes: incomeNotes,
+        tags: ['transfer'],
       })
       .select()
       .single();

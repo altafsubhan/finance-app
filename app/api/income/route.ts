@@ -8,6 +8,54 @@ import {
 const ALLOWED_ENTRY_TYPES = ['income', '401k', 'hsa'] as const;
 type IncomeEntryType = (typeof ALLOWED_ENTRY_TYPES)[number];
 
+function normalizeTags(input: unknown, legacyEntryType?: IncomeEntryType): string[] {
+  const rawTags = Array.isArray(input)
+    ? input
+    : typeof input === 'string'
+      ? input.split(',')
+      : [];
+
+  const cleaned = rawTags
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (cleaned.length > 0) {
+    return Array.from(new Set(cleaned));
+  }
+
+  if (legacyEntryType && legacyEntryType !== 'income') {
+    return [legacyEntryType];
+  }
+
+  return ['income'];
+}
+
+function normalizeStockPayload(symbol: unknown, shares: unknown) {
+  if (symbol === undefined && shares === undefined) {
+    return { stock_symbol: null, stock_shares: null };
+  }
+
+  if (typeof symbol !== 'string' || !symbol.trim()) {
+    throw new Error('Stock symbol is required when recording stock income');
+  }
+
+  const normalizedSymbol = symbol.trim().toUpperCase();
+  if (!/^[A-Z0-9.-]{1,15}$/.test(normalizedSymbol)) {
+    throw new Error('Stock symbol must be 1-15 chars using letters, numbers, dot, or dash');
+  }
+
+  const parsedShares = Number(shares);
+  if (!Number.isFinite(parsedShares) || parsedShares <= 0) {
+    throw new Error('Stock shares must be a number greater than zero');
+  }
+
+  return {
+    stock_symbol: normalizedSymbol,
+    stock_shares: parsedShares,
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -69,7 +117,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { account_id, amount, received_date, source, notes, entry_type } = body;
+    const { account_id, amount, received_date, source, notes, entry_type, tags, stock_symbol, stock_shares } = body;
 
     if (!account_id || typeof account_id !== 'string') {
       return NextResponse.json({ error: 'Account is required' }, { status: 400 });
@@ -95,16 +143,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let stockPayload;
+    try {
+      stockPayload = normalizeStockPayload(stock_symbol, stock_shares);
+    } catch (stockError: any) {
+      return NextResponse.json({ error: stockError.message }, { status: 400 });
+    }
+
+    const normalizedTags = normalizeTags(tags, parsedEntryType);
+
     // RLS-aware lookup ensures the selected account is visible to this user.
     const { data: account, error: accountError } = await supabase
       .from('accounts')
-      .select('id,user_id')
+      .select('id,user_id,investment_portfolio_enabled')
       .eq('id', account_id)
       .single();
 
     if (accountError || !account) {
       return NextResponse.json(
         { error: 'Account not found or not accessible' },
+        { status: 400 }
+      );
+    }
+
+    if (stockPayload.stock_symbol && !account.investment_portfolio_enabled) {
+      return NextResponse.json(
+        { error: 'Enable investment portfolio tracking on this account before adding stock income' },
         { status: 400 }
       );
     }
@@ -119,11 +183,43 @@ export async function POST(request: NextRequest) {
         received_date,
         source: typeof source === 'string' && source.trim().length > 0 ? source.trim() : null,
         notes: typeof notes === 'string' && notes.trim().length > 0 ? notes.trim() : null,
+        tags: normalizedTags,
+        stock_symbol: stockPayload.stock_symbol,
+        stock_shares: stockPayload.stock_shares,
       })
       .select()
       .single();
 
     if (error) throw error;
+
+    if (stockPayload.stock_symbol && stockPayload.stock_shares && account.user_id === user.id) {
+      const { data: existingHolding } = await supabase
+        .from('account_portfolio_holdings')
+        .select('id, shares')
+        .eq('account_id', account_id)
+        .eq('user_id', user.id)
+        .eq('symbol', stockPayload.stock_symbol)
+        .maybeSingle();
+
+      if (existingHolding?.id) {
+        const { error: updateHoldingError } = await supabase
+          .from('account_portfolio_holdings')
+          .update({ shares: Number(existingHolding.shares) + stockPayload.stock_shares })
+          .eq('id', existingHolding.id)
+          .eq('user_id', user.id);
+        if (updateHoldingError) throw updateHoldingError;
+      } else {
+        const { error: insertHoldingError } = await supabase
+          .from('account_portfolio_holdings')
+          .insert({
+            account_id,
+            user_id: user.id,
+            symbol: stockPayload.stock_symbol,
+            shares: stockPayload.stock_shares,
+          });
+        if (insertHoldingError) throw insertHoldingError;
+      }
+    }
 
     const shouldAutoAdjustBalances =
       account?.user_id === user.id &&
