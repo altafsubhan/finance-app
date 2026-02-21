@@ -65,8 +65,14 @@ export default function RecordTransferModal({ isOpen, onClose, onSuccess }: Reco
 
     setSaving(true);
     try {
+      const allDestinationAccounts = [...personalAccounts, ...sharedAccounts];
       const fromName = personalAccounts.find(a => a.id === fromAccount)?.name || 'Personal';
-      const toName = sharedAccounts.find(a => a.id === toAccount)?.name || 'Shared';
+      const destination = allDestinationAccounts.find(a => a.id === toAccount);
+      const toName = destination?.name || 'Account';
+
+      if (fromAccount && fromAccount === toAccount) {
+        throw new Error('From and to accounts must be different');
+      }
 
       const response = await fetch('/api/transfers', {
         method: 'POST',
@@ -77,6 +83,7 @@ export default function RecordTransferModal({ isOpen, onClose, onSuccess }: Reco
           from_account_name: fromName,
           to_account_name: toName,
           to_account_id: toAccount || null,
+          from_account_id: fromAccount || null,
           date,
           notes,
           year,
@@ -109,8 +116,8 @@ export default function RecordTransferModal({ isOpen, onClose, onSuccess }: Reco
         <div className="p-6">
           <h2 className="text-xl font-semibold mb-1">Record Transfer</h2>
           <p className="text-sm text-gray-500 mb-4">
-            Record a money transfer from a personal account to a shared account.
-            This creates a personal expense and a shared income entry.
+            Record a money transfer from one personal account to another account.
+            This creates a personal expense and an income entry in the destination account.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -129,17 +136,28 @@ export default function RecordTransferModal({ isOpen, onClose, onSuccess }: Reco
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">To (Shared Account) *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">To Account *</label>
               <select
                 value={toAccount}
                 onChange={(e) => setToAccount(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 required
               >
-                <option value="">Select shared account</option>
-                {sharedAccounts.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
+                <option value="">Select destination account</option>
+                {personalAccounts.length > 0 && (
+                  <optgroup label="Personal Accounts">
+                    {personalAccounts.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {sharedAccounts.length > 0 && (
+                  <optgroup label="Shared Accounts">
+                    {sharedAccounts.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
 
