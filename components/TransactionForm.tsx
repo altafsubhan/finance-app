@@ -21,6 +21,7 @@ interface TransactionFormProps {
     month: number | null;
     quarter: number | null;
     year: number;
+    skip_balance_update?: boolean;
   } | null;
 }
 
@@ -38,6 +39,7 @@ export default function TransactionForm({ categories, onSuccess, initialData }: 
   const [periodType, setPeriodType] = useState<'month' | 'quarter' | 'year'>('month');
   const [periodValue, setPeriodValue] = useState<number | ''>(currentDate.getMonth() + 1);
   const [autoDetectPeriod, setAutoDetectPeriod] = useState(true);
+  const [skipBalanceUpdate, setSkipBalanceUpdate] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,6 +87,7 @@ export default function TransactionForm({ categories, onSuccess, initialData }: 
         setPeriodType('year');
         setPeriodValue('');
       }
+      setSkipBalanceUpdate(initialData.skip_balance_update ?? false);
     }
   }, [initialData]);
 
@@ -133,6 +136,7 @@ export default function TransactionForm({ categories, onSuccess, initialData }: 
           year,
           month: periodType === 'month' ? (periodValue ? parseInt(periodValue.toString()) : null) : null,
           quarter: periodType === 'quarter' ? (periodValue ? parseInt(periodValue.toString()) : null) : null,
+          skip_balance_update: skipBalanceUpdate,
         }),
       });
 
@@ -367,6 +371,19 @@ export default function TransactionForm({ categories, onSuccess, initialData }: 
           </select>
         </div>
       </div>
+
+      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={skipBalanceUpdate}
+          onChange={(e) => setSkipBalanceUpdate(e.target.checked)}
+          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        />
+        <span>
+          Skip balance update
+          <span className="text-xs text-gray-400 ml-1">(useful for older records that shouldn&apos;t affect current balances)</span>
+        </span>
+      </label>
 
       {error && (
         <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">

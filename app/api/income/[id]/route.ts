@@ -59,7 +59,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { account_id, amount, received_date, source, notes, entry_type, tags, stock_symbol, stock_shares } = body;
+    const { account_id, amount, received_date, source, notes, entry_type, tags, stock_symbol, stock_shares, skip_balance_update } = body;
 
     const updateFields: Record<string, unknown> = {};
 
@@ -136,6 +136,10 @@ export async function PUT(
         { error: 'Editing stock income fields is not supported yet. Delete and recreate the entry if needed.' },
         { status: 400 }
       );
+    }
+
+    if (skip_balance_update !== undefined) {
+      updateFields.skip_balance_update = skip_balance_update === true;
     }
 
     if (Object.keys(updateFields).length === 0) {

@@ -30,6 +30,7 @@ export interface Transaction {
   quarter: number | null;
   year: number;
   is_shared: boolean;
+  skip_balance_update: boolean;
   user_id: string;
   created_at: string;
   updated_at: string;

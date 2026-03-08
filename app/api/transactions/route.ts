@@ -88,12 +88,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { date, amount, description, category_id, payment_method, paid_by, month, quarter, year, is_shared } = body;
+    const {
+      date, amount, description, category_id, payment_method,
+      paid_by, month, quarter, year, is_shared,
+      skip_balance_update,
+    } = body;
 
     let calculatedQuarter = quarter;
     if (!calculatedQuarter && month) {
       calculatedQuarter = Math.ceil(month / 3);
     }
+
+    const shouldSkipBalance = skip_balance_update === true;
 
     const { data, error } = await supabase
       .from('transactions')
@@ -109,6 +115,7 @@ export async function POST(request: NextRequest) {
         year: parseInt(year),
         is_shared: is_shared !== undefined ? is_shared : true,
         user_id: user.id,
+        skip_balance_update: shouldSkipBalance,
       })
       .select()
       .single();
@@ -117,13 +124,19 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    if (isAccountId(paid_by)) {
+    if (!shouldSkipBalance && isAccountId(paid_by)) {
       await applyBalanceDelta(
         supabase,
         paid_by,
         user.id,
         -Math.abs(Number(amount)),
-        `Transaction created payment: ${description || 'Expense'} (${data.id})`
+        `Payment: ${description || 'Expense'} (${data.id})`,
+        {
+          snapshotSource: 'expense_payment',
+          referenceType: 'transaction',
+          referenceId: data.id,
+          snapshotDate: date || undefined,
+        }
       );
     }
 
@@ -132,4 +145,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-

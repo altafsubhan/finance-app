@@ -12,12 +12,23 @@ export function isAccountId(value: string | null | undefined): value is string {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+/**
+ * Apply a balance delta by inserting a new snapshot row.
+ * Each call creates its own row so every record that touches an account
+ * balance is independently visible.
+ */
 export async function applyBalanceDelta(
   supabase: any,
   accountId: string,
   actorUserId: string,
   delta: number,
-  note: string
+  note: string,
+  options?: {
+    snapshotSource?: string;
+    referenceType?: string;
+    referenceId?: string;
+    snapshotDate?: string;
+  }
 ) {
   if (!Number.isFinite(delta) || delta === 0) return;
 
@@ -26,6 +37,7 @@ export async function applyBalanceDelta(
     .select('balance')
     .eq('account_id', accountId)
     .order('snapshot_date', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(1)
     .single();
 
@@ -34,24 +46,23 @@ export async function applyBalanceDelta(
   }
 
   const newBalance = Number(latestSnap.balance) + delta;
-  const snapshotDate = new Date().toISOString().split('T')[0];
+  const snapshotDate = options?.snapshotDate || new Date().toISOString().split('T')[0];
 
-  const { error: upsertErr } = await supabase
+  const { error: insertErr } = await supabase
     .from('account_snapshots')
-    .upsert(
-      {
-        account_id: accountId,
-        user_id: actorUserId,
-        balance: newBalance,
-        snapshot_date: snapshotDate,
-        notes: note,
-        snapshot_source: 'manual',
-      },
-      { onConflict: 'account_id,snapshot_date' }
-    );
+    .insert({
+      account_id: accountId,
+      user_id: actorUserId,
+      balance: newBalance,
+      snapshot_date: snapshotDate,
+      notes: note,
+      snapshot_source: options?.snapshotSource || 'manual',
+      reference_type: options?.referenceType || null,
+      reference_id: options?.referenceId || null,
+    });
 
-  if (upsertErr) {
-    throw upsertErr;
+  if (insertErr) {
+    throw insertErr;
   }
 
   const ownerId = await getAccountOwnerId(supabase, accountId);

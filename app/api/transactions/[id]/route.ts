@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { applyBalanceDelta, computePaymentDeltas } from '@/lib/accounts/paymentBalanceAutomation';
+import { applyBalanceDelta, computePaymentDeltas, isAccountId } from '@/lib/accounts/paymentBalanceAutomation';
 
 export async function PUT(
   request: NextRequest,
@@ -16,7 +16,7 @@ export async function PUT(
 
     const { data: existing, error: existingError } = await supabase
       .from('transactions')
-      .select('id, amount, paid_by')
+      .select('id, amount, paid_by, skip_balance_update')
       .eq('id', params.id)
       .single();
 
@@ -25,7 +25,11 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { date, amount, description, category_id, payment_method, paid_by, month, quarter, year, is_shared } = body;
+    const {
+      date, amount, description, category_id, payment_method,
+      paid_by, month, quarter, year, is_shared,
+      skip_balance_update,
+    } = body;
 
     let calculatedQuarter = quarter;
     if (!calculatedQuarter && month) {
@@ -45,6 +49,7 @@ export async function PUT(
     if (calculatedQuarter !== undefined) updateData.quarter = calculatedQuarter ? parseInt(calculatedQuarter) : null;
     if (year !== undefined) updateData.year = parseInt(year);
     if (is_shared !== undefined) updateData.is_shared = is_shared;
+    if (skip_balance_update !== undefined) updateData.skip_balance_update = skip_balance_update;
 
     const { data, error } = await supabase
       .from('transactions')
@@ -57,14 +62,35 @@ export async function PUT(
       throw error;
     }
 
-    const deltas = computePaymentDeltas(existing.paid_by, paid_by ?? null, Number(existing.amount), Number(amount));
+    // Determine whether to apply balance deltas.
+    // If the old record had skip on, we don't need to reverse the old balance.
+    // If the new record has skip on, we don't apply the new balance.
+    const oldSkip = existing.skip_balance_update === true;
+    const newSkip = skip_balance_update === true;
+
+    const effectiveOldPaidBy = oldSkip ? null : existing.paid_by;
+    const effectiveNewPaidBy = newSkip ? null : (paid_by ?? null);
+
+    const deltas = computePaymentDeltas(
+      effectiveOldPaidBy,
+      effectiveNewPaidBy,
+      Number(existing.amount),
+      Number(amount)
+    );
+
     for (const [accountId, delta] of Object.entries(deltas)) {
       await applyBalanceDelta(
         supabase,
         accountId,
         user.id,
         delta,
-        `Transaction payment update: ${description || 'Expense'} (${data.id})`
+        `Payment update: ${description || 'Expense'} (${data.id})`,
+        {
+          snapshotSource: 'expense_payment',
+          referenceType: 'transaction',
+          referenceId: data.id,
+          snapshotDate: date || undefined,
+        }
       );
     }
 
@@ -90,7 +116,7 @@ export async function DELETE(
 
     const { data: existing } = await supabase
       .from('transactions')
-      .select('id, amount, paid_by, description')
+      .select('id, amount, paid_by, description, skip_balance_update')
       .eq('id', params.id)
       .single();
 
@@ -103,7 +129,7 @@ export async function DELETE(
       throw error;
     }
 
-    if (existing) {
+    if (existing && !existing.skip_balance_update) {
       const deltas = computePaymentDeltas(existing.paid_by, null, Number(existing.amount), 0);
       for (const [accountId, delta] of Object.entries(deltas)) {
         await applyBalanceDelta(
@@ -111,7 +137,12 @@ export async function DELETE(
           accountId,
           user.id,
           delta,
-          `Transaction deleted rollback: ${existing.description || 'Expense'} (${existing.id})`
+          `Deleted: ${existing.description || 'Expense'} (${existing.id})`,
+          {
+            snapshotSource: 'expense_payment',
+            referenceType: 'transaction_delete',
+            referenceId: existing.id,
+          }
         );
       }
     }

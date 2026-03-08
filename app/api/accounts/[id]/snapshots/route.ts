@@ -24,7 +24,8 @@ export async function GET(
       .from('account_snapshots')
       .select('*')
       .eq('account_id', id)
-      .order('snapshot_date', { ascending: false });
+      .order('snapshot_date', { ascending: false })
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
 
@@ -72,6 +73,7 @@ export async function POST(
         .select('balance')
         .eq('account_id', id)
         .order('snapshot_date', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(1)
         .single();
 
@@ -87,19 +89,19 @@ export async function POST(
       finalBalance = parseFloat(balance);
     }
 
+    // Insert a new snapshot row (no upsert – allows multiple entries per day)
     const { data, error } = await supabase
       .from('account_snapshots')
-      .upsert(
-        {
-          account_id: id,
-          user_id: user.id,
-          balance: finalBalance,
-          snapshot_date,
-          notes: notes || null,
-          snapshot_source: 'manual',
-        },
-        { onConflict: 'account_id,snapshot_date' }
-      )
+      .insert({
+        account_id: id,
+        user_id: user.id,
+        balance: finalBalance,
+        snapshot_date,
+        notes: notes || null,
+        snapshot_source: 'manual',
+        reference_type: 'manual_entry',
+        reference_id: null,
+      })
       .select()
       .single();
 

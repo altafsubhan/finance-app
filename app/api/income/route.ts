@@ -117,7 +117,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { account_id, amount, received_date, source, notes, entry_type, tags, stock_symbol, stock_shares } = body;
+    const {
+      account_id, amount, received_date, source, notes,
+      entry_type, tags, stock_symbol, stock_shares,
+      skip_balance_update,
+    } = body;
 
     if (!account_id || typeof account_id !== 'string') {
       return NextResponse.json({ error: 'Account is required' }, { status: 400 });
@@ -151,6 +155,7 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedTags = normalizeTags(tags, parsedEntryType);
+    const shouldSkipBalance = skip_balance_update === true;
 
     // RLS-aware lookup ensures the selected account is visible to this user.
     const { data: account, error: accountError } = await supabase
@@ -186,6 +191,7 @@ export async function POST(request: NextRequest) {
         tags: normalizedTags,
         stock_symbol: stockPayload.stock_symbol,
         stock_shares: stockPayload.stock_shares,
+        skip_balance_update: shouldSkipBalance,
       })
       .select()
       .single();
@@ -221,6 +227,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Sync income-based balance snapshots (the sync function itself
+    // respects the skip_balance_update flag on each entry).
     const shouldAutoAdjustBalances =
       account?.user_id === user.id &&
       (await isIncomeAutoAdjustEnabledForUser(supabase, user.id));

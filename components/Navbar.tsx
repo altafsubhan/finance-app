@@ -73,6 +73,15 @@ export default function Navbar() {
               Dashboard
             </Link>
 
+            <Link
+              href="/record"
+              className={`flex items-center text-sm sm:text-base px-2 py-1 rounded-md whitespace-nowrap ${
+                isActive('/record') ? 'text-green-700 font-semibold bg-green-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              + Record
+            </Link>
+
             {/* Shared Dropdown */}
             <div className="relative">
               <button

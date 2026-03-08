@@ -28,10 +28,11 @@ export async function PATCH(request: NextRequest) {
     if (updates.paid_by !== undefined) updateData.paid_by = updates.paid_by;
     if (updates.date !== undefined) updateData.date = updates.date;
     if (updates.is_shared !== undefined) updateData.is_shared = updates.is_shared;
+    if (updates.skip_balance_update !== undefined) updateData.skip_balance_update = updates.skip_balance_update;
 
     const { data: existingRows, error: existingError } = await supabase
       .from('transactions')
-      .select('id, amount, paid_by, description')
+      .select('id, amount, paid_by, description, skip_balance_update')
       .in('id', transaction_ids);
 
     if (existingError) {
@@ -51,6 +52,9 @@ export async function PATCH(request: NextRequest) {
     if (updates.paid_by !== undefined && existingRows) {
       const accountDeltaTotals: Record<string, number> = {};
       for (const row of existingRows) {
+        // Skip rows that had balance updates disabled
+        if (row.skip_balance_update) continue;
+
         const deltas = computePaymentDeltas(row.paid_by, updates.paid_by, Number(row.amount), Number(row.amount));
         for (const [accountId, delta] of Object.entries(deltas)) {
           accountDeltaTotals[accountId] = (accountDeltaTotals[accountId] || 0) + delta;
@@ -63,7 +67,11 @@ export async function PATCH(request: NextRequest) {
           accountId,
           user.id,
           delta,
-          `Bulk payment update for ${existingRows.length} transactions`
+          `Bulk payment update for ${existingRows.length} transactions`,
+          {
+            snapshotSource: 'expense_payment',
+            referenceType: 'bulk_update',
+          }
         );
       }
     }

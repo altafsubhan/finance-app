@@ -48,6 +48,7 @@ export default function EditTransactionModal({
               month: transaction.month,
               quarter: transaction.quarter,
               year: transaction.year,
+              skip_balance_update: transaction.skip_balance_update ?? false,
             }}
           />
         </div>
