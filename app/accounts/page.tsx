@@ -177,6 +177,10 @@ export default function AccountsPage({ scope }: AccountsPageContentProps = {}) {
   // Delete confirmation
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
 
+  // Delete snapshot
+  const [deletingSnapshotId, setDeletingSnapshotId] = useState<string | null>(null);
+  const [deletingSnapshotAccountId, setDeletingSnapshotAccountId] = useState<string | null>(null);
+
   const hasMountedRef = useRef(false);
 
   // ─── Data Loading ────────────────────────────────────────────────────────
@@ -371,6 +375,22 @@ export default function AccountsPage({ scope }: AccountsPageContentProps = {}) {
       console.error('Failed to add snapshot:', err);
     } finally {
       setAddingSnapshot(false);
+    }
+  };
+
+  const handleDeleteSnapshot = async (accountId: string, snapshotId: string) => {
+    try {
+      const res = await fetch(`/api/accounts/${accountId}/snapshots/${snapshotId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        await loadSnapshots(accountId);
+        setDeletingSnapshotId(null);
+        setDeletingSnapshotAccountId(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete snapshot:', err);
     }
   };
 
@@ -933,6 +953,35 @@ export default function AccountsPage({ scope }: AccountsPageContentProps = {}) {
                 </button>
                 <button
                   onClick={() => handleDeleteAccount(deletingAccountId)}
+                  className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Delete Snapshot Confirmation Modal ──────────────── */}
+        {deletingSnapshotId && deletingSnapshotAccountId && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Balance Record</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Are you sure you want to delete this balance record? This cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setDeletingSnapshotId(null);
+                    setDeletingSnapshotAccountId(null);
+                  }}
+                  className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteSnapshot(deletingSnapshotAccountId, deletingSnapshotId)}
                   className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700"
                 >
                   Delete
@@ -1778,7 +1827,8 @@ export default function AccountsPage({ scope }: AccountsPageContentProps = {}) {
                                           <th className="py-2 pr-4 font-medium">Date</th>
                                           <th className="py-2 pr-4 font-medium text-right">Balance</th>
                                           <th className="py-2 pr-4 font-medium text-right">Change</th>
-                                          <th className="py-2 font-medium">Notes</th>
+                                          <th className="py-2 pr-4 font-medium">Notes</th>
+                                          <th className="py-2 font-medium text-right">Actions</th>
                                         </tr>
                                       </thead>
                                       <tbody>
@@ -1804,8 +1854,20 @@ export default function AccountsPage({ scope }: AccountsPageContentProps = {}) {
                                                   <span className="text-gray-300">—</span>
                                                 )}
                                               </td>
-                                              <td className="py-2 text-gray-500">
+                                              <td className="py-2 pr-4 text-gray-500">
                                                 {snap.notes || '—'}
+                                              </td>
+                                              <td className="py-2 text-right">
+                                                <button
+                                                  onClick={() => {
+                                                    setDeletingSnapshotId(snap.id);
+                                                    setDeletingSnapshotAccountId(account.id);
+                                                  }}
+                                                  className="text-xs text-red-500 hover:text-red-700"
+                                                  title="Delete this balance record"
+                                                >
+                                                  Delete
+                                                </button>
                                               </td>
                                             </tr>
                                           );

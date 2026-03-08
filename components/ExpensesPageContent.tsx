@@ -665,32 +665,30 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
                   </select>
                 </div>
 
-                {isShared && (
-                  <div>
-                    <label htmlFor="paid_by" className="block text-sm font-medium mb-1">
-                      Paid By
-                    </label>
-                    <select
-                      id="paid_by"
-                      value={selectedPaidBy}
-                      onChange={(e) => setSelectedPaidBy(e.target.value)}
-                      className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">All</option>
-                      <option value="null">Not Paid</option>
-                      {accounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.name}
-                        </option>
-                      ))}
-                      {PAID_BY_OPTIONS.filter((o) => o.value).map((option) => (
-                        <option key={`legacy-${option.value || 'null'}`} value={option.value || ''}>
-                          {option.label} (legacy)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                <div>
+                  <label htmlFor="paid_by" className="block text-sm font-medium mb-1">
+                    Paid By
+                  </label>
+                  <select
+                    id="paid_by"
+                    value={selectedPaidBy}
+                    onChange={(e) => setSelectedPaidBy(e.target.value)}
+                    className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">All</option>
+                    <option value="null">Not Paid</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                    {PAID_BY_OPTIONS.filter((o) => o.value).map((option) => (
+                      <option key={`legacy-${option.value || 'null'}`} value={option.value || ''}>
+                        {option.label} (legacy)
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           )}

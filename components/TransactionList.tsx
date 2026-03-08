@@ -235,6 +235,14 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     );
   };
 
+  const getPaidByLabel = (paidBy: PaidBy) => {
+    if (!paidBy) return 'Not Paid';
+    const account = accounts.find((a) => a.id === paidBy);
+    if (account) return account.name;
+    const option = PAID_BY_OPTIONS.find(opt => opt.value === paidBy);
+    return option?.label || paidBy;
+  };
+
   // Filter transactions by search query
   const filterBySearch = (txns: Transaction[]) => {
     if (!searchQuery.trim()) return txns;
@@ -391,14 +399,6 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
       </div>
     </div>
   );
-
-  const getPaidByLabel = (paidBy: PaidBy) => {
-    if (!paidBy) return 'Not Paid';
-    const account = accounts.find((a) => a.id === paidBy);
-    if (account) return account.name;
-    const option = PAID_BY_OPTIONS.find(opt => opt.value === paidBy);
-    return option?.label || paidBy;
-  };
 
   const handleDelete = async (id: string) => {
     try {
