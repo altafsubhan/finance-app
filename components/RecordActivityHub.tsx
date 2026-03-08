@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Category } from '@/types/database';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 import CSVImport from '@/components/CSVImport';
+import ScreenshotImport from '@/components/ScreenshotImport';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -962,12 +963,7 @@ function ImportSection({
   categories: Category[];
   onSuccess: () => void;
 }) {
-  const [importScope, setImportScope] = useState<'shared' | 'personal'>('shared');
-
-  const filteredCategories = useMemo(
-    () => categories.filter((c) => c.is_shared === (importScope === 'shared')),
-    [categories, importScope]
-  );
+  const [importMode, setImportMode] = useState<'csv' | 'screenshot'>('csv');
 
   return (
     <div className="space-y-4">
@@ -976,39 +972,46 @@ function ImportSection({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setImportScope('shared')}
+            onClick={() => setImportMode('csv')}
             className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${
-              importScope === 'shared'
+              importMode === 'csv'
                 ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
                 : 'bg-gray-100 text-gray-500'
             }`}
           >
-            Shared
+            CSV File
           </button>
           <button
             type="button"
-            onClick={() => setImportScope('personal')}
+            onClick={() => setImportMode('screenshot')}
             className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${
-              importScope === 'personal'
-                ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-300'
+              importMode === 'screenshot'
+                ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-300'
                 : 'bg-gray-100 text-gray-500'
             }`}
           >
-            Personal
+            Screenshot (OCR)
           </button>
         </div>
       </div>
 
       <p className="text-sm text-gray-500">
-        Upload a CSV file to import multiple transactions at once.
-        The transactions will be recorded as <strong>{importScope}</strong> expenses.
+        {importMode === 'csv'
+          ? 'Upload a CSV file to import multiple transactions at once. You can classify each transaction as shared or personal in the preview.'
+          : 'Upload a screenshot of your transaction list. OCR will extract transactions which you can review and classify as shared or personal.'}
       </p>
 
-      <CSVImport
-        categories={filteredCategories}
-        isShared={importScope === 'shared'}
-        onSuccess={onSuccess}
-      />
+      {importMode === 'csv' ? (
+        <CSVImport
+          categories={categories}
+          onSuccess={onSuccess}
+        />
+      ) : (
+        <ScreenshotImport
+          categories={categories}
+          onSuccess={onSuccess}
+        />
+      )}
     </div>
   );
 }

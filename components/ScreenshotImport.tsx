@@ -20,6 +20,7 @@ interface ParsedTransaction {
   category: string;
   payment_method: string;
   paid_by: string | null;
+  is_shared: boolean;
   year?: number;
   month?: number;
   quarter?: number;
@@ -428,6 +429,7 @@ export default function ScreenshotImport({ categories, onSuccess, isShared }: Sc
               category: '',
               payment_method: paymentMethodOverride || 'Other',
               paid_by: null,
+              is_shared: isShared !== undefined ? isShared : true,
               year: selectedYear,
               month: periodType === 'month' ? periodValue : undefined,
               quarter: periodType === 'quarter' ? periodValue : undefined,
@@ -464,6 +466,7 @@ export default function ScreenshotImport({ categories, onSuccess, isShared }: Sc
             category: '',
             payment_method: paymentMethodOverride || 'Other',
             paid_by: null,
+            is_shared: isShared !== undefined ? isShared : true,
             year: selectedYear,
             month: periodType === 'month' ? periodValue : undefined,
             quarter: periodType === 'quarter' ? periodValue : undefined,
@@ -501,6 +504,7 @@ export default function ScreenshotImport({ categories, onSuccess, isShared }: Sc
             category: '',
             payment_method: paymentMethodOverride || 'Other',
             paid_by: null,
+            is_shared: isShared !== undefined ? isShared : true,
             year: selectedYear,
             month: periodType === 'month' ? periodValue : undefined,
             quarter: periodType === 'quarter' ? periodValue : undefined,
@@ -568,6 +572,7 @@ export default function ScreenshotImport({ categories, onSuccess, isShared }: Sc
             category: '',
             payment_method: paymentMethodOverride || 'Other',
             paid_by: null,
+            is_shared: isShared !== undefined ? isShared : true,
             year: selectedYear,
             month: periodType === 'month' ? periodValue : undefined,
             quarter: periodType === 'quarter' ? periodValue : undefined,
@@ -797,6 +802,7 @@ export default function ScreenshotImport({ categories, onSuccess, isShared }: Sc
     try {
       // Prepare transactions for import (matching CSV import format)
       // The API expects category names, not IDs
+      // Each transaction carries its own is_shared flag for mixed shared/personal imports
       const transactions = preview.map(t => ({
         date: t.date || null,
         amount: t.amount,
@@ -804,6 +810,7 @@ export default function ScreenshotImport({ categories, onSuccess, isShared }: Sc
         category: t.category || null, // Allow null/empty category for uncategorized transactions
         payment_method: t.payment_method || 'Other',
         paid_by: t.paid_by || null,
+        is_shared: t.is_shared,
         year: selectedYear,
         month: periodType === 'month' ? periodValue : undefined,
         quarter: periodType === 'quarter' ? periodValue : undefined,
@@ -814,7 +821,7 @@ export default function ScreenshotImport({ categories, onSuccess, isShared }: Sc
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ transactions, is_shared: isShared !== undefined ? isShared : true }),
+        body: JSON.stringify({ transactions }),
       });
 
       if (!response.ok) {
@@ -1044,14 +1051,34 @@ export default function ScreenshotImport({ categories, onSuccess, isShared }: Sc
               <div className="text-sm font-medium">
                 Preview ({preview.length} transaction{preview.length !== 1 ? 's' : ''} found from {files.length} file{files.length !== 1 ? 's' : ''}):
               </div>
+              {/* Bulk scope controls */}
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="font-medium">Set all to:</span>
+                <button
+                  type="button"
+                  onClick={() => setPreview(prev => prev.map(t => ({ ...t, is_shared: true })))}
+                  className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200"
+                >
+                  Shared
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreview(prev => prev.map(t => ({ ...t, is_shared: false })))}
+                  className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 hover:bg-purple-200"
+                >
+                  Personal
+                </button>
+              </div>
+
               <div className="overflow-x-auto border rounded-lg">
-                <table className="min-w-[800px] md:min-w-full divide-y divide-gray-200">
+                <table className="min-w-[900px] md:min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 w-28 md:w-32">Date</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 min-w-[200px] md:min-w-[300px]">Description</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 w-32 md:w-40">Category</th>
                       <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-20 md:w-24">Amount</th>
+                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 w-24">Scope</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 w-20">Actions</th>
                     </tr>
                   </thead>
@@ -1083,7 +1110,7 @@ export default function ScreenshotImport({ categories, onSuccess, isShared }: Sc
                             <option value="">Select category</option>
                             {categories.map((cat) => (
                               <option key={cat.id} value={cat.name}>
-                                {cat.name} ({cat.type})
+                                {cat.name} ({cat.is_shared ? 'S' : 'P'})
                               </option>
                             ))}
                           </select>
@@ -1095,6 +1122,19 @@ export default function ScreenshotImport({ categories, onSuccess, isShared }: Sc
                             onChange={(e) => handlePreviewEdit(row.id, 'amount', e.target.value)}
                             className="w-full px-2 py-1 text-sm border rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right"
                           />
+                        </td>
+                        <td className="px-3 py-2 text-sm text-center w-24">
+                          <button
+                            type="button"
+                            onClick={() => handlePreviewEdit(row.id, 'is_shared', !row.is_shared)}
+                            className={`px-2 py-0.5 text-xs rounded-full font-medium transition-colors ${
+                              row.is_shared
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-purple-100 text-purple-700'
+                            }`}
+                          >
+                            {row.is_shared ? 'Shared' : 'Personal'}
+                          </button>
                         </td>
                         <td className="px-4 py-2 text-sm">
                           <button

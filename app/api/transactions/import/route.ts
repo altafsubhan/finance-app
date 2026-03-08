@@ -41,6 +41,10 @@ export async function POST(request: NextRequest) {
         quarter = Math.ceil(parseInt(t.month) / 3);
       }
 
+      // Per-transaction is_shared takes precedence over batch-level is_shared
+      const txIsShared =
+        t.is_shared !== undefined ? t.is_shared : (is_shared !== undefined ? is_shared : true);
+
       return {
         date: t.date || null,
         amount: parseFloat(t.amount),
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
         year: parseInt(t.year) || new Date().getFullYear(),
         month: t.month ? parseInt(t.month) : null,
         quarter: quarter,
-        is_shared: is_shared !== undefined ? is_shared : true,
+        is_shared: txIsShared,
         user_id: user.id,
       };
     });
