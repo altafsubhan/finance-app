@@ -349,7 +349,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     monthly: sortedTransactions.filter(t => getCategoryType(t.category_id) === 'monthly'),
     quarterly: sortedTransactions.filter(t => getCategoryType(t.category_id) === 'quarterly'),
     yearly: sortedTransactions.filter(t => getCategoryType(t.category_id) === 'yearly'),
-    uncategorized: sortedTransactions.filter(t => !t.category_id), // Uncategorized transactions
+    uncategorized: sortedTransactions.filter(t => !t.category_id || getCategoryType(t.category_id) === null),
   };
 
   // If filter is set, only show that type

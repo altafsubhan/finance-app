@@ -30,7 +30,9 @@ export default function OutstandingSummary({ transactions, categories, categoryT
   const outstandingByPaymentMethod = useMemo(() => {
     const result: Record<string, number> = {};
 
-    let unpaidTransactions = transactions.filter(t => t.paid_by === null && t.category_id !== null);
+    let unpaidTransactions = transactions.filter(t =>
+      t.paid_by === null && t.category_id !== null && getCategoryType(t.category_id) !== null
+    );
 
     if (categoryTypeFilter) {
       unpaidTransactions = unpaidTransactions.filter(t => {
@@ -70,7 +72,8 @@ export default function OutstandingSummary({ transactions, categories, categoryT
     let filteredTransactions = transactions.filter(t =>
       t.payment_method === paymentMethod &&
       t.paid_by === null &&
-      t.category_id !== null
+      t.category_id !== null &&
+      getCategoryType(t.category_id) !== null
     );
 
     if (categoryTypeFilter) {

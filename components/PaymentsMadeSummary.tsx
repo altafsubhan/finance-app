@@ -28,7 +28,9 @@ export default function PaymentsMadeSummary({ transactions, categories, category
   const paymentsByPaymentMethod = useMemo(() => {
     const result: Record<string, { total: number; paidBy: Record<string, number> }> = {};
 
-    let paidTransactions = transactions.filter(t => t.paid_by !== null && t.category_id !== null);
+    let paidTransactions = transactions.filter(t =>
+      t.paid_by !== null && t.category_id !== null && getCategoryType(t.category_id) !== null
+    );
 
     if (categoryTypeFilter) {
       paidTransactions = paidTransactions.filter(t => {
