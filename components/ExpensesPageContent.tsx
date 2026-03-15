@@ -1,15 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Transaction, Category, Budget, CategoryRule, CategoryRuleBlocklist } from '@/types/database';
+import { Transaction, Category, CategoryRule, CategoryRuleBlocklist } from '@/types/database';
 import TransactionForm from '@/components/TransactionForm';
 import TransactionList from '@/components/TransactionList';
 import CSVImport from '@/components/CSVImport';
 import ScreenshotImport from '@/components/ScreenshotImport';
 import BulkEditBar from '@/components/BulkEditBar';
-import OutstandingSummary from '@/components/OutstandingSummary';
-import PaymentsMadeSummary from '@/components/PaymentsMadeSummary';
-import BudgetVsSpendingPanel from '@/components/BudgetVsSpendingPanel';
 import SplitTransactionModal, { Split } from '@/components/SplitTransactionModal';
 import EditTransactionModal from '@/components/EditTransactionModal';
 import UncategorizedAutoAssignModal from '@/components/UncategorizedAutoAssignModal';
@@ -29,7 +26,6 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
   const { accounts } = useAccounts();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [rules, setRules] = useState<CategoryRule[]>([]);
   const [blocklist, setBlocklist] = useState<CategoryRuleBlocklist[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -45,7 +41,6 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
   const [initialLoading, setInitialLoading] = useState(true);
   const hasMountedRef = useRef(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
-  const [summariesExpanded, setSummariesExpanded] = useState(false);
   const [transactionsExpanded, setTransactionsExpanded] = useState(true);
   const [uncategorizedModalOpen, setUncategorizedModalOpen] = useState(false);
   const [splittingTransaction, setSplittingTransaction] = useState<Transaction | null>(null);
@@ -192,20 +187,6 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
     }
   }, [selectedYear, selectedPeriod, selectedCategories, selectedPaymentMethod, selectedPaidBy, isShared]);
 
-  const loadBudgets = useCallback(async () => {
-    try {
-      const budgetsRes = await fetch(`/api/budgets?year=${selectedYear}`, {
-        credentials: 'include',
-      });
-      if (budgetsRes.ok) {
-        const budgetsData = await budgetsRes.json();
-        setBudgets(budgetsData);
-      }
-    } catch (error) {
-      console.error('Failed to load budgets:', error);
-    }
-  }, [selectedYear]);
-
   const loadCategoryRules = useCallback(async () => {
     try {
       const res = await fetch('/api/category-rules', { credentials: 'include' });
@@ -235,7 +216,7 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
 
     const initialLoad = async () => {
       setInitialLoading(true);
-      await Promise.all([loadCategories(), loadBudgets(), loadCategoryRules(), loadTransactions()]);
+      await Promise.all([loadCategories(), loadCategoryRules(), loadTransactions()]);
       setInitialLoading(false);
       hasMountedRef.current = true;
     };
@@ -249,12 +230,6 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
       loadTransactions();
     }
   }, [loadTransactions]);
-
-  useEffect(() => {
-    if (hasMountedRef.current) {
-      loadBudgets();
-    }
-  }, [loadBudgets]);
 
   const handleSuccess = () => {
     setShowForm(false);
@@ -362,18 +337,6 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
   );
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
-  const activeSummaryMonth = selectedPeriod && !selectedPeriod.startsWith('Q')
-    ? parseInt(selectedPeriod)
-    : new Date().getMonth() + 1;
-  const summaryMonthLabel = new Date(2000, activeSummaryMonth - 1).toLocaleString('default', { month: 'long' });
-  const showMonthHint = !selectedPeriod || selectedPeriod.startsWith('Q');
-
-  const activeSummaryQuarter = selectedPeriod && selectedPeriod.startsWith('Q')
-    ? parseInt(selectedPeriod.substring(1))
-    : Math.floor(new Date().getMonth() / 3) + 1;
-  const summaryQuarterLabel = `Q${activeSummaryQuarter}`;
-  const showQuarterHint = !selectedPeriod || !selectedPeriod.startsWith('Q');
-
   const uncategorizedCount = transactions.filter(t => t.category_id === null).length;
 
   useEffect(() => {
@@ -690,67 +653,6 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
                   </select>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Summaries Section */}
-        <div className="mb-6 bg-white border rounded-lg">
-          <button
-            onClick={() => setSummariesExpanded(!summariesExpanded)}
-            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
-          >
-            <span className="font-medium text-gray-900">Summaries & Visualizations</span>
-            <span className="text-gray-500">{summariesExpanded ? '−' : '+'}</span>
-          </button>
-          {summariesExpanded && (
-            <div className="px-4 pb-4 pt-2 space-y-4">
-              <OutstandingSummary
-                transactions={transactions}
-                categories={categories}
-                categoryTypeFilter={selectedPeriod.startsWith('Q') ? 'quarterly' : (selectedPeriod ? 'monthly' : '')}
-                onMarkPaid={loadTransactions}
-                defaultExpanded={false}
-              />
-              <PaymentsMadeSummary
-                transactions={transactions}
-                categories={categories}
-                categoryTypeFilter={selectedPeriod.startsWith('Q') ? 'quarterly' : (selectedPeriod ? 'monthly' : '')}
-                defaultExpanded={false}
-              />
-              <BudgetVsSpendingPanel
-                transactions={transactions}
-                categories={categories}
-                budgets={budgets}
-                period="month"
-                year={selectedYear}
-                periodValue={activeSummaryMonth}
-                periodLabel={summaryMonthLabel}
-                showPeriodHint={showMonthHint}
-                enableGroupToggle
-                defaultExpanded={false}
-              />
-              <BudgetVsSpendingPanel
-                transactions={transactions}
-                categories={categories}
-                budgets={budgets}
-                period="quarter"
-                year={selectedYear}
-                periodValue={activeSummaryQuarter}
-                periodLabel={summaryQuarterLabel}
-                showPeriodHint={showQuarterHint}
-                defaultExpanded={false}
-              />
-              <BudgetVsSpendingPanel
-                transactions={transactions}
-                categories={categories}
-                budgets={budgets}
-                period="year"
-                year={selectedYear}
-                periodValue={null}
-                periodLabel={`${selectedYear}`}
-                defaultExpanded={false}
-              />
             </div>
           )}
         </div>

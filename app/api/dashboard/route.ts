@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
       const category = categories.find(c => c.id === categoryId);
       if (!category) return false;
       if (category.type !== 'monthly') return false;
+      if (!filterShared) return true;
       const normalized = normalizeCategoryName(category.name);
       if (IGNORED_EXPENSES.has(normalized)) return false;
       return FIXED_EXPENSES.has(normalized) || VARIABLE_EXPENSES.has(normalized);
