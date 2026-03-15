@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Budget, Category, Transaction, PaymentMethod } from '@/types/database';
 import CategoryBreakdownModal from '@/components/CategoryBreakdownModal';
-import BudgetVsSpendingPanel from '@/components/BudgetVsSpendingPanel';
 import MarkPaidModal from '@/components/MarkPaidModal';
 import OutstandingTransactionsPopup from '@/components/OutstandingTransactionsPopup';
 
@@ -80,13 +79,17 @@ export default function DashboardPage() {
     loadData();
   }, [loadData]);
 
+  const anyModalOpen = outstandingPopup.isOpen || !!markingPaidFor || breakdownModal.isOpen;
+  useEffect(() => {
+    document.body.style.overflow = anyModalOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [anyModalOpen]);
+
   // ── Derived data ──
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
-  const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
   const currentMonthLabel = now.toLocaleString('default', { month: 'long' });
-  const currentQuarterLabel = `Q${currentQuarter}`;
   const currentMonthSummary = dashboardData?.monthlySummaries?.[currentMonth - 1];
 
   const getCategoryType = useCallback((categoryId: string | null) => {
@@ -356,44 +359,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ── Budget vs Spending — Current Month ── */}
-        <BudgetVsSpendingPanel
-          transactions={transactions}
-          categories={categories}
-          budgets={budgets}
-          period="month"
-          year={selectedYear}
-          periodValue={currentMonth}
-          periodLabel={currentMonthLabel}
-          enableGroupToggle={isShared}
-          defaultExpanded
-        />
-
-        {/* ── Budget vs Spending — Current Quarter ── */}
-        <BudgetVsSpendingPanel
-          transactions={transactions}
-          categories={categories}
-          budgets={budgets}
-          period="quarter"
-          year={selectedYear}
-          periodValue={currentQuarter}
-          periodLabel={currentQuarterLabel}
-          defaultExpanded={false}
-        />
-
-        {/* ── Budget vs Spending — Annual ── */}
-        <BudgetVsSpendingPanel
-          transactions={transactions}
-          categories={categories}
-          budgets={budgets}
-          period="year"
-          year={selectedYear}
-          periodValue={null}
-          periodLabel={`${selectedYear}`}
-          defaultExpanded={false}
-        />
-
-        {/* ── Monthly Grid ── */}
+        {/* ── Monthly Overview ── */}
         {dashboardData && (
           <div className="bg-white border rounded-lg">
             <button
