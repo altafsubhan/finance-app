@@ -48,8 +48,10 @@ export default function DashboardPage() {
     periodLabel: string;
   }>({ isOpen: false, periodType: 'monthly', periodValue: null, periodLabel: '' });
 
-  const [monthlyGridExpanded, setMonthlyGridExpanded] = useState(false);
-  const [quarterlyGridExpanded, setQuarterlyGridExpanded] = useState(false);
+  const [outstandingExpanded, setOutstandingExpanded] = useState(true);
+  const [monthlyGridExpanded, setMonthlyGridExpanded] = useState(true);
+  const [quarterlyGridExpanded, setQuarterlyGridExpanded] = useState(true);
+  const [annualExpanded, setAnnualExpanded] = useState(true);
 
   const touchHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -305,57 +307,65 @@ export default function DashboardPage() {
         {/* ── Outstanding Payments ── */}
         {Object.keys(outstandingByPaymentMethod).length > 0 && (
           <div className="bg-white border rounded-lg">
-            <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Outstanding Payments</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Long-press a row to view transactions</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
-                    <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-4 sm:px-6 py-3 w-20"></th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {Object.entries(outstandingByPaymentMethod)
-                    .filter(([, amount]) => amount > 0)
-                    .sort(([, a], [, b]) => b - a)
-                    .map(([method, amount]) => (
-                      <tr
-                        key={method}
-                        className="hover:bg-gray-50 cursor-pointer select-none"
-                        onTouchStart={(e) => handleTouchStart(e, method)}
-                        onTouchEnd={handleTouchEnd}
-                        onTouchMove={handleTouchMove}
-                        onMouseDown={(e) => handleMouseDown(e, method)}
-                        onMouseUp={handleMouseUp}
-                        onMouseLeave={handleMouseLeave}
-                        style={{ WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' } as React.CSSProperties}
-                      >
-                        <td className="px-4 sm:px-6 py-3 text-sm font-medium text-gray-900">{method}</td>
-                        <td className="px-4 sm:px-6 py-3 text-sm text-right font-semibold text-rose-600">{formatCurrency(amount)}</td>
-                        <td className="px-4 sm:px-6 py-3 text-right">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setMarkingPaidFor(method as PaymentMethod); }}
-                            className="text-xs px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium"
-                          >
-                            Pay
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-                <tfoot className="bg-gray-50">
-                  <tr>
-                    <td className="px-4 sm:px-6 py-3 text-sm font-semibold text-gray-900">Total</td>
-                    <td className="px-4 sm:px-6 py-3 text-sm text-right font-bold text-rose-600">{formatCurrency(totalOutstanding)}</td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            <button
+              onClick={() => setOutstandingExpanded(!outstandingExpanded)}
+              className="w-full px-4 sm:px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 rounded-lg"
+            >
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Outstanding Payments</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Long-press a row to view transactions</p>
+              </div>
+              <span className="text-gray-500">{outstandingExpanded ? '\u2212' : '+'}</span>
+            </button>
+            {outstandingExpanded && (
+              <div className="overflow-x-auto border-t border-gray-200">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
+                      <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-4 sm:px-6 py-3 w-20"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {Object.entries(outstandingByPaymentMethod)
+                      .filter(([, amount]) => amount > 0)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([method, amount]) => (
+                        <tr
+                          key={method}
+                          className="hover:bg-gray-50 cursor-pointer select-none"
+                          onTouchStart={(e) => handleTouchStart(e, method)}
+                          onTouchEnd={handleTouchEnd}
+                          onTouchMove={handleTouchMove}
+                          onMouseDown={(e) => handleMouseDown(e, method)}
+                          onMouseUp={handleMouseUp}
+                          onMouseLeave={handleMouseLeave}
+                          style={{ WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' } as React.CSSProperties}
+                        >
+                          <td className="px-4 sm:px-6 py-3 text-sm font-medium text-gray-900">{method}</td>
+                          <td className="px-4 sm:px-6 py-3 text-sm text-right font-semibold text-rose-600">{formatCurrency(amount)}</td>
+                          <td className="px-4 sm:px-6 py-3 text-right">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setMarkingPaidFor(method as PaymentMethod); }}
+                              className="text-xs px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium"
+                            >
+                              Pay
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                  <tfoot className="bg-gray-50">
+                    <tr>
+                      <td className="px-4 sm:px-6 py-3 text-sm font-semibold text-gray-900">Total</td>
+                      <td className="px-4 sm:px-6 py-3 text-sm text-right font-bold text-rose-600">{formatCurrency(totalOutstanding)}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
@@ -444,48 +454,54 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ── Annual Summary ── */}
+        {/* ── Annual Overview ── */}
         {dashboardData && (
           <div className="bg-white border rounded-lg">
-            <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Annual Summary</h2>
-            </div>
-            <div className="p-4 sm:p-6">
-              <button
-                onClick={() => handlePeriodClick('yearly', null, `${selectedYear}`)}
-                className={`w-full text-left p-4 sm:p-6 border rounded-lg hover:shadow-md transition-shadow ${
-                  dashboardData.annualSummary.actual > dashboardData.annualSummary.budget &&
-                  dashboardData.annualSummary.budget > 0
-                    ? 'border-red-300 bg-red-50'
-                    : 'border-gray-200 bg-white'
-                }`}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-medium text-gray-500 mb-1">Year {selectedYear}</div>
-                    <div className="text-2xl sm:text-3xl font-bold text-gray-900">
-                      {formatCurrency(dashboardData.annualSummary.actual)}
+            <button
+              onClick={() => setAnnualExpanded(!annualExpanded)}
+              className="w-full px-4 sm:px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 rounded-lg"
+            >
+              <h2 className="text-lg font-semibold text-gray-900">Annual Overview</h2>
+              <span className="text-gray-500">{annualExpanded ? '\u2212' : '+'}</span>
+            </button>
+            {annualExpanded && (
+              <div className="p-4 sm:p-6 border-t border-gray-200">
+                <button
+                  onClick={() => handlePeriodClick('yearly', null, `${selectedYear}`)}
+                  className={`w-full text-left p-4 sm:p-6 border rounded-lg hover:shadow-md transition-shadow ${
+                    dashboardData.annualSummary.actual > dashboardData.annualSummary.budget &&
+                    dashboardData.annualSummary.budget > 0
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-gray-200 bg-white'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 mb-1">Year {selectedYear}</div>
+                      <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+                        {formatCurrency(dashboardData.annualSummary.actual)}
+                      </div>
+                      {dashboardData.annualSummary.budget > 0 && (
+                        <div className="text-sm text-gray-500 mt-1">
+                          of {formatCurrency(dashboardData.annualSummary.budget)}
+                        </div>
+                      )}
                     </div>
                     {dashboardData.annualSummary.budget > 0 && (
-                      <div className="text-sm text-gray-500 mt-1">
-                        of {formatCurrency(dashboardData.annualSummary.budget)}
+                      <div className="text-right">
+                        <div className={`text-xl sm:text-2xl font-bold ${
+                          dashboardData.annualSummary.difference >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {dashboardData.annualSummary.difference >= 0 ? '+' : ''}
+                          {formatCurrency(dashboardData.annualSummary.difference)}
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">Remaining</div>
                       </div>
                     )}
                   </div>
-                  {dashboardData.annualSummary.budget > 0 && (
-                    <div className="text-right">
-                      <div className={`text-xl sm:text-2xl font-bold ${
-                        dashboardData.annualSummary.difference >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {dashboardData.annualSummary.difference >= 0 ? '+' : ''}
-                        {formatCurrency(dashboardData.annualSummary.difference)}
-                      </div>
-                      <div className="text-sm text-gray-500 mt-1">Remaining</div>
-                    </div>
-                  )}
-                </div>
-              </button>
-            </div>
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

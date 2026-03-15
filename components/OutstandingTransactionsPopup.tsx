@@ -80,7 +80,7 @@ export default function OutstandingTransactionsPopup({
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none">&times;</button>
         </div>
 
-        <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+        <div className="flex-1 overflow-y-auto overscroll-contain divide-y divide-gray-100">
           {outstandingTransactions.length === 0 ? (
             <div className="p-6 text-center text-gray-500 text-sm">No outstanding transactions</div>
           ) : (
