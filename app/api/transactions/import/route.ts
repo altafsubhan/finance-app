@@ -42,8 +42,13 @@ export async function POST(request: NextRequest) {
       }
 
       // Per-transaction is_shared takes precedence over batch-level is_shared
-      const txIsShared =
+      let txIsShared =
         t.is_shared !== undefined ? t.is_shared : (is_shared !== undefined ? is_shared : true);
+
+      // If a category is assigned, align the transaction scope to the category's scope
+      if (category) {
+        txIsShared = category.is_shared;
+      }
 
       return {
         date: t.date || null,

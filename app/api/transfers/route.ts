@@ -191,55 +191,74 @@ export async function POST(request: NextRequest) {
       calculatedQuarter = Math.ceil(parseInt(month) / 3);
     }
 
-    // 1. Create personal expense
-    const { data: expense, error: expenseError } = await supabase
-      .from('transactions')
-      .insert({
-        date: date || null,
-        amount: parsedAmount,
-        description,
-        category_id: null,
-        payment_method: 'Other',
-        paid_by: null,
-        month: month ? parseInt(month) : null,
-        quarter: calculatedQuarter ? parseInt(calculatedQuarter) : null,
-        year: parseInt(year) || new Date().getFullYear(),
-        is_shared: false,
-        user_id: user.id,
-        skip_balance_update: shouldSkipBalance,
-      })
-      .select()
-      .single();
+    const fromIsShared = fromAccount?.is_shared ?? false;
+    const toIsShared = toAccount.is_shared;
+    const bothPersonal = !fromIsShared && !toIsShared;
 
-    if (expenseError) {
-      throw expenseError;
+    let expense = null;
+    let incomeEntry = null;
+
+    // Personal → Personal: only balance changes, no expense or income records.
+    // Personal → Shared:   create personal expense + shared income.
+    // Shared → Personal:   create shared expense + personal income.
+    // Shared → Shared:     only balance changes (same logic as personal→personal).
+
+    const shouldCreateExpense = fromIsShared !== toIsShared && from_account_id;
+    const shouldCreateIncome = fromIsShared !== toIsShared;
+
+    if (shouldCreateExpense) {
+      const { data, error: expenseError } = await supabase
+        .from('transactions')
+        .insert({
+          date: date || null,
+          amount: parsedAmount,
+          description,
+          category_id: null,
+          payment_method: 'Other',
+          paid_by: null,
+          month: month ? parseInt(month) : null,
+          quarter: calculatedQuarter ? parseInt(calculatedQuarter) : null,
+          year: parseInt(year) || new Date().getFullYear(),
+          is_shared: fromIsShared,
+          user_id: user.id,
+          skip_balance_update: shouldSkipBalance,
+        })
+        .select()
+        .single();
+
+      if (expenseError) {
+        throw expenseError;
+      }
+      expense = data;
     }
 
-    // 2. Create income entry on the destination account
-    const incomeSource = `Transfer from ${from_account_name || 'personal account'}`;
-    const incomeNotes = notes ? notes.trim() : null;
+    if (shouldCreateIncome) {
+      const incomeSource = `Transfer from ${from_account_name || 'personal account'}`;
+      const incomeNotes = notes ? notes.trim() : null;
 
-    const { data: incomeEntry, error: incomeError } = await supabase
-      .from('income_entries')
-      .insert({
-        user_id: user.id,
-        account_id: to_account_id,
-        entry_type: 'income',
-        amount: parsedAmount,
-        received_date: receivedDate,
-        source: incomeSource,
-        notes: incomeNotes,
-        tags: ['transfer'],
-        skip_balance_update: shouldSkipBalance,
-      })
-      .select()
-      .single();
+      const { data, error: incomeError } = await supabase
+        .from('income_entries')
+        .insert({
+          user_id: user.id,
+          account_id: to_account_id,
+          entry_type: 'income',
+          amount: parsedAmount,
+          received_date: receivedDate,
+          source: incomeSource,
+          notes: incomeNotes,
+          tags: ['transfer'],
+          skip_balance_update: shouldSkipBalance,
+        })
+        .select()
+        .single();
 
-    if (incomeError) {
-      throw incomeError;
+      if (incomeError) {
+        throw incomeError;
+      }
+      incomeEntry = data;
     }
 
-    // 3. If from_account is specified and balance tracking is not skipped, deduct from source
+    // Balance adjustments
     if (!shouldSkipBalance && from_account_id && fromAccount) {
       await applyBalanceDelta(
         supabase,
@@ -250,23 +269,44 @@ export async function POST(request: NextRequest) {
         {
           snapshotSource: 'transfer',
           referenceType: 'transfer_out',
-          referenceId: expense.id,
+          referenceId: expense?.id ?? to_account_id,
           snapshotDate: receivedDate,
         }
       );
     }
 
-    // 4. Auto-adjust balance snapshots on destination if enabled
-    const shouldAutoAdjust =
-      toAccount.user_id === user.id &&
-      (await isIncomeAutoAdjustEnabledForUser(supabase, user.id));
-    if (shouldAutoAdjust) {
-      await syncIncomeSnapshotsForAccount(supabase, to_account_id, user.id);
+    if (!shouldSkipBalance && !shouldCreateIncome) {
+      // For same-type transfers (no income entry), directly adjust destination balance.
+      // For cross-type transfers the income entry handles destination via syncIncomeSnapshotsForAccount below.
+      await applyBalanceDelta(
+        supabase,
+        to_account_id,
+        user.id,
+        parsedAmount,
+        `Transfer in from ${from_account_name || 'account'}`,
+        {
+          snapshotSource: 'transfer',
+          referenceType: 'transfer_in',
+          referenceId: from_account_id ?? to_account_id,
+          snapshotDate: receivedDate,
+        }
+      );
+    }
+
+    if (shouldCreateIncome) {
+      // For cross-type transfers, sync destination snapshots from the new income entry
+      const shouldAutoAdjust =
+        toAccount.user_id === user.id &&
+        (await isIncomeAutoAdjustEnabledForUser(supabase, user.id));
+      if (shouldAutoAdjust) {
+        await syncIncomeSnapshotsForAccount(supabase, to_account_id, user.id);
+      }
     }
 
     return NextResponse.json({
       expense,
       income_entry: incomeEntry,
+      balance_only: bothPersonal,
     }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

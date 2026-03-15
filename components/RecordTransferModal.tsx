@@ -186,7 +186,7 @@ export default function RecordTransferModal({ isOpen, onClose, onSuccess }: Reco
           </div>
           <p className="text-sm text-gray-500 mb-4">
             {transferType === 'money'
-              ? 'Record a money transfer. Creates a personal expense and income on the destination.'
+              ? 'Record a money transfer. Same-type transfers only update balances. Cross-type transfers (personal ↔ shared) also record an expense and income entry.'
               : 'Record a stock transfer between investment accounts.'}
           </p>
 

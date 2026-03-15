@@ -814,7 +814,7 @@ function TransferForm({
 
       <p className="text-sm text-gray-500">
         {transferType === 'money'
-          ? 'Record a money transfer between accounts. Creates an expense on the source and income on the destination.'
+          ? 'Record a money transfer between accounts. Transfers between same-type accounts only update balances. Cross-type transfers (personal ↔ shared) also record an expense and income entry.'
           : 'Record a stock transfer between investment accounts. Moves shares from one portfolio to another.'}
       </p>
 

@@ -83,7 +83,7 @@ export default function ScreenshotImport({ categories, onSuccess, isShared }: Sc
       if (!suggestion) return row;
       const cat = categoriesById.get(suggestion.category_id);
       if (!cat) return row;
-      return { ...row, category: cat.name };
+      return { ...row, category: cat.name, is_shared: cat.is_shared };
     });
   };
 
@@ -842,9 +842,17 @@ export default function ScreenshotImport({ categories, onSuccess, isShared }: Sc
   };
 
   const handlePreviewEdit = (id: string, field: keyof ParsedTransaction, value: any) => {
-    setPreview(prev => prev.map(t => 
-      t.id === id ? { ...t, [field]: value } : t
-    ));
+    setPreview(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      const updated = { ...t, [field]: value };
+      if (field === 'category' && value) {
+        const matchedCat = categories.find(c => c.name === value);
+        if (matchedCat) {
+          updated.is_shared = matchedCat.is_shared;
+        }
+      }
+      return updated;
+    }));
   };
 
   const handleDeletePreview = (id: string) => {
