@@ -1,5 +1,5 @@
-import ExpensesPageContent from '@/components/ExpensesPageContent';
+import { redirect } from 'next/navigation';
 
 export default function SharedExpensesPage() {
-  return <ExpensesPageContent scope="shared" />;
+  redirect('/expenses');
 }

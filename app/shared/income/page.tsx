@@ -1,5 +1,5 @@
-import IncomePageContent from '@/components/IncomePageContent';
+import { redirect } from 'next/navigation';
 
 export default function SharedIncomePage() {
-  return <IncomePageContent scope="shared" />;
+  redirect('/income');
 }

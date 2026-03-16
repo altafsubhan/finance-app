@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import IncomePageContent from '@/components/IncomePageContent';
 
 export default function IncomePage() {
-  redirect('/personal/income');
+  return <IncomePageContent />;
 }

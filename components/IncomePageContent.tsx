@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import ScopeToggle from '@/components/ScopeToggle';
 
 type IncomeEntryType = 'income' | '401k' | 'hsa';
 
@@ -39,7 +40,7 @@ interface IncomeFormState {
 }
 
 interface IncomePageContentProps {
-  scope: 'personal' | 'shared';
+  scope?: 'personal' | 'shared';
 }
 
 const MONTH_NAMES = [
@@ -98,7 +99,9 @@ function makeDefaultForm(accountId = ''): IncomeFormState {
   };
 }
 
-export default function IncomePageContent({ scope }: IncomePageContentProps) {
+export default function IncomePageContent({ scope: scopeProp }: IncomePageContentProps) {
+  const [internalScope, setInternalScope] = useState<'shared' | 'personal'>(scopeProp || 'shared');
+  const scope = scopeProp || internalScope;
   const isShared = scope === 'shared';
   const scopeLabel = isShared ? 'Shared' : 'Personal';
 
@@ -411,7 +414,7 @@ export default function IncomePageContent({ scope }: IncomePageContentProps) {
     );
   }
 
-  const accountsPath = isShared ? '/shared/accounts' : '/personal/accounts';
+  const accountsPath = '/accounts';
 
   return (
     <main className="min-h-screen p-4 sm:p-8 bg-gray-50">
@@ -419,12 +422,17 @@ export default function IncomePageContent({ scope }: IncomePageContentProps) {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{scopeLabel} Income</h1>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                isShared ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-              }`}>
-                {isShared ? 'Shared' : 'Private'}
-              </span>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Income</h1>
+              {!scopeProp && (
+                <ScopeToggle scope={internalScope} onChange={setInternalScope} />
+              )}
+              {scopeProp && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  isShared ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                }`}>
+                  {isShared ? 'Shared' : 'Private'}
+                </span>
+              )}
             </div>
             <p className="text-sm text-gray-500 mt-1">
               {isShared ? 'Shared income tracking deposited into joint accounts.' : 'Personal income tracking with account destination details.'}
@@ -475,9 +483,9 @@ export default function IncomePageContent({ scope }: IncomePageContentProps) {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Income Entry</h2>
           {accounts.length === 0 ? (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              Add a {scope} account first so you can track where income is deposited.{' '}
+              Add an account first so you can track where income is deposited.{' '}
               <Link href={accountsPath} className="font-medium underline hover:text-amber-900">
-                Go to {scopeLabel} Accounts
+                Go to Accounts
               </Link>
               .
             </div>

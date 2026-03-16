@@ -15,12 +15,15 @@ import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 import { useAccounts } from '@/lib/hooks/useAccounts';
 import { format } from 'date-fns';
+import ScopeToggle from '@/components/ScopeToggle';
 
 interface ExpensesPageContentProps {
-  scope: 'personal' | 'shared';
+  scope?: 'personal' | 'shared';
 }
 
-export default function ExpensesPageContent({ scope }: ExpensesPageContentProps) {
+export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageContentProps) {
+  const [internalScope, setInternalScope] = useState<'shared' | 'personal'>(scopeProp || 'shared');
+  const scope = scopeProp || internalScope;
   const isShared = scope === 'shared';
   const { paymentMethods } = usePaymentMethods();
   const { accounts } = useAccounts();
@@ -199,23 +202,25 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
     }
   }, []);
 
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const categoriesRes = await fetch(`/api/categories?is_shared=${isShared}`, {
-          credentials: 'include',
-        });
-        if (categoriesRes.ok) {
-          const categoriesData = await categoriesRes.json();
-          setCategories(categoriesData);
-        }
-      } catch (error) {
-        console.error('Failed to load categories:', error);
+  const loadCategories = useCallback(async () => {
+    try {
+      const categoriesRes = await fetch(`/api/categories?is_shared=${isShared}`, {
+        credentials: 'include',
+      });
+      if (categoriesRes.ok) {
+        const categoriesData = await categoriesRes.json();
+        setCategories(categoriesData);
       }
-    };
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  }, [isShared]);
 
+  useEffect(() => {
     const initialLoad = async () => {
       setInitialLoading(true);
+      setSelectedTransactionIds(new Set());
+      setSelectedCategories(new Set());
       await Promise.all([loadCategories(), loadCategoryRules(), loadTransactions()]);
       setInitialLoading(false);
       hasMountedRef.current = true;
@@ -223,7 +228,7 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
 
     initialLoad();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     if (hasMountedRef.current) {
@@ -382,12 +387,17 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
         <div className="flex flex-col mb-4 sm:mb-8 gap-2 sm:gap-3">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl sm:text-4xl font-bold">{scopeLabel} Expenses</h1>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                isShared ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-              }`}>
-                {isShared ? 'Shared' : 'Private'}
-              </span>
+              <h1 className="text-2xl sm:text-4xl font-bold">Expenses</h1>
+              {!scopeProp && (
+                <ScopeToggle scope={internalScope} onChange={setInternalScope} />
+              )}
+              {scopeProp && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  isShared ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                }`}>
+                  {isShared ? 'Shared' : 'Private'}
+                </span>
+              )}
             </div>
             {!showForm && !showCSVImport && !showScreenshotImport && (
               <div className="flex flex-wrap gap-2 justify-end">
@@ -663,7 +673,7 @@ export default function ExpensesPageContent({ scope }: ExpensesPageContentProps)
             onClick={() => setTransactionsExpanded(!transactionsExpanded)}
             className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
           >
-            <h2 className="text-lg">{scopeLabel} Expenses</h2>
+            <h2 className="text-lg">{scopeLabel} Expenses ({selectedYear})</h2>
             <span className="text-gray-500">{transactionsExpanded ? '−' : '+'}</span>
           </button>
           {transactionsExpanded && (
