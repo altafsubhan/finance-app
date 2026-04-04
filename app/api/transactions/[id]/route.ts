@@ -48,7 +48,12 @@ export async function PUT(
     if (month !== undefined) updateData.month = month ? parseInt(month) : null;
     if (calculatedQuarter !== undefined) updateData.quarter = calculatedQuarter ? parseInt(calculatedQuarter) : null;
     if (year !== undefined) updateData.year = parseInt(year);
-    if (is_shared !== undefined) updateData.is_shared = is_shared;
+    if (is_shared !== undefined) {
+      updateData.is_shared = is_shared;
+      if (is_shared === false) {
+        updateData.user_id = user.id;
+      }
+    }
     if (skip_balance_update !== undefined) updateData.skip_balance_update = skip_balance_update;
 
     const { data, error } = await supabase

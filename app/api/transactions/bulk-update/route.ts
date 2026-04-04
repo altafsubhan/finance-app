@@ -27,7 +27,12 @@ export async function PATCH(request: NextRequest) {
     if (updates.payment_method !== undefined) updateData.payment_method = updates.payment_method;
     if (updates.paid_by !== undefined) updateData.paid_by = updates.paid_by;
     if (updates.date !== undefined) updateData.date = updates.date;
-    if (updates.is_shared !== undefined) updateData.is_shared = updates.is_shared;
+    if (updates.is_shared !== undefined) {
+      updateData.is_shared = updates.is_shared;
+      if (updates.is_shared === false) {
+        updateData.user_id = user.id;
+      }
+    }
     if (updates.skip_balance_update !== undefined) updateData.skip_balance_update = updates.skip_balance_update;
 
     const { data: existingRows, error: existingError } = await supabase

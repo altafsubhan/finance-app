@@ -31,7 +31,12 @@ export async function PATCH(
     if (category_id !== undefined) updateData.category_id = category_id;
     if (paid_by !== undefined) updateData.paid_by = paid_by;
     if (payment_method !== undefined) updateData.payment_method = payment_method;
-    if (is_shared !== undefined) updateData.is_shared = is_shared;
+    if (is_shared !== undefined) {
+      updateData.is_shared = is_shared;
+      if (is_shared === false) {
+        updateData.user_id = user.id;
+      }
+    }
 
     const { data, error } = await supabase
       .from('transactions')
