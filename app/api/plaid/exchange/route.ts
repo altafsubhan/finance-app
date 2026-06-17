@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getPlaidClient, isPlaidConfigured } from '@/lib/plaid/client';
+import { ensurePaymentMethodsForPlaidAccounts } from '@/lib/plaid/accounts';
 import { syncPlaidItem } from '@/lib/plaid/sync';
 
 export async function POST(request: NextRequest) {
@@ -55,6 +56,13 @@ export async function POST(request: NextRequest) {
         .from('plaid_accounts')
         .upsert(accountRows, { onConflict: 'account_id', ignoreDuplicates: false });
     }
+
+    await ensurePaymentMethodsForPlaidAccounts(
+      supabase,
+      itemRow.id,
+      user.id,
+      institution?.name || null
+    );
 
     // Initial pull so the inbox is populated immediately.
     let synced = { added: 0, modified: 0, removed: 0 };

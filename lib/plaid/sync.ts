@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getPlaidClient } from './client';
+import {
+  ensurePaymentMethodsForPlaidAccounts,
+  formatPlaidAccountLabel,
+} from './accounts';
 import { suggestCategoryIdForDescription } from '@/lib/rules/categoryRules';
 import type { Category, CategoryRule, CategoryRuleBlocklist } from '@/types/database';
 
@@ -29,6 +33,21 @@ export async function syncPlaidItem(
 ): Promise<SyncResult> {
   const plaid = getPlaidClient();
 
+  const { data: itemMeta } = await supabase
+    .from('plaid_items')
+    .select('institution_name')
+    .eq('id', item.id)
+    .single();
+  const institutionName = itemMeta?.institution_name;
+
+  // Link Plaid accounts to payment_methods (match "Chase Sapphire" etc. or create).
+  await ensurePaymentMethodsForPlaidAccounts(
+    supabase,
+    item.id,
+    item.user_id,
+    institutionName
+  );
+
   // Load categorization context once (household-scoped under RLS; full set under
   // the admin client used by cron - fine for a single-household app).
   const [{ data: categories }, { data: rulesData }] = await Promise.all([
@@ -44,10 +63,10 @@ export async function syncPlaidItem(
   const blocklist = (blocklistData || []) as CategoryRuleBlocklist[];
   const catById = new Map(cats.map((c) => [c.id, c]));
 
-  // Map Plaid account ids -> the user's payment_method name (if mapped).
+  // Map Plaid account ids -> payment method name + shared flag for inbox rows.
   const { data: plaidAccounts } = await supabase
     .from('plaid_accounts')
-    .select('account_id, payment_method_id')
+    .select('account_id, payment_method_id, name, official_name, mask, type, subtype')
     .eq('plaid_item_id', item.id);
 
   const pmIds = (plaidAccounts || [])
@@ -61,9 +80,14 @@ export async function syncPlaidItem(
       .in('id', pmIds);
     pmNameById = new Map((pms || []).map((p: any) => [p.id, { name: p.name, is_shared: p.is_shared }]));
   }
-  const accountToPm = new Map(
-    (plaidAccounts || []).map((a: any) => [a.account_id, pmNameById.get(a.payment_method_id)])
-  );
+  const accountToMethod = new Map<string, { name: string; is_shared: boolean }>();
+  for (const a of plaidAccounts || []) {
+    const pm = a.payment_method_id ? pmNameById.get(a.payment_method_id) : null;
+    accountToMethod.set(a.account_id, {
+      name: pm?.name || formatPlaidAccountLabel(a, institutionName),
+      is_shared: pm?.is_shared ?? true,
+    });
+  }
 
   let cursor = item.cursor || undefined;
   let added = 0;
@@ -80,7 +104,7 @@ export async function syncPlaidItem(
     const data = resp.data;
 
     const upserts = [...data.added, ...data.modified].map((t: any) => {
-      const pm = accountToPm.get(t.account_id);
+      const method = accountToMethod.get(t.account_id);
       const suggestion = suggestCategoryIdForDescription({
         description: t.merchant_name || t.name || '',
         rules,
@@ -88,7 +112,7 @@ export async function syncPlaidItem(
         categories: cats,
       });
       const suggestedCat = suggestion ? catById.get(suggestion.category_id) : null;
-      const isShared = suggestedCat ? suggestedCat.is_shared : pm ? pm.is_shared : true;
+      const isShared = suggestedCat ? suggestedCat.is_shared : method ? method.is_shared : true;
 
       return {
         user_id: item.user_id,
@@ -102,7 +126,7 @@ export async function syncPlaidItem(
         description: t.name || t.merchant_name || '',
         merchant_name: t.merchant_name || null,
         suggested_category_id: suggestedCat?.id || null,
-        payment_method: pm?.name || null,
+        payment_method: method?.name || null,
         is_shared: isShared,
         is_pending: Boolean(t.pending),
         raw: t,
