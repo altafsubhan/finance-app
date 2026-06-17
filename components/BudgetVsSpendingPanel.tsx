@@ -19,33 +19,6 @@ interface BudgetVsSpendingPanelProps {
   defaultExpanded?: boolean;
 }
 
-const normalizeCategoryName = (name: string) => name.toLowerCase().replace(/\s+/g, '');
-
-const FIXED_EXPENSES = new Set(
-  ['rent', 'car - insurance', 'phone + wifi'].map(normalizeCategoryName)
-);
-
-const VARIABLE_EXPENSES = new Set(
-  [
-    'activities',
-    'car - charging',
-    'car - cleaning',
-    'car - gas',
-    'food- caafe',
-    'food - eat out',
-    'food - office',
-    'grocery',
-    'house items',
-    'miscellaneous',
-    'subscriptions',
-    'utilities + electricity',
-  ].map(normalizeCategoryName)
-);
-
-const IGNORED_EXPENSES = new Set(
-  ['subi personal', 'mano personal', 'health expenses'].map(normalizeCategoryName)
-);
-
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -113,10 +86,9 @@ export default function BudgetVsSpendingPanel({
       const category = categoryMap.get(transaction.category_id);
       if (!category) return acc;
 
-      const normalized = normalizeCategoryName(category.name);
-      if (IGNORED_EXPENSES.has(normalized)) return acc;
+      if (category.expense_group === 'ignored') return acc;
       if (enableGroupToggle) {
-        if (!FIXED_EXPENSES.has(normalized) && !VARIABLE_EXPENSES.has(normalized)) return acc;
+        if (category.expense_group !== 'fixed' && category.expense_group !== 'variable') return acc;
       }
 
       acc.set(
@@ -128,12 +100,11 @@ export default function BudgetVsSpendingPanel({
 
     const rows = periodCategories
       .filter(category => {
-        const normalized = normalizeCategoryName(category.name);
-        if (IGNORED_EXPENSES.has(normalized)) return false;
+        if (category.expense_group === 'ignored') return false;
         if (!enableGroupToggle) return true;
-        if (!FIXED_EXPENSES.has(normalized) && !VARIABLE_EXPENSES.has(normalized)) return false;
-        if (activeGroup === 'fixed') return FIXED_EXPENSES.has(normalized);
-        return VARIABLE_EXPENSES.has(normalized);
+        if (category.expense_group !== 'fixed' && category.expense_group !== 'variable') return false;
+        if (activeGroup === 'fixed') return category.expense_group === 'fixed';
+        return category.expense_group === 'variable';
       })
       .map(category => {
         const spent = spendByCategory.get(category.id) ?? 0;

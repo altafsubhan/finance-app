@@ -32,6 +32,14 @@ export async function GET(request: NextRequest) {
 
     if (isSharedParam !== null) {
       query = query.eq('is_shared', isSharedParam === 'true');
+
+      // Personal scope should only ever show the viewer's OWN spend, even though
+      // RLS now also exposes the partner's personal charges that sit on shared
+      // cards (those are surfaced separately in the shared-card reconciliation
+      // view, redacted). Spend owner = attributed_to ?? user_id.
+      if (isSharedParam === 'false') {
+        query = query.or(`attributed_to.eq.${user.id},and(attributed_to.is.null,user_id.eq.${user.id})`);
+      }
     }
 
     // Filter by year (using year field)

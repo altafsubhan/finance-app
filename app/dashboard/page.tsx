@@ -5,6 +5,8 @@ import { Budget, Category, Transaction, PaymentMethod } from '@/types/database';
 import CategoryBreakdownModal from '@/components/CategoryBreakdownModal';
 import MarkPaidModal from '@/components/MarkPaidModal';
 import OutstandingTransactionsPopup from '@/components/OutstandingTransactionsPopup';
+import ScopeToggle from '@/components/ScopeToggle';
+import MonthlyHero from '@/components/MonthlyHero';
 
 interface PeriodSummary {
   period: 'month' | 'quarter' | 'year';
@@ -221,24 +223,7 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl sm:text-4xl font-bold">Dashboard</h1>
-            <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-              <button
-                onClick={() => setScope('shared')}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                  isShared ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Shared
-              </button>
-              <button
-                onClick={() => setScope('personal')}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                  !isShared ? 'bg-purple-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Personal
-              </button>
-            </div>
+            <ScopeToggle scope={scope} onChange={setScope} />
           </div>
           <select
             value={selectedYear}
@@ -303,6 +288,15 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Monthly hero (spent vs budget, projection, trend) ── */}
+        {dashboardData?.monthlySummaries && (
+          <MonthlyHero
+            monthlySummaries={dashboardData.monthlySummaries}
+            year={selectedYear}
+            isShared={isShared}
+          />
+        )}
 
         {/* ── Outstanding Payments ── */}
         {Object.keys(outstandingByPaymentMethod).length > 0 && (

@@ -1,5 +1,5 @@
-import AccountsPage from '@/app/accounts/page';
+import { redirect } from 'next/navigation';
 
 export default function PersonalAccountsPage() {
-  return <AccountsPage scope="personal" />;
+  redirect('/accounts');
 }

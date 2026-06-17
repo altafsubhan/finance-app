@@ -1,0 +1,10 @@
+{
+  "name": "Finance App",
+  "short_name": "Finance",
+  "description": "Personal & shared finance tracking with auto-import",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait"
+}

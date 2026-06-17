@@ -1,0 +1,134 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getPlaidClient } from './client';
+import { suggestCategoryIdForDescription } from '@/lib/rules/categoryRules';
+import type { Category, CategoryRule, CategoryRuleBlocklist } from '@/types/database';
+
+interface PlaidItemRow {
+  id: string;
+  user_id: string;
+  access_token: string;
+  cursor: string | null;
+}
+
+interface SyncResult {
+  itemId: string;
+  added: number;
+  modified: number;
+  removed: number;
+}
+
+/**
+ * Pull new/updated transactions for a single Plaid item using /transactions/sync
+ * and stage them in `imported_transactions` (the review inbox). Idempotent:
+ * dedupes on plaid_transaction_id and advances the saved cursor. Never writes to
+ * the real `transactions` table - approval happens later in the inbox UI.
+ */
+export async function syncPlaidItem(
+  supabase: SupabaseClient,
+  item: PlaidItemRow
+): Promise<SyncResult> {
+  const plaid = getPlaidClient();
+
+  // Load categorization context once (household-scoped under RLS; full set under
+  // the admin client used by cron - fine for a single-household app).
+  const [{ data: categories }, { data: rulesData }] = await Promise.all([
+    supabase.from('categories').select('*'),
+    supabase.from('category_rules').select('*'),
+  ]);
+  const { data: blocklistData } = await supabase
+    .from('category_rule_blocklist')
+    .select('*');
+
+  const cats = (categories || []) as Category[];
+  const rules = (rulesData || []) as CategoryRule[];
+  const blocklist = (blocklistData || []) as CategoryRuleBlocklist[];
+  const catById = new Map(cats.map((c) => [c.id, c]));
+
+  // Map Plaid account ids -> the user's payment_method name (if mapped).
+  const { data: plaidAccounts } = await supabase
+    .from('plaid_accounts')
+    .select('account_id, payment_method_id')
+    .eq('plaid_item_id', item.id);
+
+  const pmIds = (plaidAccounts || [])
+    .map((a: any) => a.payment_method_id)
+    .filter(Boolean);
+  let pmNameById = new Map<string, { name: string; is_shared: boolean }>();
+  if (pmIds.length > 0) {
+    const { data: pms } = await supabase
+      .from('payment_methods')
+      .select('id, name, is_shared')
+      .in('id', pmIds);
+    pmNameById = new Map((pms || []).map((p: any) => [p.id, { name: p.name, is_shared: p.is_shared }]));
+  }
+  const accountToPm = new Map(
+    (plaidAccounts || []).map((a: any) => [a.account_id, pmNameById.get(a.payment_method_id)])
+  );
+
+  let cursor = item.cursor || undefined;
+  let added = 0;
+  let modified = 0;
+  let removed = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const resp = await plaid.transactionsSync({
+      access_token: item.access_token,
+      cursor,
+      count: 250,
+    });
+    const data = resp.data;
+
+    const upserts = [...data.added, ...data.modified].map((t: any) => {
+      const pm = accountToPm.get(t.account_id);
+      const suggestion = suggestCategoryIdForDescription({
+        description: t.merchant_name || t.name || '',
+        rules,
+        blocklist,
+        categories: cats,
+      });
+      const suggestedCat = suggestion ? catById.get(suggestion.category_id) : null;
+      const isShared = suggestedCat ? suggestedCat.is_shared : pm ? pm.is_shared : true;
+
+      return {
+        user_id: item.user_id,
+        source: 'plaid',
+        status: 'pending',
+        plaid_item_id: item.id,
+        plaid_account_id: t.account_id,
+        plaid_transaction_id: t.transaction_id,
+        date: t.date,
+        amount: t.amount,
+        description: t.name || t.merchant_name || '',
+        merchant_name: t.merchant_name || null,
+        suggested_category_id: suggestedCat?.id || null,
+        payment_method: pm?.name || null,
+        is_shared: isShared,
+        is_pending: Boolean(t.pending),
+        raw: t,
+      };
+    });
+
+    if (upserts.length > 0) {
+      // Only touch rows that are still pending; never resurrect dismissed/approved.
+      const { error } = await supabase
+        .from('imported_transactions')
+        .upsert(upserts, { onConflict: 'plaid_transaction_id', ignoreDuplicates: false });
+      if (error) throw error;
+    }
+
+    added += data.added.length;
+    modified += data.modified.length;
+    removed += data.removed.length;
+
+    cursor = data.next_cursor;
+    hasMore = data.has_more;
+  }
+
+  await supabase
+    .from('plaid_items')
+    .update({ cursor, last_synced_at: new Date().toISOString(), status: 'active' })
+    .eq('id', item.id);
+
+  return { itemId: item.id, added, modified, removed };
+}

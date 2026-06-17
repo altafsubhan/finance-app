@@ -14,16 +14,22 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name } = body;
+    const { name, is_shared, owner_id } = body;
 
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+    const updatePayload: any = { updated_at: new Date().toISOString() };
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.trim().length === 0) {
+        return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+      }
+      updatePayload.name = name.trim();
     }
+    if (is_shared !== undefined) updatePayload.is_shared = Boolean(is_shared);
+    if (owner_id !== undefined) updatePayload.owner_id = owner_id;
 
     // RLS policies handle authorization for shared access
     const { data, error } = await supabase
       .from('payment_methods')
-      .update({ name: name.trim(), updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq('id', params.id)
       .select()
       .single();

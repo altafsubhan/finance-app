@@ -14,42 +14,19 @@ export default function Home() {
             <p className="text-gray-600">View your financial summary and budget tracking</p>
           </Link>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-6 border rounded-lg bg-blue-50 border-blue-200">
-              <h2 className="text-xl font-semibold mb-3 text-blue-800">Shared</h2>
-              <div className="space-y-2">
-                <Link href="/shared/expenses" className="block p-3 bg-white rounded-lg hover:bg-gray-50 transition">
-                  <span className="font-medium">Expenses</span>
-                  <p className="text-sm text-gray-500">Joint/shared household expenses</p>
-                </Link>
-                <Link href="/shared/income" className="block p-3 bg-white rounded-lg hover:bg-gray-50 transition">
-                  <span className="font-medium">Income</span>
-                  <p className="text-sm text-gray-500">Shared income tracking</p>
-                </Link>
-                <Link href="/shared/accounts" className="block p-3 bg-white rounded-lg hover:bg-gray-50 transition">
-                  <span className="font-medium">Accounts</span>
-                  <p className="text-sm text-gray-500">Shared account balances</p>
-                </Link>
-              </div>
-            </div>
-
-            <div className="p-6 border rounded-lg bg-purple-50 border-purple-200">
-              <h2 className="text-xl font-semibold mb-3 text-purple-800">Personal</h2>
-              <div className="space-y-2">
-                <Link href="/personal/expenses" className="block p-3 bg-white rounded-lg hover:bg-gray-50 transition">
-                  <span className="font-medium">Expenses</span>
-                  <p className="text-sm text-gray-500">Personal private expenses</p>
-                </Link>
-                <Link href="/personal/income" className="block p-3 bg-white rounded-lg hover:bg-gray-50 transition">
-                  <span className="font-medium">Income</span>
-                  <p className="text-sm text-gray-500">Personal income tracking</p>
-                </Link>
-                <Link href="/personal/accounts" className="block p-3 bg-white rounded-lg hover:bg-gray-50 transition">
-                  <span className="font-medium">Accounts</span>
-                  <p className="text-sm text-gray-500">Personal account balances</p>
-                </Link>
-              </div>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Link href="/expenses" className="block p-6 border rounded-lg hover:bg-gray-50 transition">
+              <h2 className="text-xl font-semibold mb-2">Expenses</h2>
+              <p className="text-sm text-gray-500">Track and manage all expenses</p>
+            </Link>
+            <Link href="/income" className="block p-6 border rounded-lg hover:bg-gray-50 transition">
+              <h2 className="text-xl font-semibold mb-2">Income</h2>
+              <p className="text-sm text-gray-500">Track income across accounts</p>
+            </Link>
+            <Link href="/accounts" className="block p-6 border rounded-lg hover:bg-gray-50 transition">
+              <h2 className="text-xl font-semibold mb-2">Accounts</h2>
+              <p className="text-sm text-gray-500">Manage account balances</p>
+            </Link>
           </div>
 
           <Link 

@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 interface PaymentMethod {
   id: string;
   name: string;
+  is_shared?: boolean;
+  owner_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -112,6 +114,29 @@ export default function PaymentMethodsPage() {
     setEditingId(null);
     setEditName('');
     setError(null);
+  };
+
+  const handleToggleShared = async (pm: PaymentMethod) => {
+    // Optimistic update
+    setPaymentMethods((prev) =>
+      prev.map((p) => (p.id === pm.id ? { ...p, is_shared: !pm.is_shared } : p))
+    );
+    try {
+      const response = await fetch(`/api/payment-methods/${pm.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ is_shared: !pm.is_shared }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || 'Failed to update payment method');
+        await loadPaymentMethods();
+      }
+    } catch {
+      setError('Failed to update payment method');
+      await loadPaymentMethods();
+    }
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -230,8 +255,24 @@ export default function PaymentMethodsPage() {
                     </div>
                   ) : (
                     <div className="flex items-center justify-between">
-                      <div className="font-medium text-gray-900">{pm.name}</div>
                       <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900">{pm.name}</span>
+                        {pm.is_shared && (
+                          <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
+                            Shared card
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1.5 text-sm text-gray-600 mr-2">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(pm.is_shared)}
+                            onChange={() => handleToggleShared(pm)}
+                            className="w-4 h-4"
+                          />
+                          Shared
+                        </label>
                         <button
                           onClick={() => handleEdit(pm)}
                           className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"

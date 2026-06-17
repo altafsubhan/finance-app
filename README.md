@@ -59,7 +59,18 @@ Date,Amount,Description,Category,Payment Method,Paid By
    ```
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+   # Required for the auto-import (Plaid) + Review Inbox features
+   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key   # server-only; used by the daily sync cron
+   PLAID_CLIENT_ID=your_plaid_client_id
+   PLAID_SECRET=your_plaid_secret
+   PLAID_ENV=sandbox                                          # sandbox | production
+   CRON_SECRET=any_long_random_string                        # protects /api/cron/plaid-sync
    ```
+   Notes:
+   - Plaid **sandbox** works with Plaid's test credentials (fake banks) so you can build the flow before going live.
+   - Run the new SQL migrations in `supabase/migrations/` (019, 020) against your database. They are additive and do not delete data.
+   - The daily auto-sync is scheduled via `vercel.json` (`/api/cron/plaid-sync`).
 4. Run the development server:
    ```bash
    npm run dev

@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 export interface PaymentMethod {
   id: string;
   name: string;
+  owner_id?: string | null;
+  is_shared?: boolean;
   created_at: string;
   updated_at: string;
 }

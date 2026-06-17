@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import ScopeToggle from '@/components/ScopeToggle';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Account {
@@ -122,11 +123,8 @@ function getTypeLabel(type: string): string {
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
-interface AccountsPageContentProps {
-  scope?: 'personal' | 'shared';
-}
-
-export default function AccountsPage({ scope }: AccountsPageContentProps = {}) {
+export default function AccountsPage() {
+  const [scope, setScope] = useState<'shared' | 'personal'>('shared');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [snapshotsByAccount, setSnapshotsByAccount] = useState<Record<string, Snapshot[]>>({});
   const [allocationsByAccount, setAllocationsByAccount] = useState<Record<string, Allocation[]>>({});
@@ -241,29 +239,33 @@ export default function AccountsPage({ scope }: AccountsPageContentProps = {}) {
     }
   }, []);
 
-  // Initial load
+  // Load data when scope changes
   useEffect(() => {
+    setExpandedAccountId(null);
+    setEditingAccountId(null);
+    setSnapshotAccountId(null);
+    setAllocationAccountId(null);
+    setDeletingAccountId(null);
+    setShowAddAccount(false);
+
     const init = async () => {
       setInitialLoading(true);
       const accts = await loadAccounts();
-      // Load snapshots, allocations, and portfolio data in parallel
-      await Promise.all([
-        Promise.all(
-          accts.map((a: Account) =>
-            Promise.all([
-              loadSnapshots(a.id),
-              loadAllocations(a.id),
-              a.type === 'investment' ? loadPortfolio(a.id) : Promise.resolve(),
-            ])
-          )
-        ),
-      ]);
+      await Promise.all(
+        accts.map((a: Account) =>
+          Promise.all([
+            loadSnapshots(a.id),
+            loadAllocations(a.id),
+            a.type === 'investment' ? loadPortfolio(a.id) : Promise.resolve(),
+          ])
+        )
+      );
       setInitialLoading(false);
       hasMountedRef.current = true;
     };
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [scope]);
 
   // ─── Account CRUD ────────────────────────────────────────────────────────
   const handleAddAccount = async (e: React.FormEvent) => {
@@ -800,19 +802,11 @@ export default function AccountsPage({ scope }: AccountsPageContentProps = {}) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                {scopeLabel ? `${scopeLabel} ` : ''}Accounts
-              </h1>
-              {scope && (
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                  isShared ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                }`}>
-                  {isShared ? 'Shared' : 'Private'}
-                </span>
-              )}
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Accounts</h1>
+              <ScopeToggle scope={scope} onChange={setScope} />
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              {isShared ? 'Track balances for shared/joint accounts' : isPersonal ? 'Track balances for your personal accounts' : 'Track your balances across all accounts'}
+              {isShared ? 'Track balances for shared/joint accounts' : 'Track balances for your personal accounts'}
             </p>
           </div>
           <button
