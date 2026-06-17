@@ -2,6 +2,10 @@ export type PaidBy = string | null;
 
 export type CategoryType = 'monthly' | 'quarterly' | 'yearly';
 
+export type ExpenseGroup = 'fixed' | 'variable' | 'ignored';
+
+export type ClaimStatus = 'unclaimed' | 'claimed';
+
 export type PaymentMethod = 
   | 'BOA Travel'
   | 'BOA CB'
@@ -31,6 +35,10 @@ export interface Transaction {
   year: number;
   is_shared: boolean;
   skip_balance_update: boolean;
+  // Shared-card attribution / privacy (migration 019)
+  attributed_to?: string | null; // profile id of the person this spend belongs to
+  claim_status?: ClaimStatus;
+  details_private?: boolean; // when true, non-owners see an "accounted for" placeholder
   user_id: string;
   created_at: string;
   updated_at: string;
@@ -42,6 +50,10 @@ export interface Category {
   type: CategoryType;
   default_budget: number | null;
   is_shared: boolean;
+  // Data-driven grouping + lifecycle (migration 019)
+  expense_group?: ExpenseGroup | null;
+  archived_at?: string | null;
+  sort_order?: number;
   user_id: string;
   created_at: string;
 }

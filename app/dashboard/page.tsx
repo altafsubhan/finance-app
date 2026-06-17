@@ -6,6 +6,7 @@ import CategoryBreakdownModal from '@/components/CategoryBreakdownModal';
 import MarkPaidModal from '@/components/MarkPaidModal';
 import OutstandingTransactionsPopup from '@/components/OutstandingTransactionsPopup';
 import ScopeToggle from '@/components/ScopeToggle';
+import MonthlyHero from '@/components/MonthlyHero';
 
 interface PeriodSummary {
   period: 'month' | 'quarter' | 'year';
@@ -287,6 +288,15 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Monthly hero (spent vs budget, projection, trend) ── */}
+        {dashboardData?.monthlySummaries && (
+          <MonthlyHero
+            monthlySummaries={dashboardData.monthlySummaries}
+            year={selectedYear}
+            isShared={isShared}
+          />
+        )}
 
         {/* ── Outstanding Payments ── */}
         {Object.keys(outstandingByPaymentMethod).length > 0 && (

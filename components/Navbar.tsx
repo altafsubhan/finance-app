@@ -59,10 +59,12 @@ export default function Navbar() {
 
   const navLinks = [
     { label: 'Dashboard', href: '/dashboard' },
-    { label: '+ Record', href: '/record', activeColor: 'green' },
+    { label: 'Record', href: '/record', activeColor: 'green' },
+    { label: 'Inbox', href: '/inbox' },
     { label: 'Expenses', href: '/expenses' },
     { label: 'Income', href: '/income' },
     { label: 'Accounts', href: '/accounts' },
+    { label: 'Reconcile', href: '/reconcile' },
     { label: 'Settings', href: '/settings' },
   ];
 

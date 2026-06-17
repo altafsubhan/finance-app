@@ -23,6 +23,7 @@ export default function BudgetForm({ categories, year, onSuccess, initialData }:
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [applyForward, setApplyForward] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -60,23 +61,39 @@ export default function BudgetForm({ categories, year, onSuccess, initialData }:
     setError(null);
 
     try {
-      const url = initialData 
+      // "Apply from this month forward": only for new monthly budgets with a
+      // specific month selected. Writes months [selected..12] at once.
+      const useBulkForward =
+        !initialData && applyForward && period === 'month' && !!periodValue;
+
+      const url = useBulkForward
+        ? '/api/budgets/bulk'
+        : initialData
         ? `/api/budgets/${initialData.id}`
         : '/api/budgets';
-      
+
       const method = initialData ? 'PUT' : 'POST';
+
+      const requestBody = useBulkForward
+        ? {
+            category_id: categoryId,
+            year,
+            amount: parseFloat(amount),
+            from_month: parseInt(periodValue),
+          }
+        : {
+            category_id: categoryId,
+            year,
+            period,
+            period_value: periodValue ? parseInt(periodValue) : null,
+            amount: parseFloat(amount),
+          };
 
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          category_id: categoryId,
-          year,
-          period,
-          period_value: periodValue ? parseInt(periodValue) : null,
-          amount: parseFloat(amount),
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -196,6 +213,20 @@ export default function BudgetForm({ categories, year, onSuccess, initialData }:
           />
         </div>
       </div>
+
+      {!initialData && period === 'month' && periodValue && (
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={applyForward}
+            onChange={(e) => setApplyForward(e.target.checked)}
+            className="w-4 h-4"
+          />
+          Apply to{' '}
+          {new Date(2000, parseInt(periodValue) - 1).toLocaleString('default', { month: 'long' })}{' '}
+          and every later month this year (leaves earlier months untouched)
+        </label>
+      )}
 
       {error && (
         <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">

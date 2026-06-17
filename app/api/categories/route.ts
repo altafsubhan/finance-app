@@ -11,15 +11,22 @@ export async function GET(request: NextRequest) {
     }
 
     const isSharedParam = request.nextUrl.searchParams.get('is_shared');
+    const activeOnly = request.nextUrl.searchParams.get('active_only') === 'true';
 
     let query = supabase
       .from('categories')
       .select('*')
       .order('type', { ascending: true })
+      .order('sort_order', { ascending: true })
       .order('name', { ascending: true });
 
     if (isSharedParam !== null) {
       query = query.eq('is_shared', isSharedParam === 'true');
+    }
+
+    // active_only hides archived categories (used by transaction-entry selects).
+    if (activeOnly) {
+      query = query.is('archived_at', null);
     }
 
     const { data, error } = await query;
@@ -44,17 +51,28 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, type, default_budget, is_shared } = body;
+    const { name, type, default_budget, is_shared, expense_group, sort_order } = body;
+
+    const insertPayload: any = {
+      name,
+      type,
+      default_budget,
+      is_shared: is_shared !== undefined ? is_shared : true,
+      user_id: user.id,
+    };
+    // Default new monthly categories to 'variable' so they're tracked on the
+    // dashboard automatically (the "new adapts" requirement). Non-monthly default
+    // to ungrouped unless the caller specifies a group.
+    if (expense_group !== undefined) {
+      insertPayload.expense_group = expense_group;
+    } else if (type === 'monthly') {
+      insertPayload.expense_group = 'variable';
+    }
+    if (sort_order !== undefined) insertPayload.sort_order = sort_order;
 
     const { data, error } = await supabase
       .from('categories')
-      .insert({
-        name,
-        type,
-        default_budget,
-        is_shared: is_shared !== undefined ? is_shared : true,
-        user_id: user.id,
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
@@ -78,7 +96,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, is_shared, name, type, default_budget } = body;
+    const { id, is_shared, name, type, default_budget, expense_group, sort_order, archived } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Category ID is required' }, { status: 400 });
@@ -99,6 +117,13 @@ export async function PATCH(request: NextRequest) {
     if (name !== undefined) updateData.name = name;
     if (type !== undefined) updateData.type = type;
     if (default_budget !== undefined) updateData.default_budget = default_budget;
+    if (expense_group !== undefined) updateData.expense_group = expense_group;
+    if (sort_order !== undefined) updateData.sort_order = sort_order;
+    // Archive / unarchive: keeps the category + its history, just removes it from
+    // new-entry pickers. Never deletes data.
+    if (archived !== undefined) {
+      updateData.archived_at = archived ? new Date().toISOString() : null;
+    }
 
     if (is_shared !== undefined) {
       updateData.is_shared = is_shared;

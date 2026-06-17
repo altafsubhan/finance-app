@@ -42,45 +42,30 @@ export async function GET(request: NextRequest) {
       .eq('year', yearNum);
     if (isSharedParam !== null) {
       transactionsQuery = transactionsQuery.eq('is_shared', filterShared);
+      // Personal scope = only the viewer's own spend (own + attributed-to-me),
+      // so the partner's now-visible shared-card personal charges don't leak in.
+      if (!filterShared) {
+        transactionsQuery = transactionsQuery.or(
+          `attributed_to.eq.${user.id},and(attributed_to.is.null,user_id.eq.${user.id})`
+        );
+      }
     }
     const { data: transactions, error: transactionsError } = await transactionsQuery;
 
     if (transactionsError) throw transactionsError;
 
-    const normalizeCategoryName = (name: string) => name.toLowerCase().replace(/\s+/g, '');
-
-    // Keep dashboard totals aligned with the Transactions page "fixed vs variable" tracked monthly expenses.
-    const FIXED_EXPENSES = new Set(
-      ['rent', 'car - insurance', 'phone + wifi'].map(normalizeCategoryName)
-    );
-    const VARIABLE_EXPENSES = new Set(
-      [
-        'activities',
-        'car - charging',
-        'car - cleaning',
-        'car - gas',
-        'food- caafe',
-        'food - eat out',
-        'food - office',
-        'grocery',
-        'house items',
-        'miscellaneous',
-        'subscriptions',
-        'utilities + electricity',
-      ].map(normalizeCategoryName)
-    );
-    const IGNORED_EXPENSES = new Set(
-      ['subi personal', 'mano personal', 'health expenses'].map(normalizeCategoryName)
-    );
-
+    // Tracked monthly categories are now data-driven via categories.expense_group
+    // ('fixed' | 'variable' | 'ignored' | null). This replaces the old hardcoded
+    // name lists, so new house categories are picked up automatically.
     const isTrackedMonthlyCategory = (categoryId: string) => {
       const category = categories.find(c => c.id === categoryId);
       if (!category) return false;
       if (category.type !== 'monthly') return false;
+      if (category.expense_group === 'ignored') return false;
+      // Personal scope tracks every non-ignored monthly category (preserves prior
+      // behavior where all personal monthly categories were counted).
       if (!filterShared) return true;
-      const normalized = normalizeCategoryName(category.name);
-      if (IGNORED_EXPENSES.has(normalized)) return false;
-      return FIXED_EXPENSES.has(normalized) || VARIABLE_EXPENSES.has(normalized);
+      return category.expense_group === 'fixed' || category.expense_group === 'variable';
     };
 
     const expenseAmount = (amount: any) => {
