@@ -4,8 +4,8 @@ import { isPlaidConfigured } from '@/lib/plaid/client';
 import { syncPlaidItem } from '@/lib/plaid/sync';
 
 /**
- * User-triggered "refresh now". Syncs every Plaid item the household can see
- * (RLS scopes this) into the review inbox.
+ * User-triggered "refresh now". Syncs only the caller's Plaid items (RLS) into
+ * their private review inbox.
  */
 export async function POST(_request: NextRequest) {
   try {

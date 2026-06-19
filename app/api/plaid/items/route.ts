@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getPlaidClient, isPlaidConfigured } from '@/lib/plaid/client';
 
-// List linked institutions (with their accounts) for the household.
+// List linked institutions (with their accounts) for the current user only.
 export async function GET(_request: NextRequest) {
   try {
     const supabase = await createClient();

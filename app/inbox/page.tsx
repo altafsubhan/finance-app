@@ -182,7 +182,7 @@ export default function InboxPage() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Review Inbox</h1>
             <p className="text-gray-600 text-sm mt-1">
-              New transactions land here. Review and approve them into your tracker.
+              New transactions from your linked banks land here. Only you can see your inbox and linked accounts.
             </p>
           </div>
           <div className="flex items-center gap-2">
