@@ -50,17 +50,17 @@ function PlaidLinkSession({
 }: {
   linkToken: string;
   receivedRedirectUri?: string;
-  onDone: () => void;
+  onDone: (linked?: boolean) => void;
   onError: (msg: string) => void;
 }) {
   const openedRef = useRef(false);
   const finishedRef = useRef(false);
   const isOAuthResume = Boolean(receivedRedirectUri);
 
-  const finish = useCallback(() => {
+  const finish = useCallback((linked = false) => {
     if (finishedRef.current) return;
     finishedRef.current = true;
-    onDone();
+    onDone(linked);
   }, [onDone]);
 
   const { open, ready } = usePlaidLink({
@@ -80,20 +80,44 @@ function PlaidLinkSession({
         const data = await res.json();
         if (!res.ok) {
           onError(formatLinkError(data));
-          finish();
+          finish(false);
           return;
         }
         clearOAuthParamsFromUrl();
-        finish();
+        finish(true);
       } catch {
         onError('Failed to link account.');
-        finish();
+        finish(false);
       }
     },
-    onExit: (err) => {
-      // During OAuth return, Plaid fires onExit when handing off — do NOT tear
-      // down before onSuccess runs the exchange.
-      if (isOAuthResume) return;
+    onExit: (err, metadata) => {
+      const status = metadata?.status?.toLowerCase() ?? '';
+
+      // Outbound OAuth: user is leaving for the bank. Keep link_token in storage.
+      if (!isOAuthResume && status === 'requires_oauth') {
+        finish(false);
+        return;
+      }
+
+      // Inbound OAuth resume failed (Amex error, user denied, etc.).
+      if (isOAuthResume) {
+        try {
+          window.localStorage.removeItem(OAUTH_TOKEN_KEY);
+        } catch {}
+        clearOAuthParamsFromUrl();
+        if (!err || err.error_code !== 'USER_EXIT') {
+          onError(
+            err?.display_message ||
+              err?.error_message ||
+              (status === 'requires_oauth'
+                ? 'American Express did not complete the connection. Try again in a private window, or finish Application display information in the Plaid Dashboard.'
+                : 'Bank login did not complete. Try again.')
+          );
+        }
+        finish(false);
+        return;
+      }
+
       try {
         window.localStorage.removeItem(OAUTH_TOKEN_KEY);
       } catch {}
@@ -101,7 +125,7 @@ function PlaidLinkSession({
       if (err?.error_code && err.error_code !== 'USER_EXIT') {
         onError(err.display_message || err.error_message || 'Link was closed.');
       }
-      finish();
+      finish(false);
     },
   });
 
@@ -116,7 +140,7 @@ function PlaidLinkSession({
     const t = window.setTimeout(() => {
       if (!openedRef.current) {
         onError('Plaid did not open. Please try again.');
-        finish();
+        finish(false);
       }
     }, 25000);
     return () => window.clearTimeout(t);
@@ -212,9 +236,9 @@ export function PlaidLinkProvider({
     }
   }, [beginSession]);
 
-  const handleDone = useCallback(() => {
+  const handleDone = useCallback((linked = false) => {
     endSession();
-    onLinked?.();
+    if (linked) onLinked?.();
   }, [endSession, onLinked]);
 
   const busy = fetching || session !== null;

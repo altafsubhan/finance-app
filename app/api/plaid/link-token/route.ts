@@ -20,7 +20,18 @@ export async function POST(request: NextRequest) {
     const plaidItemId = typeof body.plaid_item_id === 'string' ? body.plaid_item_id : null;
 
     const plaid = getPlaidClient();
+    const plaidEnv = (process.env.PLAID_ENV || 'sandbox').trim();
     const redirectUri = process.env.PLAID_REDIRECT_URI?.trim();
+
+    if (plaidEnv === 'production' && !redirectUri) {
+      return NextResponse.json(
+        {
+          error:
+            'PLAID_REDIRECT_URI is not set. OAuth banks (Amex, Chase, etc.) require an exact HTTPS redirect like https://your-domain.com/inbox — registered in both Vercel and the Plaid dashboard.',
+        },
+        { status: 503 }
+      );
+    }
 
     const tokenRequest: Parameters<typeof plaid.linkTokenCreate>[0] = {
       user: { client_user_id: user.id },
