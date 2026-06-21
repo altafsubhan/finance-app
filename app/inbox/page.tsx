@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Category } from '@/types/database';
-import PlaidLinkButton from '@/components/PlaidLinkButton';
+import PlaidLinkButton, { PlaidLinkProvider } from '@/components/PlaidLinkButton';
 
 interface InboxItem {
   id: string;
@@ -176,6 +176,7 @@ export default function InboxPage() {
   };
 
   return (
+    <PlaidLinkProvider onLinked={loadAll}>
     <main className="min-h-screen p-4 sm:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -193,7 +194,7 @@ export default function InboxPage() {
             >
               {syncing ? 'Refreshing…' : 'Refresh from banks'}
             </button>
-            <PlaidLinkButton onLinked={loadAll} />
+            <PlaidLinkButton />
           </div>
         </div>
 
@@ -236,7 +237,6 @@ export default function InboxPage() {
                   <div className="mt-2">
                     <PlaidLinkButton
                       plaidItemId={li.id}
-                      onLinked={loadAll}
                       label="Add accounts"
                       className="text-xs bg-white border border-gray-300 text-gray-700 px-2 py-1 rounded hover:bg-gray-50"
                     />
@@ -351,5 +351,6 @@ export default function InboxPage() {
         )}
       </div>
     </main>
+    </PlaidLinkProvider>
   );
 }

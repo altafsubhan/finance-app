@@ -83,9 +83,10 @@ export async function POST(request: NextRequest) {
       subtype: a.subtype || null,
     }));
     if (accountRows.length > 0) {
-      await supabase
+      const { error: accError } = await supabase
         .from('plaid_accounts')
         .upsert(accountRows, { onConflict: 'account_id', ignoreDuplicates: false });
+      if (accError) throw accError;
     }
 
     await ensurePaymentMethodsForPlaidAccounts(

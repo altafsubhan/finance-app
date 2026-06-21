@@ -1,17 +1,26 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { usePlaidLink } from 'react-plaid-link';
 
-interface PlaidLinkButtonProps {
-  onLinked?: () => void;
-  /** When set, opens Plaid in update mode to add/re-auth accounts at this institution. */
-  plaidItemId?: string;
-  className?: string;
-  label?: string;
+const OAUTH_TOKEN_KEY = 'plaid_link_token';
+
+interface PlaidLinkContextValue {
+  startLink: (plaidItemId?: string) => void;
+  busy: boolean;
+  error: string | null;
+  clearError: () => void;
 }
 
-const OAUTH_TOKEN_KEY = 'plaid_link_token';
+const PlaidLinkContext = createContext<PlaidLinkContextValue | null>(null);
 
 function clearOAuthParamsFromUrl() {
   if (typeof window === 'undefined') return;
@@ -32,7 +41,8 @@ function formatLinkError(data: { error?: string; detail?: unknown }): string {
   return 'Something went wrong. Please try again.';
 }
 
-function PlaidLinkOpener({
+/** Single shared Plaid Link session — avoids multiple hooks fighting over OAuth return. */
+function PlaidLinkSession({
   linkToken,
   receivedRedirectUri,
   onDone,
@@ -45,7 +55,7 @@ function PlaidLinkOpener({
 }) {
   const openedRef = useRef(false);
   const finishedRef = useRef(false);
-  const linkingRef = useRef(false);
+  const isOAuthResume = Boolean(receivedRedirectUri);
 
   const finish = useCallback(() => {
     if (finishedRef.current) return;
@@ -57,11 +67,9 @@ function PlaidLinkOpener({
     token: linkToken,
     receivedRedirectUri,
     onSuccess: async (public_token, metadata) => {
-      linkingRef.current = true;
       try {
         window.localStorage.removeItem(OAUTH_TOKEN_KEY);
       } catch {}
-      clearOAuthParamsFromUrl();
       try {
         const res = await fetch('/api/plaid/exchange', {
           method: 'POST',
@@ -75,21 +83,21 @@ function PlaidLinkOpener({
           finish();
           return;
         }
+        clearOAuthParamsFromUrl();
         finish();
       } catch {
         onError('Failed to link account.');
         finish();
-      } finally {
-        linkingRef.current = false;
       }
     },
     onExit: (err) => {
+      // During OAuth return, Plaid fires onExit when handing off — do NOT tear
+      // down before onSuccess runs the exchange.
+      if (isOAuthResume) return;
       try {
         window.localStorage.removeItem(OAUTH_TOKEN_KEY);
       } catch {}
       clearOAuthParamsFromUrl();
-      // onSuccess handles the happy path; onExit often fires when the modal closes too.
-      if (linkingRef.current) return;
       if (err?.error_code && err.error_code !== 'USER_EXIT') {
         onError(err.display_message || err.error_message || 'Link was closed.');
       }
@@ -104,49 +112,51 @@ function PlaidLinkOpener({
     }
   }, [ready, open]);
 
-  // If Plaid never becomes ready, unblock the button.
   useEffect(() => {
     const t = window.setTimeout(() => {
       if (!openedRef.current) {
         onError('Plaid did not open. Please try again.');
         finish();
       }
-    }, 20000);
+    }, 25000);
     return () => window.clearTimeout(t);
   }, [finish, onError]);
 
   return null;
 }
 
-export default function PlaidLinkButton({
+export function PlaidLinkProvider({
+  children,
   onLinked,
-  plaidItemId,
-  className,
-  label,
-}: PlaidLinkButtonProps) {
+}: {
+  children: ReactNode;
+  onLinked?: () => void;
+}) {
   const [session, setSession] = useState<{
     token: string;
     receivedRedirectUri?: string;
   } | null>(null);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const oauthHandledRef = useRef(false);
 
   const endSession = useCallback(() => {
     setSession(null);
     setFetching(false);
   }, []);
 
-  const startLink = useCallback(
-    async (opts?: { resumeUri?: string; storedToken?: string }) => {
-      setError(null);
+  const beginSession = useCallback(
+    (token: string, receivedRedirectUri?: string) => {
+      setSession({ token, receivedRedirectUri });
+    },
+    []
+  );
 
-      if (opts?.storedToken) {
-        setSession({ token: opts.storedToken, receivedRedirectUri: opts.resumeUri });
-        return;
-      }
-
+  const fetchLinkToken = useCallback(
+    async (plaidItemId?: string) => {
       setFetching(true);
       setSession(null);
+      setError(null);
       try {
         const res = await fetch('/api/plaid/link-token', {
           method: 'POST',
@@ -162,28 +172,32 @@ export default function PlaidLinkButton({
         try {
           window.localStorage.setItem(OAUTH_TOKEN_KEY, data.link_token);
         } catch {}
-        setSession({ token: data.link_token });
+        beginSession(data.link_token);
       } catch {
         setError('Could not start the bank link flow.');
       } finally {
         setFetching(false);
       }
     },
-    [plaidItemId]
+    [beginSession]
   );
 
-  // Resume OAuth after redirect from the bank (each oauth_state_id handled once).
+  const startLink = useCallback(
+    (plaidItemId?: string) => {
+      clearOAuthParamsFromUrl();
+      fetchLinkToken(plaidItemId);
+    },
+    [fetchLinkToken]
+  );
+
+  // One OAuth-resume handler for the whole page (Amex/Chase OAuth banks).
   useEffect(() => {
+    if (oauthHandledRef.current) return;
     const params = new URLSearchParams(window.location.search);
     const oauthStateId = params.get('oauth_state_id');
     if (!oauthStateId) return;
 
-    const resumeKey = `plaid_oauth_${oauthStateId}`;
-    if (sessionStorage.getItem(resumeKey)) {
-      clearOAuthParamsFromUrl();
-      return;
-    }
-    sessionStorage.setItem(resumeKey, '1');
+    oauthHandledRef.current = true;
 
     let stored: string | null = null;
     try {
@@ -191,48 +205,77 @@ export default function PlaidLinkButton({
     } catch {}
 
     if (stored) {
-      startLink({ storedToken: stored, resumeUri: window.location.href });
+      beginSession(stored, window.location.href);
     } else {
       clearOAuthParamsFromUrl();
       setError('Bank login expired. Click Link again.');
     }
-  }, [startLink]);
+  }, [beginSession]);
 
-  const handleClick = () => {
-    clearOAuthParamsFromUrl();
-    startLink();
-  };
-
-  const handleDone = () => {
+  const handleDone = useCallback(() => {
     endSession();
     onLinked?.();
-  };
+  }, [endSession, onLinked]);
 
   const busy = fetching || session !== null;
 
   return (
-    <div className="inline-flex flex-col items-start gap-1">
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={busy}
-        className={
-          className ||
-          'bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50'
-        }
-      >
-        {busy ? 'Opening…' : label || 'Link a bank / card'}
-      </button>
-      {error && <span className="text-xs text-red-600 max-w-xs">{error}</span>}
+    <PlaidLinkContext.Provider
+      value={{
+        startLink,
+        busy,
+        error,
+        clearError: () => setError(null),
+      }}
+    >
+      {children}
+      {error && (
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-50 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm shadow-lg">
+          {error}
+        </div>
+      )}
       {session && (
-        <PlaidLinkOpener
-          key={session.token}
+        <PlaidLinkSession
+          key={session.token + (session.receivedRedirectUri || '')}
           linkToken={session.token}
           receivedRedirectUri={session.receivedRedirectUri}
           onDone={handleDone}
           onError={(msg) => setError(msg)}
         />
       )}
-    </div>
+    </PlaidLinkContext.Provider>
+  );
+}
+
+export function usePlaidLinkFlow() {
+  const ctx = useContext(PlaidLinkContext);
+  if (!ctx) throw new Error('usePlaidLinkFlow must be used inside PlaidLinkProvider');
+  return ctx;
+}
+
+/** Simple button wired to the shared Plaid Link session. */
+export default function PlaidLinkButton({
+  plaidItemId,
+  className,
+  label,
+}: {
+  plaidItemId?: string;
+  className?: string;
+  label?: string;
+}) {
+  const { startLink, busy } = usePlaidLinkFlow();
+
+  return (
+    <button
+      type="button"
+      onClick={() => startLink(plaidItemId)}
+      disabled={busy}
+      className={
+        className ||
+        'bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50'
+      }
+    >
+      {busy ? 'Opening…' : label || 'Link a bank / card'}
+    </button>
   );
 }
