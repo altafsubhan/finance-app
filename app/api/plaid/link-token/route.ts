@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getPlaidClient, isPlaidConfigured } from '@/lib/plaid/client';
 import { CountryCode, Products } from 'plaid';
 
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -16,18 +16,36 @@ export async function POST(_request: NextRequest) {
       );
     }
 
+    const body = await request.json().catch(() => ({}));
+    const plaidItemId = typeof body.plaid_item_id === 'string' ? body.plaid_item_id : null;
+
     const plaid = getPlaidClient();
-    // Required for OAuth banks (Chase, Capital One, etc.) in Production. Must
-    // exactly match an "Allowed redirect URI" registered in the Plaid dashboard.
     const redirectUri = process.env.PLAID_REDIRECT_URI?.trim();
-    const resp = await plaid.linkTokenCreate({
+
+    const tokenRequest: Parameters<typeof plaid.linkTokenCreate>[0] = {
       user: { client_user_id: user.id },
       client_name: 'Finance App',
       products: [Products.Transactions],
       country_codes: [CountryCode.Us],
       language: 'en',
       ...(redirectUri ? { redirect_uri: redirectUri } : {}),
-    });
+    };
+
+    // Update mode: add more accounts or re-auth an institution already linked.
+    if (plaidItemId) {
+      const { data: item, error: itemError } = await supabase
+        .from('plaid_items')
+        .select('access_token')
+        .eq('id', plaidItemId)
+        .eq('user_id', user.id)
+        .single();
+      if (itemError || !item) {
+        return NextResponse.json({ error: 'Linked institution not found' }, { status: 404 });
+      }
+      tokenRequest.access_token = item.access_token;
+    }
+
+    const resp = await plaid.linkTokenCreate(tokenRequest);
 
     return NextResponse.json({ link_token: resp.data.link_token });
   } catch (error: any) {

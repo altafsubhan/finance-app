@@ -25,19 +25,50 @@ export async function POST(request: NextRequest) {
     const accessToken = exchange.data.access_token;
     const itemId = exchange.data.item_id;
 
-    // Persist the item.
-    const { data: itemRow, error: itemError } = await supabase
+    // Same institution re-linked? Update token instead of failing on unique item_id.
+    const { data: existingItem } = await supabase
       .from('plaid_items')
-      .insert({
-        user_id: user.id,
-        item_id: itemId,
-        access_token: accessToken,
-        institution_id: institution?.institution_id || null,
-        institution_name: institution?.name || null,
-      })
-      .select()
-      .single();
-    if (itemError) throw itemError;
+      .select('id, user_id')
+      .eq('item_id', itemId)
+      .maybeSingle();
+
+    if (existingItem && existingItem.user_id !== user.id) {
+      return NextResponse.json(
+        { error: 'This bank is already linked to another user in the household.' },
+        { status: 409 }
+      );
+    }
+
+    let itemRow;
+    if (existingItem) {
+      const { data, error: updateError } = await supabase
+        .from('plaid_items')
+        .update({
+          access_token: accessToken,
+          institution_id: institution?.institution_id || null,
+          institution_name: institution?.name || null,
+          status: 'active',
+        })
+        .eq('id', existingItem.id)
+        .select()
+        .single();
+      if (updateError) throw updateError;
+      itemRow = data;
+    } else {
+      const { data, error: itemError } = await supabase
+        .from('plaid_items')
+        .insert({
+          user_id: user.id,
+          item_id: itemId,
+          access_token: accessToken,
+          institution_id: institution?.institution_id || null,
+          institution_name: institution?.name || null,
+        })
+        .select()
+        .single();
+      if (itemError) throw itemError;
+      itemRow = data;
+    }
 
     // Persist the accounts under this item.
     const accountsResp = await plaid.accountsGet({ access_token: accessToken });

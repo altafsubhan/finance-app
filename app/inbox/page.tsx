@@ -233,6 +233,14 @@ export default function InboxPage() {
                     {li.status !== 'active' ? `Status: ${li.status} · ` : ''}
                     {li.last_synced_at ? `Synced ${new Date(li.last_synced_at).toLocaleString()}` : 'Not synced yet'}
                   </div>
+                  <div className="mt-2">
+                    <PlaidLinkButton
+                      plaidItemId={li.id}
+                      onLinked={loadAll}
+                      label="Add accounts"
+                      className="text-xs bg-white border border-gray-300 text-gray-700 px-2 py-1 rounded hover:bg-gray-50"
+                    />
+                  </div>
                 </div>
               ))}
             </div>

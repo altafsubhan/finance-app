@@ -5,13 +5,14 @@ import { usePlaidLink } from 'react-plaid-link';
 
 interface PlaidLinkButtonProps {
   onLinked?: () => void;
+  /** When set, opens Plaid in update mode to add/re-auth accounts at this institution. */
+  plaidItemId?: string;
   className?: string;
   label?: string;
 }
 
 const OAUTH_TOKEN_KEY = 'plaid_link_token';
 
-/** Strip Plaid OAuth query params so later link attempts aren't treated as OAuth resumes. */
 function clearOAuthParamsFromUrl() {
   if (typeof window === 'undefined') return;
   const url = new URL(window.location.href);
@@ -21,11 +22,16 @@ function clearOAuthParamsFromUrl() {
   window.history.replaceState({}, '', clean);
 }
 
-/**
- * Inner component remounted per link_token so usePlaidLink always initializes
- * fresh. react-plaid-link won't reliably reopen after the first success if the
- * hook instance is reused with a stale token.
- */
+function formatLinkError(data: { error?: string; detail?: unknown }): string {
+  if (data.error) return data.error;
+  const detail = data.detail;
+  if (typeof detail === 'string') return detail;
+  if (detail && typeof detail === 'object' && 'error_message' in detail) {
+    return String((detail as { error_message: string }).error_message);
+  }
+  return 'Something went wrong. Please try again.';
+}
+
 function PlaidLinkOpener({
   linkToken,
   receivedRedirectUri,
@@ -38,11 +44,20 @@ function PlaidLinkOpener({
   onError: (msg: string) => void;
 }) {
   const openedRef = useRef(false);
+  const finishedRef = useRef(false);
+  const linkingRef = useRef(false);
+
+  const finish = useCallback(() => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    onDone();
+  }, [onDone]);
 
   const { open, ready } = usePlaidLink({
     token: linkToken,
     receivedRedirectUri,
     onSuccess: async (public_token, metadata) => {
+      linkingRef.current = true;
       try {
         window.localStorage.removeItem(OAUTH_TOKEN_KEY);
       } catch {}
@@ -54,24 +69,31 @@ function PlaidLinkOpener({
           credentials: 'include',
           body: JSON.stringify({ public_token, institution: metadata.institution }),
         });
+        const data = await res.json();
         if (!res.ok) {
-          const data = await res.json();
-          onError(data.error || 'Failed to link account.');
-          onDone();
+          onError(formatLinkError(data));
+          finish();
           return;
         }
-        onDone();
+        finish();
       } catch {
         onError('Failed to link account.');
-        onDone();
+        finish();
+      } finally {
+        linkingRef.current = false;
       }
     },
-    onExit: () => {
+    onExit: (err) => {
       try {
         window.localStorage.removeItem(OAUTH_TOKEN_KEY);
       } catch {}
       clearOAuthParamsFromUrl();
-      onDone();
+      // onSuccess handles the happy path; onExit often fires when the modal closes too.
+      if (linkingRef.current) return;
+      if (err?.error_code && err.error_code !== 'USER_EXIT') {
+        onError(err.display_message || err.error_message || 'Link was closed.');
+      }
+      finish();
     },
   });
 
@@ -82,26 +104,40 @@ function PlaidLinkOpener({
     }
   }, [ready, open]);
 
+  // If Plaid never becomes ready, unblock the button.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      if (!openedRef.current) {
+        onError('Plaid did not open. Please try again.');
+        finish();
+      }
+    }, 20000);
+    return () => window.clearTimeout(t);
+  }, [finish, onError]);
+
   return null;
 }
 
-export default function PlaidLinkButton({ onLinked, className, label }: PlaidLinkButtonProps) {
+export default function PlaidLinkButton({
+  onLinked,
+  plaidItemId,
+  className,
+  label,
+}: PlaidLinkButtonProps) {
   const [session, setSession] = useState<{
     token: string;
     receivedRedirectUri?: string;
   } | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const oauthResumeHandled = useRef(false);
 
   const endSession = useCallback(() => {
     setSession(null);
-    setLoading(false);
+    setFetching(false);
   }, []);
 
   const startLink = useCallback(
     async (opts?: { resumeUri?: string; storedToken?: string }) => {
-      setLoading(true);
       setError(null);
 
       if (opts?.storedToken) {
@@ -109,15 +145,18 @@ export default function PlaidLinkButton({ onLinked, className, label }: PlaidLin
         return;
       }
 
+      setFetching(true);
+      setSession(null);
       try {
         const res = await fetch('/api/plaid/link-token', {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
+          body: JSON.stringify(plaidItemId ? { plaid_item_id: plaidItemId } : {}),
         });
         const data = await res.json();
         if (!res.ok) {
-          setError(data.error || 'Could not start the bank link flow.');
-          setLoading(false);
+          setError(formatLinkError(data));
           return;
         }
         try {
@@ -126,29 +165,36 @@ export default function PlaidLinkButton({ onLinked, className, label }: PlaidLin
         setSession({ token: data.link_token });
       } catch {
         setError('Could not start the bank link flow.');
-        setLoading(false);
+      } finally {
+        setFetching(false);
       }
     },
-    []
+    [plaidItemId]
   );
 
-  // Resume OAuth once when returning from the bank's login page.
+  // Resume OAuth after redirect from the bank (each oauth_state_id handled once).
   useEffect(() => {
-    if (oauthResumeHandled.current) return;
     const params = new URLSearchParams(window.location.search);
-    if (!params.has('oauth_state_id')) return;
+    const oauthStateId = params.get('oauth_state_id');
+    if (!oauthStateId) return;
 
-    oauthResumeHandled.current = true;
-    const resumeUri = window.location.href;
+    const resumeKey = `plaid_oauth_${oauthStateId}`;
+    if (sessionStorage.getItem(resumeKey)) {
+      clearOAuthParamsFromUrl();
+      return;
+    }
+    sessionStorage.setItem(resumeKey, '1');
+
     let stored: string | null = null;
     try {
       stored = window.localStorage.getItem(OAUTH_TOKEN_KEY);
     } catch {}
 
     if (stored) {
-      startLink({ storedToken: stored, resumeUri });
+      startLink({ storedToken: stored, resumeUri: window.location.href });
     } else {
       clearOAuthParamsFromUrl();
+      setError('Bank login expired. Click Link again.');
     }
   }, [startLink]);
 
@@ -162,20 +208,22 @@ export default function PlaidLinkButton({ onLinked, className, label }: PlaidLin
     onLinked?.();
   };
 
+  const busy = fetching || session !== null;
+
   return (
     <div className="inline-flex flex-col items-start gap-1">
       <button
         type="button"
         onClick={handleClick}
-        disabled={loading || session !== null}
+        disabled={busy}
         className={
           className ||
           'bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50'
         }
       >
-        {loading || session ? 'Opening…' : label || 'Link a bank / card'}
+        {busy ? 'Opening…' : label || 'Link a bank / card'}
       </button>
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span className="text-xs text-red-600 max-w-xs">{error}</span>}
       {session && (
         <PlaidLinkOpener
           key={session.token}
