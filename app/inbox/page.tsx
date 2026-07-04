@@ -47,7 +47,6 @@ export default function InboxPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [reimporting, setReimporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -309,33 +308,6 @@ export default function InboxPage() {
     }
   };
 
-  const reimportSinceJune = async () => {
-    setReimporting(true);
-    setMessage(null);
-    setError(null);
-    try {
-      const res = await fetch('/api/inbox/reimport', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ since: '2026-06-01' }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Re-import failed.');
-        return;
-      }
-      setMessage(
-        `Restored ${data.restored} dismissed and imported ${data.imported} transaction(s) since Jun 1, 2026.`
-      );
-      await loadAll();
-    } catch {
-      setError('Re-import failed.');
-    } finally {
-      setReimporting(false);
-    }
-  };
-
   const approveSelected = async () => {
     if (selected.size === 0) return;
     setError(null);
@@ -390,20 +362,13 @@ export default function InboxPage() {
               New transactions from your linked banks land here. Only you can see your inbox and linked accounts.
             </p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
             <button
               onClick={refreshFromBanks}
-              disabled={syncing || reimporting}
+              disabled={syncing}
               className="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 disabled:opacity-50"
             >
               {syncing ? 'Refreshing…' : 'Refresh from banks'}
-            </button>
-            <button
-              onClick={reimportSinceJune}
-              disabled={syncing || reimporting}
-              className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            >
-              {reimporting ? 'Re-importing…' : 'Re-import since Jun 1'}
             </button>
             <PlaidLinkButton />
           </div>
@@ -579,16 +544,8 @@ export default function InboxPage() {
         {loading ? (
           <div className="text-gray-500">Loading…</div>
         ) : items.length === 0 ? (
-          <div className="border rounded-lg p-8 text-center text-gray-500 space-y-4">
-            <p>Nothing to review. Link a bank or hit “Refresh from banks” to pull in new transactions.</p>
-            <button
-              type="button"
-              onClick={reimportSinceJune}
-              disabled={reimporting}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {reimporting ? 'Re-importing…' : 'Re-import transactions since Jun 1, 2026'}
-            </button>
+          <div className="border rounded-lg p-8 text-center text-gray-500">
+            Nothing to review. Link a bank or hit “Refresh from banks” to pull in new transactions.
           </div>
         ) : visibleItems.length === 0 ? (
           <div className="border rounded-lg p-8 text-center text-gray-500">
