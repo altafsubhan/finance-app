@@ -35,7 +35,7 @@ export function formatPlaidAccountLabel(
   return `${base}${mask}`;
 }
 
-/** Try to match a Plaid account to an existing payment method by mask or name. */
+/** Try to match a Plaid account to an existing payment method by mask or full label. */
 export function matchPaymentMethod(
   paymentMethods: PaymentMethodInfo[],
   account: PlaidAccountInfo,
@@ -43,21 +43,30 @@ export function matchPaymentMethod(
 ): PaymentMethodInfo | null {
   if (!paymentMethods.length) return null;
 
+  // Last-4 mask is the most reliable signal across household payment methods.
   if (account.mask) {
     const byMask = paymentMethods.find((pm) => pm.name.includes(account.mask!));
     if (byMask) return byMask;
   }
 
-  const haystacks = [account.official_name, account.name, institutionName]
-    .filter(Boolean)
-    .map((s) => s!.toLowerCase());
+  // Exact label match for what we would create for this Plaid account.
+  const label = formatPlaidAccountLabel(account, institutionName);
+  const byLabel = paymentMethods.find((pm) => pm.name === label);
+  if (byLabel) return byLabel;
+
+  // Match on the full account name only — never on institution alone, which would
+  // incorrectly link "Discover" to household labels like "Mano Discover".
+  const accountNames = [account.official_name, account.name]
+    .filter((s): s is string => Boolean(s && s.trim().length >= 6))
+    .map((s) => s.toLowerCase());
 
   for (const pm of paymentMethods) {
     const pmLower = pm.name.toLowerCase();
-    for (const h of haystacks) {
-      if (h.includes(pmLower) || pmLower.includes(h)) return pm;
+    for (const name of accountNames) {
+      if (pmLower.includes(name) || name.includes(pmLower)) return pm;
     }
   }
+
   return null;
 }
 
@@ -82,7 +91,13 @@ export async function ensurePaymentMethodsForPlaidAccounts(
   const pms: PaymentMethodInfo[] = [...(allPms || [])];
 
   for (const account of accounts) {
-    if (account.payment_method_id) continue;
+    const linkedPm = account.payment_method_id
+      ? pms.find((p) => p.id === account.payment_method_id)
+      : null;
+    const maskMismatch =
+      Boolean(account.mask && linkedPm && !linkedPm.name.includes(account.mask));
+
+    if (account.payment_method_id && !maskMismatch) continue;
 
     let pm: PaymentMethodInfo | null = matchPaymentMethod(pms, account, institutionName);
 
