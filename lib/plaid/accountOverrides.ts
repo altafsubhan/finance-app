@@ -19,6 +19,11 @@ export interface PlaidAccountOverride {
 export const PLAID_ACCOUNT_OVERRIDES: PlaidAccountOverride[] = [
   // Chase "Ultimate Rewards" card ending 1642 is Sobi's Chase Freedom.
   { mask: '1642', paymentMethodName: 'Sobi Chase Freedom', isShared: false },
+  { mask: '5248', paymentMethodName: 'Chase Sapphire', isShared: false },
+  { mask: '7339', paymentMethodName: 'Chase Amazon', isShared: false },
+  { mask: '3356', paymentMethodName: 'Mano Chase Freedom', isShared: false },
+  { mask: '8061', paymentMethodName: 'Mano Discover', isShared: false },
+  { mask: '0360', paymentMethodName: 'Sobi Discover', isShared: false },
 ];
 
 export function findAccountOverride(
