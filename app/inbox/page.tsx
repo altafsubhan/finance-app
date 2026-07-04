@@ -266,8 +266,8 @@ export default function InboxPage() {
     const cat = categoryId ? categoriesById.get(categoryId) : null;
     patchItem(item.id, {
       suggested_category_id: categoryId || null,
-      // keep scope aligned with the category's scope, like the rest of the app
-      ...(cat ? { is_shared: cat.is_shared } : {}),
+      // keep scope aligned with the category's scope; default back to shared when cleared
+      is_shared: cat ? cat.is_shared : true,
     });
   };
 
@@ -572,9 +572,6 @@ export default function InboxPage() {
                     </td>
                     <td className="px-3 py-2 text-sm text-gray-700 whitespace-nowrap">
                       {item.date || '—'}
-                      {item.is_pending && (
-                        <span className="ml-1 text-[10px] text-amber-600">pending</span>
-                      )}
                     </td>
                     <td className="px-3 py-2 text-sm text-gray-900">
                       {item.description || item.merchant_name || '—'}

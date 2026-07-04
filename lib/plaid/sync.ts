@@ -23,7 +23,8 @@ interface SyncResult {
 
 /**
  * Pull new/updated transactions for a single Plaid item using /transactions/sync
- * and stage them in `imported_transactions` (the review inbox). Idempotent:
+ * and stage them in `imported_transactions` (the review inbox). Only posted
+ * (non-pending) Plaid transactions are staged. Idempotent: dedupes on
  * dedupes on plaid_transaction_id and advances the saved cursor. Never writes to
  * the real `transactions` table - approval happens later in the inbox UI.
  */
@@ -103,7 +104,10 @@ export async function syncPlaidItem(
     });
     const data = resp.data;
 
-    const upserts = [...data.added, ...data.modified].map((t: any) => {
+    // Skip Plaid pending transactions — only stage posted transactions in the inbox.
+    const posted = [...data.added, ...data.modified].filter((t: any) => !t.pending);
+
+    const upserts = posted.map((t: any) => {
       const method = accountToMethod.get(t.account_id);
       const suggestion = suggestCategoryIdForDescription({
         description: t.merchant_name || t.name || '',
@@ -112,7 +116,8 @@ export async function syncPlaidItem(
         categories: cats,
       });
       const suggestedCat = suggestion ? catById.get(suggestion.category_id) : null;
-      const isShared = suggestedCat ? suggestedCat.is_shared : method ? method.is_shared : true;
+      // Default to shared scope; only inherit from a matched category suggestion.
+      const isShared = suggestedCat ? suggestedCat.is_shared : true;
 
       return {
         user_id: item.user_id,
@@ -128,7 +133,7 @@ export async function syncPlaidItem(
         suggested_category_id: suggestedCat?.id || null,
         payment_method: method?.name || null,
         is_shared: isShared,
-        is_pending: Boolean(t.pending),
+        is_pending: false,
         raw: t,
       };
     });
@@ -141,13 +146,30 @@ export async function syncPlaidItem(
       if (error) throw error;
     }
 
-    added += data.added.length;
-    modified += data.modified.length;
+    if (data.removed.length > 0) {
+      const removedIds = data.removed.map((t: any) => t.transaction_id);
+      await supabase
+        .from('imported_transactions')
+        .delete()
+        .in('plaid_transaction_id', removedIds)
+        .eq('status', 'pending');
+    }
+
+    added += posted.filter((t: any) => data.added.some((a: any) => a.transaction_id === t.transaction_id)).length;
+    modified += posted.filter((t: any) => data.modified.some((m: any) => m.transaction_id === t.transaction_id)).length;
     removed += data.removed.length;
 
     cursor = data.next_cursor;
     hasMore = data.has_more;
   }
+
+  // Drop any stale inbox rows that were staged while still pending on Plaid's side.
+  await supabase
+    .from('imported_transactions')
+    .delete()
+    .eq('user_id', item.user_id)
+    .eq('status', 'pending')
+    .eq('is_pending', true);
 
   await supabase
     .from('plaid_items')
