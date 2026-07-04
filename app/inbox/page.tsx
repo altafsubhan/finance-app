@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Category } from '@/types/database';
 import PlaidLinkButton, { PlaidLinkProvider } from '@/components/PlaidLinkButton';
 
@@ -34,6 +34,9 @@ interface LinkedItem {
   accounts: LinkedAccount[];
 }
 
+type SortField = 'date' | 'description' | 'amount' | 'category' | 'scope' | 'payment_method';
+type SortDirection = 'asc' | 'desc';
+
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
@@ -46,6 +49,12 @@ export default function InboxPage() {
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'uncategorized' | string>('all');
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'shared' | 'personal'>('all');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -80,10 +89,160 @@ export default function InboxPage() {
     return m;
   }, [categories]);
 
-  const allSelected = items.length > 0 && selected.size === items.length;
+  const paymentMethodOptions = useMemo(() => {
+    const methods = new Set<string>();
+    items.forEach((item) => {
+      if (item.payment_method) methods.add(item.payment_method);
+    });
+    return Array.from(methods).sort((a, b) => a.localeCompare(b));
+  }, [items]);
+
+  const getCategoryName = useCallback(
+    (categoryId: string | null) => {
+      if (!categoryId) return 'Uncategorized';
+      return categoriesById.get(categoryId)?.name || 'Uncategorized';
+    },
+    [categoriesById]
+  );
+
+  const getDescription = (item: InboxItem) =>
+    item.description || item.merchant_name || '';
+
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return items.filter((item) => {
+      if (categoryFilter === 'uncategorized' && item.suggested_category_id) return false;
+      if (categoryFilter !== 'all' && categoryFilter !== 'uncategorized') {
+        if (item.suggested_category_id !== categoryFilter) return false;
+      }
+      if (scopeFilter === 'shared' && !item.is_shared) return false;
+      if (scopeFilter === 'personal' && item.is_shared) return false;
+      if (paymentMethodFilter !== 'all' && item.payment_method !== paymentMethodFilter) return false;
+
+      if (!query) return true;
+
+      const haystack = [
+        getDescription(item),
+        item.merchant_name || '',
+        getCategoryName(item.suggested_category_id),
+        item.payment_method || '',
+        item.date || '',
+        Math.abs(Number(item.amount)).toString(),
+        formatCurrency(Math.abs(Number(item.amount))),
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [items, searchQuery, categoryFilter, scopeFilter, paymentMethodFilter, getCategoryName]);
+
+  const visibleItems = useMemo(() => {
+    return [...filteredItems].sort((a, b) => {
+      let aValue: string | number;
+      let bValue: string | number;
+
+      switch (sortField) {
+        case 'date':
+          aValue = a.date ? new Date(a.date).getTime() : 0;
+          bValue = b.date ? new Date(b.date).getTime() : 0;
+          break;
+        case 'description':
+          aValue = getDescription(a).toLowerCase();
+          bValue = getDescription(b).toLowerCase();
+          break;
+        case 'amount':
+          aValue = Math.abs(Number(a.amount));
+          bValue = Math.abs(Number(b.amount));
+          break;
+        case 'category':
+          aValue = getCategoryName(a.suggested_category_id).toLowerCase();
+          bValue = getCategoryName(b.suggested_category_id).toLowerCase();
+          break;
+        case 'scope':
+          aValue = a.is_shared ? 'shared' : 'personal';
+          bValue = b.is_shared ? 'shared' : 'personal';
+          break;
+        case 'payment_method':
+          aValue = (a.payment_method || '').toLowerCase();
+          bValue = (b.payment_method || '').toLowerCase();
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredItems, sortField, sortDirection, getCategoryName]);
+
+  const hasActiveFilters =
+    searchQuery.trim() !== '' ||
+    categoryFilter !== 'all' ||
+    scopeFilter !== 'all' ||
+    paymentMethodFilter !== 'all';
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter('all');
+    setScopeFilter('all');
+    setPaymentMethodFilter('all');
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection(field === 'date' || field === 'amount' ? 'desc' : 'asc');
+    }
+  };
+
+  const SortHeader = ({
+    field,
+    align = 'left',
+    children,
+  }: {
+    field: SortField;
+    align?: 'left' | 'right' | 'center';
+    children: ReactNode;
+  }) => (
+    <th
+      className={`px-3 py-2 text-xs font-medium text-gray-500 ${
+        align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => handleSort(field)}
+        className={`inline-flex items-center gap-1 hover:text-gray-700 ${
+          align === 'right' ? 'ml-auto' : align === 'center' ? 'mx-auto' : ''
+        }`}
+      >
+        {children}
+        {sortField === field && <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>}
+      </button>
+    </th>
+  );
+
+  const allSelected =
+    visibleItems.length > 0 && visibleItems.every((item) => selected.has(item.id));
 
   const toggleAll = () => {
-    setSelected(allSelected ? new Set() : new Set(items.map((i) => i.id)));
+    if (allSelected) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        visibleItems.forEach((item) => next.delete(item.id));
+        return next;
+      });
+    } else {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        visibleItems.forEach((item) => next.add(item.id));
+        return next;
+      });
+    }
   };
   const toggleOne = (id: string) => {
     setSelected((prev) => {
@@ -247,11 +406,105 @@ export default function InboxPage() {
           </div>
         )}
 
+        {/* Filters */}
+        {!loading && items.length > 0 && (
+          <div className="border rounded-lg p-4 bg-white space-y-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                <div className="flex-1 min-w-[220px]">
+                  <label htmlFor="inbox-search" className="block text-xs font-medium text-gray-500 mb-1">
+                    Search
+                  </label>
+                  <input
+                    id="inbox-search"
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Description, category, method, amount..."
+                    className="w-full px-3 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="min-w-[180px]">
+                  <label htmlFor="inbox-category-filter" className="block text-xs font-medium text-gray-500 mb-1">
+                    Category
+                  </label>
+                  <select
+                    id="inbox-category-filter"
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg bg-white text-gray-900"
+                  >
+                    <option value="all">All categories</option>
+                    <option value="uncategorized">Uncategorized</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.is_shared ? 'S' : 'P'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="min-w-[140px]">
+                  <label htmlFor="inbox-scope-filter" className="block text-xs font-medium text-gray-500 mb-1">
+                    Scope
+                  </label>
+                  <select
+                    id="inbox-scope-filter"
+                    value={scopeFilter}
+                    onChange={(e) => setScopeFilter(e.target.value as 'all' | 'shared' | 'personal')}
+                    className="w-full px-3 py-2 border rounded-lg bg-white text-gray-900"
+                  >
+                    <option value="all">All scopes</option>
+                    <option value="shared">Shared</option>
+                    <option value="personal">Personal</option>
+                  </select>
+                </div>
+                {paymentMethodOptions.length > 0 && (
+                  <div className="min-w-[160px]">
+                    <label htmlFor="inbox-method-filter" className="block text-xs font-medium text-gray-500 mb-1">
+                      Payment method
+                    </label>
+                    <select
+                      id="inbox-method-filter"
+                      value={paymentMethodFilter}
+                      onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg bg-white text-gray-900"
+                    >
+                      <option value="all">All methods</option>
+                      {paymentMethodOptions.map((method) => (
+                        <option key={method} value={method}>
+                          {method}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-3 text-sm text-gray-500">
+                <span>
+                  {hasActiveFilters
+                    ? `Showing ${visibleItems.length} of ${items.length}`
+                    : `${items.length} total`}
+                </span>
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="px-3 py-2 text-sm border rounded-lg text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Bulk actions */}
+        {!loading && visibleItems.length > 0 && (
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4" />
-            Select all ({items.length})
+            Select all ({visibleItems.length})
           </label>
           <button
             onClick={approveSelected}
@@ -268,6 +521,7 @@ export default function InboxPage() {
             Dismiss {selected.size > 0 ? `(${selected.size})` : ''}
           </button>
         </div>
+        )}
 
         {/* Pending list */}
         {loading ? (
@@ -276,22 +530,37 @@ export default function InboxPage() {
           <div className="border rounded-lg p-8 text-center text-gray-500">
             Nothing to review. Link a bank or hit “Refresh from banks” to pull in new transactions.
           </div>
+        ) : visibleItems.length === 0 ? (
+          <div className="border rounded-lg p-8 text-center text-gray-500">
+            No transactions match your filters.
+            {hasActiveFilters && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="px-3 py-2 text-sm border rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="overflow-x-auto border rounded-lg">
             <table className="min-w-[820px] w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-2 w-10"></th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Date</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Description</th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Amount</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Category</th>
-                  <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">Scope</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Method</th>
+                  <SortHeader field="date">Date</SortHeader>
+                  <SortHeader field="description">Description</SortHeader>
+                  <SortHeader field="amount" align="right">Amount</SortHeader>
+                  <SortHeader field="category">Category</SortHeader>
+                  <SortHeader field="scope" align="center">Scope</SortHeader>
+                  <SortHeader field="payment_method">Method</SortHeader>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {items.map((item) => (
+                {visibleItems.map((item) => (
                   <tr key={item.id} className={selected.has(item.id) ? 'bg-blue-50' : ''}>
                     <td className="px-3 py-2">
                       <input
