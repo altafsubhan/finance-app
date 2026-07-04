@@ -159,5 +159,14 @@ export async function syncPlaidItem(
     .update({ cursor, last_synced_at: new Date().toISOString(), status: 'active' })
     .eq('id', item.id);
 
+  // Uncategorized inbox rows always default to shared scope.
+  await supabase
+    .from('imported_transactions')
+    .update({ is_shared: true })
+    .eq('user_id', item.user_id)
+    .eq('status', 'pending')
+    .is('suggested_category_id', null)
+    .eq('is_shared', false);
+
   return { itemId: item.id, added, modified, removed };
 }

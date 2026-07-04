@@ -24,7 +24,24 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
     if (error) throw error;
 
-    return NextResponse.json({ items: data || [] });
+    const items = data || [];
+    const uncategorizedPersonalIds = items
+      .filter((item) => !item.suggested_category_id && item.is_shared === false)
+      .map((item) => item.id);
+
+    if (uncategorizedPersonalIds.length > 0) {
+      await supabase
+        .from('imported_transactions')
+        .update({ is_shared: true })
+        .in('id', uncategorizedPersonalIds)
+        .eq('user_id', user.id);
+    }
+
+    const normalized = items.map((item) =>
+      !item.suggested_category_id ? { ...item, is_shared: true } : item
+    );
+
+    return NextResponse.json({ items: normalized });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

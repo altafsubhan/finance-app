@@ -271,6 +271,23 @@ export default function InboxPage() {
     });
   };
 
+  const onBlurDescription = (item: InboxItem, value: string) => {
+    const trimmed = value.trim();
+    const current = (item.description || item.merchant_name || '').trim();
+    if (trimmed && trimmed !== current) {
+      patchItem(item.id, { description: trimmed, merchant_name: null });
+    }
+  };
+
+  const onBlurAmount = (item: InboxItem, value: string) => {
+    const parsed = parseFloat(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return;
+    const current = Math.abs(Number(item.amount));
+    if (Math.abs(parsed - current) > 0.001) {
+      patchItem(item.id, { amount: parsed });
+    }
+  };
+
   const refreshFromBanks = async () => {
     setSyncing(true);
     setMessage(null);
@@ -576,11 +593,25 @@ export default function InboxPage() {
                         <span className="ml-1 text-[10px] text-amber-600">pending</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-sm text-gray-900">
-                      {item.description || item.merchant_name || '—'}
+                    <td className="px-3 py-2 text-sm text-gray-900 min-w-[180px]">
+                      <input
+                        type="text"
+                        key={`${item.id}-desc-${item.description}`}
+                        defaultValue={item.description || item.merchant_name || ''}
+                        onBlur={(e) => onBlurDescription(item, e.target.value)}
+                        className="w-full px-2 py-1 text-sm border rounded bg-white text-gray-900"
+                      />
                     </td>
                     <td className="px-3 py-2 text-sm text-right text-gray-900 whitespace-nowrap">
-                      {formatCurrency(Math.abs(Number(item.amount)))}
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        key={`${item.id}-amt-${item.amount}`}
+                        defaultValue={Math.abs(Number(item.amount)).toFixed(2)}
+                        onBlur={(e) => onBlurAmount(item, e.target.value)}
+                        className="w-24 px-2 py-1 text-sm text-right border rounded bg-white ml-auto"
+                      />
                     </td>
                     <td className="px-3 py-2 text-sm">
                       <select
