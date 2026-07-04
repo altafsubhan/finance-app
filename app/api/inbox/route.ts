@@ -13,7 +13,6 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('imported_transactions')
       .select('*')
-      .eq('is_pending', false)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false });
 

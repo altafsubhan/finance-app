@@ -146,15 +146,6 @@ export async function syncPlaidItem(
       if (error) throw error;
     }
 
-    if (data.removed.length > 0) {
-      const removedIds = data.removed.map((t: any) => t.transaction_id);
-      await supabase
-        .from('imported_transactions')
-        .delete()
-        .in('plaid_transaction_id', removedIds)
-        .eq('status', 'pending');
-    }
-
     added += posted.filter((t: any) => data.added.some((a: any) => a.transaction_id === t.transaction_id)).length;
     modified += posted.filter((t: any) => data.modified.some((m: any) => m.transaction_id === t.transaction_id)).length;
     removed += data.removed.length;
@@ -162,14 +153,6 @@ export async function syncPlaidItem(
     cursor = data.next_cursor;
     hasMore = data.has_more;
   }
-
-  // Drop any stale inbox rows that were staged while still pending on Plaid's side.
-  await supabase
-    .from('imported_transactions')
-    .delete()
-    .eq('user_id', item.user_id)
-    .eq('status', 'pending')
-    .eq('is_pending', true);
 
   await supabase
     .from('plaid_items')

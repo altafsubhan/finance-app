@@ -572,6 +572,9 @@ export default function InboxPage() {
                     </td>
                     <td className="px-3 py-2 text-sm text-gray-700 whitespace-nowrap">
                       {item.date || '—'}
+                      {item.is_pending && (
+                        <span className="ml-1 text-[10px] text-amber-600">pending</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-sm text-gray-900">
                       {item.description || item.merchant_name || '—'}
