@@ -31,6 +31,8 @@ interface TransactionListProps {
   onEdit: (transaction: Transaction) => void;
   onDelete: (id: string) => void;
   categoryTypeFilter?: 'monthly' | 'quarterly' | 'yearly' | '';
+  /** When showing grouped monthly/quarterly/yearly sections, start them expanded. */
+  expandGroupsByDefault?: boolean;
   selectedIds?: Set<string>;
   onSelectionChange?: (selectedIds: Set<string>) => void;
   onAddTransaction?: (data: any) => Promise<void>;
@@ -42,17 +44,17 @@ interface TransactionListProps {
 
 const noOpSelectionChange = (ids: Set<string>) => {};
 
-export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction, onTransactionUpdate, onRefresh, onSuggestCategories, uncategorizedCount = 0 }: TransactionListProps) {
+export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, expandGroupsByDefault = false, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction, onTransactionUpdate, onRefresh, onSuggestCategories, uncategorizedCount = 0 }: TransactionListProps) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [newTransactionRows, setNewTransactionRows] = useState<NewTransactionRowState[]>([]);
   const [savingRows, setSavingRows] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [monthlyExpanded, setMonthlyExpanded] = useState(false);
-  const [quarterlyExpanded, setQuarterlyExpanded] = useState(false);
-  const [yearlyExpanded, setYearlyExpanded] = useState(false);
-  const [uncategorizedExpanded, setUncategorizedExpanded] = useState(false);
+  const [monthlyExpanded, setMonthlyExpanded] = useState(expandGroupsByDefault);
+  const [quarterlyExpanded, setQuarterlyExpanded] = useState(expandGroupsByDefault);
+  const [yearlyExpanded, setYearlyExpanded] = useState(expandGroupsByDefault);
+  const [uncategorizedExpanded, setUncategorizedExpanded] = useState(expandGroupsByDefault);
   const [searchQuery, setSearchQuery] = useState('');
   const { accounts } = useAccounts();
 

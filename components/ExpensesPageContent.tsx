@@ -14,6 +14,7 @@ import RecordTransferModal from '@/components/RecordTransferModal';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 import { useAccounts } from '@/lib/hooks/useAccounts';
+import { categoryTypesForPeriod, transactionMatchesPeriod } from '@/lib/periodFilters';
 import { format } from 'date-fns';
 import ScopeToggle from '@/components/ScopeToggle';
 
@@ -64,19 +65,7 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
     let filteredTransactions = transactions.filter(transaction => {
       if (transaction.year !== selectedYear) return false;
 
-      if (selectedPeriod) {
-        if (selectedPeriod.startsWith('Q')) {
-          const quarterNum = parseInt(selectedPeriod.substring(1));
-          if (transaction.quarter !== quarterNum) return false;
-          const category = categories.find(c => c.id === transaction.category_id);
-          if (!category || category.type !== 'quarterly') return false;
-        } else {
-          const monthNum = parseInt(selectedPeriod);
-          if (transaction.month !== monthNum) return false;
-          const category = categories.find(c => c.id === transaction.category_id);
-          if (!category || category.type !== 'monthly') return false;
-        }
-      }
+      if (!transactionMatchesPeriod(transaction, selectedPeriod, categories)) return false;
 
       if (selectedCategories.size > 0) {
         if (!transaction.category_id || !selectedCategories.has(transaction.category_id)) return false;
@@ -283,19 +272,7 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
     (transaction: Transaction) => {
       if (transaction.year !== selectedYear) return false;
 
-      if (selectedPeriod) {
-        if (selectedPeriod.startsWith('Q')) {
-          const quarterNum = parseInt(selectedPeriod.substring(1));
-          if (transaction.quarter !== quarterNum) return false;
-          const category = categories.find(c => c.id === transaction.category_id);
-          if (!category || category.type !== 'quarterly') return false;
-        } else {
-          const monthNum = parseInt(selectedPeriod);
-          if (transaction.month !== monthNum) return false;
-          const category = categories.find(c => c.id === transaction.category_id);
-          if (!category || category.type !== 'monthly') return false;
-        }
-      }
+      if (!transactionMatchesPeriod(transaction, selectedPeriod, categories)) return false;
 
       if (selectedCategories.size > 0) {
         if (!transaction.category_id || !selectedCategories.has(transaction.category_id)) return false;
@@ -584,14 +561,8 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
                         </label>
                         {categories
                           .filter(cat => {
-                            if (selectedPeriod) {
-                              if (selectedPeriod.startsWith('Q')) {
-                                return cat.type === 'quarterly';
-                              } else {
-                                return cat.type === 'monthly';
-                              }
-                            }
-                            return true;
+                            const allowedTypes = categoryTypesForPeriod(selectedPeriod);
+                            return !allowedTypes || allowedTypes.includes(cat.type);
                           })
                           .map((cat) => (
                             <label key={cat.id} className="flex items-center">
@@ -684,11 +655,13 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
                 </div>
               ) : (
                <TransactionList
+                 key={`period-${selectedPeriod || 'all'}`}
                  transactions={transactions}
                  categories={categories}
                  onEdit={handleEdit}
                  onDelete={handleDelete}
-                 categoryTypeFilter={selectedPeriod.startsWith('Q') ? 'quarterly' : (selectedPeriod ? 'monthly' : '')}
+                 categoryTypeFilter={selectedPeriod.startsWith('Q') ? 'quarterly' : ''}
+                 expandGroupsByDefault={Boolean(selectedPeriod) && !selectedPeriod.startsWith('Q')}
                  selectedIds={selectedTransactionIds}
                  onSelectionChange={setSelectedTransactionIds}
                  onAddTransaction={async (data) => {

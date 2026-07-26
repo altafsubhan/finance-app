@@ -52,9 +52,16 @@ export async function GET(request: NextRequest) {
       query = query.eq('quarter', parseInt(quarter));
     }
 
-    // Filter by month (using month field)
+    // Filter by month: include that month's monthly rows, the matching
+    // quarter's quarterly rows (month is null), and yearly rows (month +
+    // quarter both null). Monthly rows also store a derived quarter, so we
+    // must not match on quarter alone.
     if (month) {
-      query = query.eq('month', parseInt(month));
+      const monthNum = parseInt(month);
+      const quarterNum = Math.ceil(monthNum / 3);
+      query = query.or(
+        `month.eq.${monthNum},and(quarter.eq.${quarterNum},month.is.null),and(month.is.null,quarter.is.null)`
+      );
     }
 
     // Filter by category IDs (multiple categories)
