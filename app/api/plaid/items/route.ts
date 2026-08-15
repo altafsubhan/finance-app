@@ -20,7 +20,7 @@ export async function GET(_request: NextRequest) {
     if (itemIds.length > 0) {
       const { data: accs } = await supabase
         .from('plaid_accounts')
-        .select('id, plaid_item_id, name, mask, type, subtype, payment_method_id, is_synced')
+        .select('id, plaid_item_id, name, mask, type, subtype, payment_method_id')
         .in('plaid_item_id', itemIds);
       accounts = accs || [];
     }

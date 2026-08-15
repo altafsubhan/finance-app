@@ -82,7 +82,7 @@ export async function syncPlaidItem(
   // Map Plaid account ids -> payment method name + shared flag for inbox rows.
   const { data: plaidAccounts } = await supabase
     .from('plaid_accounts')
-    .select('account_id, payment_method_id, name, official_name, mask, type, subtype, is_synced')
+    .select('account_id, payment_method_id, name, official_name, mask, type, subtype')
     .eq('plaid_item_id', item.id);
 
   const pmIds = (plaidAccounts || [])
@@ -105,13 +105,6 @@ export async function syncPlaidItem(
     });
   }
 
-  // Accounts the user has opted out of syncing — skip their transactions entirely.
-  const disabledAccountIds = new Set(
-    (plaidAccounts || [])
-      .filter((a: any) => a.is_synced === false)
-      .map((a: any) => a.account_id)
-  );
-
   let cursor = item.cursor || undefined;
   let added = 0;
   let modified = 0;
@@ -127,7 +120,7 @@ export async function syncPlaidItem(
     const data = resp.data;
 
     const upserts = [...data.added, ...data.modified]
-      .filter((t: any) => !disabledAccountIds.has(t.account_id) && !isPaymentTransaction(t))
+      .filter((t: any) => !isPaymentTransaction(t))
       .map((t: any) => {
       const method = accountToMethod.get(t.account_id);
       const suggestion = suggestCategoryIdForDescription({
@@ -166,8 +159,8 @@ export async function syncPlaidItem(
       if (error) throw error;
     }
 
-    // Count only the transactions that were actually staged (payment-type and
-    // disabled-account rows were filtered out before upsert).
+    // Count only the transactions that were actually staged (payment-type rows
+    // were filtered out before upsert).
     const stagedIds = new Set(upserts.map((u) => u.plaid_transaction_id));
     added += data.added.filter((t: any) => stagedIds.has(t.transaction_id)).length;
     modified += data.modified.filter((t: any) => stagedIds.has(t.transaction_id)).length;
