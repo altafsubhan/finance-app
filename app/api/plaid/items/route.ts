@@ -12,6 +12,7 @@ export async function GET(_request: NextRequest) {
     const { data: items, error } = await supabase
       .from('plaid_items')
       .select('id, institution_name, status, last_synced_at, created_at')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
     if (error) throw error;
 

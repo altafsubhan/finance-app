@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase
       .from('imported_transactions')
       .update({ status: 'dismissed' })
-      .in('id', ids);
+      .in('id', ids)
+      .eq('user_id', user.id);
     if (error) throw error;
 
     return NextResponse.json({ dismissed: ids.length });
