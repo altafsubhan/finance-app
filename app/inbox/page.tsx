@@ -24,6 +24,7 @@ interface LinkedAccount {
   mask: string | null;
   type: string | null;
   subtype: string | null;
+  is_synced: boolean;
 }
 
 interface LinkedItem {
@@ -175,6 +176,28 @@ export default function InboxPage() {
     await loadAll();
   };
 
+  const toggleAccountSync = async (itemId: string, accountId: string, newValue: boolean) => {
+    // Optimistically update local state so the checkbox feels instant.
+    setLinkedItems((prev) =>
+      prev.map((li) =>
+        li.id !== itemId
+          ? li
+          : {
+              ...li,
+              accounts: li.accounts.map((a) =>
+                a.id === accountId ? { ...a, is_synced: newValue } : a
+              ),
+            }
+      )
+    );
+    await fetch(`/api/plaid/accounts/${accountId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ is_synced: newValue }),
+    });
+  };
+
   return (
     <PlaidLinkProvider onLinked={loadAll}>
     <main className="min-h-screen p-4 sm:p-8">
@@ -228,7 +251,35 @@ export default function InboxPage() {
                     </button>
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {li.accounts.map((a) => `${a.name || a.subtype || 'Account'}${a.mask ? ` ••${a.mask}` : ''}`).join(', ') || 'No accounts'}
+                    {li.accounts.length === 0 ? (
+                      <span className="text-gray-400">No accounts</span>
+                    ) : (
+                      <div className="mt-2 space-y-1.5">
+                        {li.accounts.map((a) => (
+                          <label
+                            key={a.id}
+                            className="flex items-center gap-2 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={a.is_synced}
+                              onChange={(e) => toggleAccountSync(li.id, a.id, e.target.checked)}
+                              className="w-3.5 h-3.5 rounded flex-shrink-0"
+                            />
+                            <span className={a.is_synced ? 'text-gray-700' : 'text-gray-400 line-through'}>
+                              {a.name || a.subtype || 'Account'}
+                              {a.mask ? ` ••${a.mask}` : ''}
+                            </span>
+                            {a.subtype && (
+                              <span className="text-[10px] text-gray-400 bg-gray-100 px-1 rounded ml-0.5">
+                                {a.subtype}
+                              </span>
+                            )}
+                          </label>
+                        ))}
+                        <p className="text-[10px] text-gray-400 pt-0.5">Uncheck to exclude from sync</p>
+                      </div>
+                    )}
                   </div>
                   <div className="text-[11px] text-gray-400 mt-1">
                     {li.status !== 'active' ? `Status: ${li.status} · ` : ''}
