@@ -66,6 +66,22 @@ export async function loadStagingContext(
   };
 }
 
+/**
+ * Returns true for credit-card payment and loan-payment transactions that
+ * Plaid includes in the feed but that should not appear in the review inbox
+ * (they represent money moved *to* a card, not a real purchase or expense).
+ *
+ * Detection uses two Plaid categorisation systems:
+ *  - personal_finance_category (newer): primary === "LOAN_PAYMENTS"
+ *  - legacy category array: contains both "Transfer" and "Credit Card"
+ */
+export function isPaymentTransaction(t: any): boolean {
+  const pfc = t.personal_finance_category?.primary;
+  if (pfc === 'LOAN_PAYMENTS') return true;
+  const cats: string[] = t.category || [];
+  return cats.includes('Transfer') && cats.includes('Credit Card');
+}
+
 function buildInboxRow(
   t: any,
   item: PlaidItemRow,
@@ -109,7 +125,7 @@ export async function stagePlaidTransactions(
   transactions: any[],
   context: StagingContext
 ): Promise<number> {
-  const posted = transactions.filter((t) => !t.pending);
+  const posted = transactions.filter((t) => !t.pending && !isPaymentTransaction(t));
   if (posted.length === 0) return 0;
 
   const plaidIds = posted.map((t) => t.transaction_id);

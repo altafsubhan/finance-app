@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getPlaidClient } from './client';
 import { ensurePaymentMethodsForPlaidAccounts } from './accounts';
 import {
+  isPaymentTransaction,
   loadStagingContext,
   normalizeUncategorizedSharedScope,
   stagePlaidTransactions,
@@ -57,7 +58,9 @@ export async function syncPlaidItem(
     });
     const data = resp.data;
 
-    const posted = [...data.added, ...data.modified].filter((t: any) => !t.pending);
+    const posted = [...data.added, ...data.modified].filter(
+      (t: any) => !t.pending && !isPaymentTransaction(t)
+    );
     await stagePlaidTransactions(supabase, item, posted, context);
 
     added += posted.filter((t: any) => data.added.some((a: any) => a.transaction_id === t.transaction_id)).length;

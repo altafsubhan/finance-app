@@ -113,6 +113,13 @@ export async function POST(request: NextRequest) {
 
       const { data, error } = await supabase.from('budgets').insert(rows).select();
       if (error) throw error;
+
+      // Keep categories.default_budget in sync for the permanent fallback.
+      await supabase
+        .from('categories')
+        .update({ default_budget: amt })
+        .eq('id', category_id);
+
       return NextResponse.json({ applied: data?.length || 0 }, { status: 201 });
     }
 
@@ -121,6 +128,13 @@ export async function POST(request: NextRequest) {
       .upsert(rows, { onConflict: 'category_id,year,period,period_value' })
       .select();
     if (error) throw error;
+
+    // Keep categories.default_budget in sync so that years beyond the explicit
+    // horizon (and the dashboard fallback lookup) also use the new amount.
+    await supabase
+      .from('categories')
+      .update({ default_budget: amt })
+      .eq('id', category_id);
 
     return NextResponse.json({ applied: data?.length || 0 }, { status: 201 });
   } catch (error: any) {

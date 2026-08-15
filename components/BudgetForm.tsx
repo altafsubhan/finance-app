@@ -61,8 +61,9 @@ export default function BudgetForm({ categories, year, onSuccess, initialData }:
     setError(null);
 
     try {
-      // "Apply from this month forward": only for new monthly budgets with a
-      // specific month selected. Writes months [selected..12] at once.
+      // "Apply from this month forward across all future years": writes from the
+      // selected month through year+10 and updates categories.default_budget so
+      // the permanent fallback also reflects the new amount.
       const useBulkForward =
         !initialData && applyForward && period === 'month' && !!periodValue;
 
@@ -77,9 +78,10 @@ export default function BudgetForm({ categories, year, onSuccess, initialData }:
       const requestBody = useBulkForward
         ? {
             category_id: categoryId,
-            year,
             amount: parseFloat(amount),
-            from_month: parseInt(periodValue),
+            period: 'month',
+            from_year: year,
+            from_value: parseInt(periodValue),
           }
         : {
             category_id: categoryId,
@@ -224,7 +226,7 @@ export default function BudgetForm({ categories, year, onSuccess, initialData }:
           />
           Apply to{' '}
           {new Date(2000, parseInt(periodValue) - 1).toLocaleString('default', { month: 'long' })}{' '}
-          and every later month this year (leaves earlier months untouched)
+          and every later month going forward (leaves earlier months untouched)
         </label>
       )}
 
