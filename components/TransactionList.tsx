@@ -37,26 +37,56 @@ interface TransactionListProps {
   onSelectionChange?: (selectedIds: Set<string>) => void;
   onAddTransaction?: (data: any) => Promise<void>;
   onTransactionUpdate?: (transaction: Transaction) => void;
-  onRefresh?: () => Promise<void>; // Callback to refresh transactions
-  onSuggestCategories?: () => void; // Callback to open suggest categories modal
-  uncategorizedCount?: number; // Count of uncategorized transactions
+  onRefresh?: () => Promise<void>;
+  onSuggestCategories?: () => void;
+  uncategorizedCount?: number;
+  showScopeBadge?: boolean; // Show Personal/Shared pill on each row
+  /** When set, client-side filters monthly/quarterly groups to this period context */
+  periodContext?: { month?: number; quarter?: number };
+  /** Unique key for persisting collapse state in localStorage */
+  collapseKey?: string;
 }
 
 const noOpSelectionChange = (ids: Set<string>) => {};
 
-export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, expandGroupsByDefault = false, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction, onTransactionUpdate, onRefresh, onSuggestCategories, uncategorizedCount = 0 }: TransactionListProps) {
+function readCollapseState(key: string, group: string, defaultVal: boolean): boolean {
+  if (typeof window === 'undefined') return defaultVal;
+  try {
+    const raw = localStorage.getItem(`collapse_${key}`);
+    if (!raw) return defaultVal;
+    const parsed = JSON.parse(raw);
+    return parsed[group] ?? defaultVal;
+  } catch { return defaultVal; }
+}
+
+function writeCollapseState(key: string, group: string, value: boolean) {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(`collapse_${key}`);
+    const parsed = raw ? JSON.parse(raw) : {};
+    parsed[group] = value;
+    localStorage.setItem(`collapse_${key}`, JSON.stringify(parsed));
+  } catch { /* noop */ }
+}
+
+export default function TransactionList({ transactions, categories, onEdit, onDelete, categoryTypeFilter, expandGroupsByDefault = false, selectedIds = new Set(), onSelectionChange = noOpSelectionChange, onAddTransaction, onTransactionUpdate, onRefresh, onSuggestCategories, uncategorizedCount = 0, showScopeBadge = false, periodContext, collapseKey = 'default' }: TransactionListProps) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [newTransactionRows, setNewTransactionRows] = useState<NewTransactionRowState[]>([]);
   const [savingRows, setSavingRows] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [monthlyExpanded, setMonthlyExpanded] = useState(expandGroupsByDefault);
-  const [quarterlyExpanded, setQuarterlyExpanded] = useState(expandGroupsByDefault);
-  const [yearlyExpanded, setYearlyExpanded] = useState(expandGroupsByDefault);
-  const [uncategorizedExpanded, setUncategorizedExpanded] = useState(expandGroupsByDefault);
+  const [monthlyExpanded, setMonthlyExpanded] = useState(() => readCollapseState(collapseKey, 'monthly', expandGroupsByDefault));
+  const [quarterlyExpanded, setQuarterlyExpanded] = useState(() => readCollapseState(collapseKey, 'quarterly', expandGroupsByDefault));
+  const [yearlyExpanded, setYearlyExpanded] = useState(() => readCollapseState(collapseKey, 'yearly', expandGroupsByDefault));
+  const [uncategorizedExpanded, setUncategorizedExpanded] = useState(() => readCollapseState(collapseKey, 'uncategorized', expandGroupsByDefault));
   const [searchQuery, setSearchQuery] = useState('');
   const { accounts } = useAccounts();
+
+  const toggleMonthly = (v: boolean) => { setMonthlyExpanded(v); writeCollapseState(collapseKey, 'monthly', v); };
+  const toggleQuarterly = (v: boolean) => { setQuarterlyExpanded(v); writeCollapseState(collapseKey, 'quarterly', v); };
+  const toggleYearly = (v: boolean) => { setYearlyExpanded(v); writeCollapseState(collapseKey, 'yearly', v); };
+  const toggleUncategorized = (v: boolean) => { setUncategorizedExpanded(v); writeCollapseState(collapseKey, 'uncategorized', v); };
 
   // Exit selection mode when no items are selected
   useEffect(() => {
@@ -345,11 +375,19 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
     ? transactions.filter(matchesSearch)
     : transactions;
 
-  // Group transactions by category type (after sorting)
+  // Group transactions by category type (after sorting), optionally filtered by periodContext
   const sortedTransactions = sortTransactions(filteredTransactions);
   const groupedTransactions = {
-    monthly: sortedTransactions.filter(t => getCategoryType(t.category_id) === 'monthly'),
-    quarterly: sortedTransactions.filter(t => getCategoryType(t.category_id) === 'quarterly'),
+    monthly: sortedTransactions.filter(t => {
+      if (getCategoryType(t.category_id) !== 'monthly') return false;
+      if (periodContext?.month) return t.month === periodContext.month;
+      return true;
+    }),
+    quarterly: sortedTransactions.filter(t => {
+      if (getCategoryType(t.category_id) !== 'quarterly') return false;
+      if (periodContext?.quarter) return t.quarter === periodContext.quarter;
+      return true;
+    }),
     yearly: sortedTransactions.filter(t => getCategoryType(t.category_id) === 'yearly'),
     uncategorized: sortedTransactions.filter(t => !t.category_id || getCategoryType(t.category_id) === null),
   };
@@ -428,7 +466,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
         {groupedTransactions.monthly.length > 0 && (
           <div className="bg-white border rounded-lg">
             <button
-              onClick={() => setMonthlyExpanded(!monthlyExpanded)}
+              onClick={() => toggleMonthly(!monthlyExpanded)}
               className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
             >
               <div className="flex items-center">
@@ -457,6 +495,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
                   setIsSelectionMode={setIsSelectionMode}
                   onTransactionUpdate={onTransactionUpdate}
                   onRefresh={onRefresh}
+                  showScopeBadge={showScopeBadge}
                 />
               </div>
             )}
@@ -466,7 +505,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
         {groupedTransactions.quarterly.length > 0 && (
           <div className="bg-white border rounded-lg">
             <button
-              onClick={() => setQuarterlyExpanded(!quarterlyExpanded)}
+              onClick={() => toggleQuarterly(!quarterlyExpanded)}
               className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
             >
               <div className="flex items-center">
@@ -495,6 +534,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
                   setIsSelectionMode={setIsSelectionMode}
                   onTransactionUpdate={onTransactionUpdate}
                   onRefresh={onRefresh}
+                  showScopeBadge={showScopeBadge}
                 />
               </div>
             )}
@@ -504,7 +544,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
         {groupedTransactions.yearly.length > 0 && (
           <div className="bg-white border rounded-lg">
             <button
-              onClick={() => setYearlyExpanded(!yearlyExpanded)}
+              onClick={() => toggleYearly(!yearlyExpanded)}
               className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
             >
               <div className="flex items-center">
@@ -533,6 +573,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
                   setIsSelectionMode={setIsSelectionMode}
                   onTransactionUpdate={onTransactionUpdate}
                   onRefresh={onRefresh}
+                  showScopeBadge={showScopeBadge}
                 />
               </div>
             )}
@@ -542,7 +583,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
         {groupedTransactions.uncategorized.length > 0 && (
           <div className="bg-white border rounded-lg">
             <button
-              onClick={() => setUncategorizedExpanded(!uncategorizedExpanded)}
+              onClick={() => toggleUncategorized(!uncategorizedExpanded)}
               className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 rounded-t-lg"
             >
               <div className="flex items-center">
@@ -571,6 +612,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
                   setIsSelectionMode={setIsSelectionMode}
                   onTransactionUpdate={onTransactionUpdate}
                   onRefresh={onRefresh}
+                  showScopeBadge={showScopeBadge}
                 />
               </div>
             )}
@@ -692,6 +734,7 @@ export default function TransactionList({ transactions, categories, onEdit, onDe
             setIsSelectionMode={setIsSelectionMode}
             onTransactionUpdate={onTransactionUpdate}
             onRefresh={onRefresh}
+                  showScopeBadge={showScopeBadge}
           />
         )}
       </div>
@@ -794,7 +837,8 @@ function TransactionTable({
   isSelectionMode,
   setIsSelectionMode,
   onTransactionUpdate: handleTransactionUpdate,
-  onRefresh
+  onRefresh,
+  showScopeBadge = false,
 }: {
   transactions: Transaction[];
   categories: Category[];
@@ -811,6 +855,7 @@ function TransactionTable({
   setIsSelectionMode: (value: boolean) => void;
   onTransactionUpdate?: (transaction: Transaction) => void;
   onRefresh?: () => Promise<void>;
+  showScopeBadge?: boolean;
 }) {
   const { paymentMethods } = usePaymentMethods();
   const { accounts } = useAccounts();
@@ -1014,10 +1059,12 @@ function TransactionTable({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (window.innerWidth >= 768) return;
 
-    // If user moves finger, cancel the hold timer
+    // Cancel the hold timer on scroll/move, but do NOT exit selection mode.
+    // Only an explicit Done/Cancel button should exit selection mode.
     if (touchHoldTimerRef.current) {
       clearTimeout(touchHoldTimerRef.current);
       touchHoldTimerRef.current = null;
+      touchStartRef.current = null;
     }
   };
 
@@ -1127,18 +1174,22 @@ function TransactionTable({
             const isSelected = selectedIds.has(transaction.id);
             const isUncategorized = !transaction.category_id;
             const isPaid = transaction.paid_by !== null;
+            const category = transaction.category_id ? categories.find(c => c.id === transaction.category_id) : null;
+            // Category-scope mismatch: transaction is_shared doesn't match category default is_shared
+            const hasScopeMismatch = category && transaction.is_shared !== category.is_shared;
 
+            // Use pure React state for row bg — avoids CSS pseudo-class conflicts with touch
             const rowBgClass = isSelected
-              ? 'bg-blue-50'
+              ? 'bg-purple-50 border-l-4 border-purple-500'
               : isUncategorized
                 ? 'bg-red-50'
                 : isPaid
                   ? 'bg-green-50'
-                  : 'bg-white';
+                  : 'bg-white hover:bg-gray-50';
             return (
             <tr 
               key={transaction.id} 
-              className={`${rowBgClass} ${!isSelected ? 'hover:bg-gray-50' : ''} ${isSelectionMode ? 'cursor-pointer' : ''}`}
+              className={`${rowBgClass} ${isSelectionMode ? 'cursor-pointer' : ''}`}
               style={{
                   WebkitUserSelect: 'none', 
                   userSelect: 'none',
@@ -1195,7 +1246,23 @@ function TransactionTable({
                   ${parseFloat(transaction.amount.toString()).toFixed(2)}
                 </td>
                 <td className="px-1 md:px-6 py-2 md:py-4 text-sm text-gray-900 break-words">
-                  {transaction.description}
+                  <div className="flex items-start gap-1.5 flex-wrap">
+                    <span>{transaction.description}</span>
+                    {showScopeBadge && (
+                      <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium ${transaction.is_shared ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                        {transaction.is_shared ? 'Shared' : 'Personal'}
+                      </span>
+                    )}
+                    {hasScopeMismatch && (
+                      <span
+                        title={`This transaction is marked ${transaction.is_shared ? 'Shared' : 'Personal'} but the category "${category?.name}" defaults to ${category?.is_shared ? 'Shared' : 'Personal'} — verify scope`}
+                        className="flex-shrink-0 text-amber-500 cursor-help text-xs"
+                        aria-label="Scope mismatch warning"
+                      >
+                        ⚠
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-1 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-500 w-28">
                   {/* Desktop: Dropdown, Mobile: Text */}

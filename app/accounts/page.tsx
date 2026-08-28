@@ -803,7 +803,7 @@ export default function AccountsPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Accounts</h1>
-              <ScopeToggle scope={scope} onChange={setScope} />
+              <ScopeToggle scope={scope} onChange={(s) => setScope(s as 'shared' | 'personal')} />
             </div>
             <p className="text-sm text-gray-500 mt-1">
               {isShared ? 'Track balances for shared/joint accounts' : 'Track balances for your personal accounts'}

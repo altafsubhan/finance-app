@@ -14,11 +14,15 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { amount } = body;
+    const { amount, expense_group } = body;
+
+    const updates: Record<string, unknown> = {};
+    if (amount !== undefined) updates.amount = parseFloat(amount);
+    if (expense_group !== undefined) updates.expense_group = expense_group || null;
 
     const { data, error } = await supabase
       .from('budgets')
-      .update({ amount: parseFloat(amount) })
+      .update(updates)
       .eq('id', params.id)
       // RLS policies handle authorization for shared access
       .select()

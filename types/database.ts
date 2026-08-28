@@ -65,6 +65,7 @@ export interface Budget {
   period: 'month' | 'quarter' | 'year';
   period_value: number | null; // 1-12 for month, 1-4 for quarter, null for year
   amount: number;
+  expense_group?: ExpenseGroup | null; // per-period override; null → inherit from category
   user_id: string;
   created_at: string;
 }

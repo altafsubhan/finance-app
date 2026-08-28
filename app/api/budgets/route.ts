@@ -51,18 +51,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { category_id, year, period, period_value, amount } = body;
+    const { category_id, year, period, period_value, amount, expense_group } = body;
+
+    const row: Record<string, unknown> = {
+      category_id,
+      year: parseInt(year),
+      period,
+      period_value: period_value ? parseInt(period_value) : null,
+      amount: parseFloat(amount),
+      user_id: user.id,
+    };
+    if (expense_group !== undefined) row.expense_group = expense_group || null;
 
     const { data, error } = await supabase
       .from('budgets')
-      .upsert({
-        category_id,
-        year: parseInt(year),
-        period,
-        period_value: period_value ? parseInt(period_value) : null,
-        amount: parseFloat(amount),
-        user_id: user.id,
-      }, {
+      .upsert(row, {
         onConflict: 'category_id,year,period,period_value'
       })
       .select()

@@ -23,9 +23,11 @@ interface ExpensesPageContentProps {
 }
 
 export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageContentProps) {
-  const [internalScope, setInternalScope] = useState<'shared' | 'personal'>(scopeProp || 'shared');
+  const [internalScope, setInternalScope] = useState<'shared' | 'personal' | 'all'>(scopeProp || 'shared');
   const scope = scopeProp || internalScope;
+  const isAll = scope === 'all';
   const isShared = scope === 'shared';
+  const [inclusivePeriod, setInclusivePeriod] = useState(false);
   const { paymentMethods } = usePaymentMethods();
   const { accounts } = useAccounts();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -53,8 +55,8 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
   const categoryFilterRef = useRef<HTMLDivElement>(null);
   const [showTransferModal, setShowTransferModal] = useState(false);
 
-  const scopeLabel = isShared ? 'Shared' : 'Personal';
-  const accentColor = isShared ? 'blue' : 'purple';
+  const scopeLabel = isAll ? 'All' : isShared ? 'Shared' : 'Personal';
+  const accentColor = isAll ? 'gray' : isShared ? 'blue' : 'purple';
 
   const exportToCSV = () => {
     if (transactions.length === 0) {
@@ -148,36 +150,48 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
 
   const loadTransactions = useCallback(async () => {
     try {
-      const params = new URLSearchParams();
-      params.append('year', selectedYear.toString());
-      params.append('is_shared', isShared.toString());
-      if (selectedPeriod) {
-        if (selectedPeriod.startsWith('Q')) {
-          const quarterNum = selectedPeriod.substring(1);
-          params.append('quarter', quarterNum);
-        } else {
-          params.append('month', selectedPeriod);
+      // For 'all' scope, omit is_shared filter so we get everything
+      const buildParams = (periodOverride?: string) => {
+        const params = new URLSearchParams();
+        params.append('year', selectedYear.toString());
+        if (!isAll) params.append('is_shared', isShared.toString());
+        const period = periodOverride ?? selectedPeriod;
+        if (period) {
+          if (period.startsWith('Q')) {
+            params.append('quarter', period.substring(1));
+          } else {
+            params.append('month', period);
+          }
         }
-      }
-      selectedCategories.forEach(categoryId => {
-        params.append('category_id', categoryId);
-      });
-      if (selectedPaymentMethod) params.append('payment_method', selectedPaymentMethod);
-      if (selectedPaidBy) {
-        params.append('paid_by', selectedPaidBy);
-      }
+        selectedCategories.forEach(categoryId => params.append('category_id', categoryId));
+        if (selectedPaymentMethod) params.append('payment_method', selectedPaymentMethod);
+        if (selectedPaidBy) params.append('paid_by', selectedPaidBy);
+        return params;
+      };
 
-      const transactionsRes = await fetch(`/api/transactions?${params.toString()}`, {
-        credentials: 'include',
-      });
-      if (transactionsRes.ok) {
-        const transactionsData = await transactionsRes.json();
-        setTransactions(transactionsData);
+      // Inclusive period mode: fetch ALL year transactions and let TransactionList
+      // filter by periodContext client-side (monthly group → month X, quarterly → enclosing Q)
+      if (inclusivePeriod && selectedPeriod && !selectedPeriod.startsWith('Q')) {
+        const allYearParams = new URLSearchParams();
+        allYearParams.append('year', selectedYear.toString());
+        if (!isAll) allYearParams.append('is_shared', isShared.toString());
+        selectedCategories.forEach(categoryId => allYearParams.append('category_id', categoryId));
+        if (selectedPaymentMethod) allYearParams.append('payment_method', selectedPaymentMethod);
+        if (selectedPaidBy) allYearParams.append('paid_by', selectedPaidBy);
+
+        const res = await fetch(`/api/transactions?${allYearParams.toString()}`, { credentials: 'include' });
+        if (res.ok) setTransactions(await res.json());
+      } else {
+        const transactionsRes = await fetch(`/api/transactions?${buildParams().toString()}`, { credentials: 'include' });
+        if (transactionsRes.ok) {
+          const transactionsData = await transactionsRes.json();
+          setTransactions(transactionsData);
+        }
       }
     } catch (error) {
       console.error('Failed to load expenses:', error);
     }
-  }, [selectedYear, selectedPeriod, selectedCategories, selectedPaymentMethod, selectedPaidBy, isShared]);
+  }, [selectedYear, selectedPeriod, selectedCategories, selectedPaymentMethod, selectedPaidBy, isShared, isAll, inclusivePeriod]);
 
   const loadCategoryRules = useCallback(async () => {
     try {
@@ -193,9 +207,9 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
 
   const loadCategories = useCallback(async () => {
     try {
-      const categoriesRes = await fetch(`/api/categories?is_shared=${isShared}`, {
-        credentials: 'include',
-      });
+      // For 'all' scope, load all categories regardless of is_shared
+      const url = isAll ? '/api/categories' : `/api/categories?is_shared=${isShared}`;
+      const categoriesRes = await fetch(url, { credentials: 'include' });
       if (categoriesRes.ok) {
         const categoriesData = await categoriesRes.json();
         setCategories(categoriesData);
@@ -203,7 +217,7 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
     } catch (error) {
       console.error('Failed to load categories:', error);
     }
-  }, [isShared]);
+  }, [isShared, isAll]);
 
   useEffect(() => {
     const initialLoad = async () => {
@@ -366,7 +380,7 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
             <div className="flex items-center gap-3">
               <h1 className="text-2xl sm:text-4xl font-bold">Expenses</h1>
               {!scopeProp && (
-                <ScopeToggle scope={internalScope} onChange={setInternalScope} />
+                <ScopeToggle scope={internalScope} onChange={(s) => { setInternalScope(s); setInclusivePeriod(false); }} showAll />
               )}
               {scopeProp && (
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -516,7 +530,7 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
                   <select
                     id="period"
                     value={selectedPeriod}
-                    onChange={(e) => setSelectedPeriod(e.target.value)}
+                    onChange={(e) => { setSelectedPeriod(e.target.value); setInclusivePeriod(false); }}
                     className="px-4 py-2 border rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">All Periods</option>
@@ -530,6 +544,20 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
                     <option value="Q3">Q3</option>
                     <option value="Q4">Q4</option>
                   </select>
+                  {/* Inclusive period toggle — only for monthly periods */}
+                  {selectedPeriod && !selectedPeriod.startsWith('Q') && (
+                    <label className="flex items-center gap-1.5 mt-1.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={inclusivePeriod}
+                        onChange={(e) => setInclusivePeriod(e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-gray-600">
+                        Show all periods in {new Date(2000, parseInt(selectedPeriod) - 1).toLocaleString('default', { month: 'short' })}
+                      </span>
+                    </label>
+                  )}
                 </div>
 
                 <div className="relative" ref={categoryFilterRef}>
@@ -660,10 +688,16 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
                  categories={categories}
                  onEdit={handleEdit}
                  onDelete={handleDelete}
-                 categoryTypeFilter={selectedPeriod.startsWith('Q') ? 'quarterly' : ''}
+                 categoryTypeFilter={inclusivePeriod ? '' : (selectedPeriod.startsWith('Q') ? 'quarterly' : (selectedPeriod ? 'monthly' : ''))}
                  expandGroupsByDefault={Boolean(selectedPeriod) && !selectedPeriod.startsWith('Q')}
                  selectedIds={selectedTransactionIds}
                  onSelectionChange={setSelectedTransactionIds}
+                 showScopeBadge={isAll}
+                 collapseKey={`expenses-${scope}-${selectedYear}`}
+                 periodContext={inclusivePeriod && selectedPeriod && !selectedPeriod.startsWith('Q') ? {
+                   month: parseInt(selectedPeriod),
+                   quarter: Math.ceil(parseInt(selectedPeriod) / 3),
+                 } : undefined}
                  onAddTransaction={async (data) => {
                    const response = await fetch('/api/transactions', {
                      method: 'POST',

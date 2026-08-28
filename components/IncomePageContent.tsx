@@ -424,7 +424,7 @@ export default function IncomePageContent({ scope: scopeProp }: IncomePageConten
             <div className="flex items-center gap-3">
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Income</h1>
               {!scopeProp && (
-                <ScopeToggle scope={internalScope} onChange={setInternalScope} />
+                <ScopeToggle scope={internalScope} onChange={(s) => setInternalScope(s as 'shared' | 'personal')} />
               )}
               {scopeProp && (
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${

@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
       from_year,
       from_value,
       through_year,
+      expense_group,
     } = body;
 
     if (!category_id || amount === undefined || !from_year) {
@@ -87,14 +88,17 @@ export async function POST(request: NextRequest) {
     const maxValue = period === 'month' ? 12 : period === 'quarter' ? 4 : 1;
     const startValue = period === 'year' ? 1 : Math.min(maxValue, Math.max(1, parseInt(from_value ?? '1')));
 
+    const extraFields: Record<string, unknown> = {};
+    if (expense_group !== undefined) extraFields.expense_group = expense_group || null;
+
     const rows: Array<Record<string, unknown>> = [];
     for (let y = startYear; y <= endYear; y++) {
       if (period === 'year') {
-        rows.push({ category_id, year: y, period: 'year', period_value: null, amount: amt, user_id: user.id });
+        rows.push({ category_id, year: y, period: 'year', period_value: null, amount: amt, user_id: user.id, ...extraFields });
       } else {
         const first = y === startYear ? startValue : 1;
         for (let v = first; v <= maxValue; v++) {
-          rows.push({ category_id, year: y, period, period_value: v, amount: amt, user_id: user.id });
+          rows.push({ category_id, year: y, period, period_value: v, amount: amt, user_id: user.id, ...extraFields });
         }
       }
     }
