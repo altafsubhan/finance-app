@@ -744,7 +744,7 @@ export default function BudgetsPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Category setup</h2>
-                <p className="text-sm text-gray-500 mt-1">"Group" controls the dashboard rollup — Fixed/Variable are tracked, Ignored is excluded.</p>
+                <p className="text-sm text-gray-500 mt-1">&ldquo;Group&rdquo; controls the dashboard rollup — Fixed/Variable are tracked, Ignored is excluded.</p>
               </div>
               <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
                 <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
