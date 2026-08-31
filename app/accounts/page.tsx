@@ -630,22 +630,34 @@ export default function AccountsPage() {
     }
 
     let isCancelled = false;
+    const QUOTE_BATCH_SIZE = 25;
+    const REFRESH_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
     const refreshQuotes = async () => {
       try {
         setQuotesLoading(true);
-        const res = await fetch(
-          `/api/market/quotes?symbols=${encodeURIComponent(trackedPortfolioSymbols.join(','))}`,
-          { credentials: 'include' }
-        );
-        if (!res.ok) {
-          const payload = await res.json();
-          throw new Error(payload.error || 'Failed to load live market data');
+        const allQuotes: Record<string, any> = {};
+        let lastFetchedAt: string | null = null;
+
+        for (let i = 0; i < trackedPortfolioSymbols.length; i += QUOTE_BATCH_SIZE) {
+          if (isCancelled) return;
+          const batch = trackedPortfolioSymbols.slice(i, i + QUOTE_BATCH_SIZE);
+          const res = await fetch(
+            `/api/market/quotes?symbols=${encodeURIComponent(batch.join(','))}`,
+            { credentials: 'include' }
+          );
+          if (!res.ok) {
+            const payload = await res.json();
+            throw new Error(payload.error || 'Failed to load live market data');
+          }
+          const data = await res.json();
+          Object.assign(allQuotes, data.quotes || {});
+          if (data.fetched_at) lastFetchedAt = data.fetched_at;
         }
-        const data = await res.json();
+
         if (!isCancelled) {
-          setQuotesBySymbol(data.quotes || {});
-          setQuotesLastUpdated(data.fetched_at || new Date().toISOString());
+          setQuotesBySymbol(allQuotes);
+          setQuotesLastUpdated(lastFetchedAt || new Date().toISOString());
           setQuotesError(null);
         }
       } catch (err: any) {
@@ -659,7 +671,7 @@ export default function AccountsPage() {
     };
 
     refreshQuotes();
-    const intervalId = setInterval(refreshQuotes, 15 * 60 * 1000);
+    const intervalId = setInterval(refreshQuotes, REFRESH_INTERVAL_MS);
     return () => {
       isCancelled = true;
       clearInterval(intervalId);
@@ -1200,7 +1212,7 @@ export default function AccountsPage() {
                                     }
                                     className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                   />
-                                  Auto-update from live market prices (15 min)
+                                  Auto-update from live market prices (2 hrs)
                                 </label>
                               </div>
 

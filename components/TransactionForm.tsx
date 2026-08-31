@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { PaymentMethod, PaidBy, Category } from '@/types/database';
+import { Transaction, PaymentMethod, PaidBy, Category } from '@/types/database';
 import { PAID_BY_OPTIONS } from '@/lib/constants';
 import { usePaymentMethods } from '@/lib/hooks/usePaymentMethods';
 import { useAccounts } from '@/lib/hooks/useAccounts';
@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 
 interface TransactionFormProps {
   categories: Category[];
-  onSuccess: () => void;
+  onSuccess: (updated?: Transaction) => void;
   initialData?: {
     id: string;
     date: string | null;
@@ -38,7 +38,7 @@ export default function TransactionForm({ categories, onSuccess, initialData }: 
   const [year, setYear] = useState(currentDate.getFullYear());
   const [periodType, setPeriodType] = useState<'month' | 'quarter' | 'year'>('month');
   const [periodValue, setPeriodValue] = useState<number | ''>(currentDate.getMonth() + 1);
-  const [autoDetectPeriod, setAutoDetectPeriod] = useState(true);
+  const [autoDetectPeriod, setAutoDetectPeriod] = useState(!initialData);
   const [skipBalanceUpdate, setSkipBalanceUpdate] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -140,9 +140,9 @@ export default function TransactionForm({ categories, onSuccess, initialData }: 
         }),
       });
 
+      const responseData = await response.json();
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to save transaction');
+        throw new Error(responseData.error || 'Failed to save transaction');
       }
 
       // Reset form
@@ -158,7 +158,7 @@ export default function TransactionForm({ categories, onSuccess, initialData }: 
         setPeriodValue(currentDate.getMonth() + 1);
       }
 
-      onSuccess();
+      onSuccess(initialData ? (responseData as Transaction) : undefined);
     } catch (err: any) {
       setError(err.message);
     } finally {

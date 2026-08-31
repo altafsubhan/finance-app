@@ -332,6 +332,18 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
     [matchesCurrentFilters]
   );
 
+  // Used after a full modal edit: always keep the edited transaction visible
+  // regardless of active filters, so the user can confirm the change they made.
+  const forceUpdateTransaction = useCallback((transaction: Transaction) => {
+    setTransactions(prev => {
+      const index = prev.findIndex(t => t.id === transaction.id);
+      if (index === -1) return [transaction, ...prev];
+      const next = [...prev];
+      next[index] = transaction;
+      return next;
+    });
+  }, []);
+
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
   const uncategorizedCount = transactions.filter(t => t.category_id === null).length;
 
@@ -826,9 +838,10 @@ export default function ExpensesPageContent({ scope: scopeProp }: ExpensesPageCo
             transaction={editingTransactionModal}
             categories={categories}
             onClose={() => setEditingTransactionModal(null)}
-            onSuccess={() => {
+            onSuccess={(updated) => {
               setEditingTransactionModal(null);
-              loadTransactions();
+              if (updated) forceUpdateTransaction(updated);
+              else loadTransactions();
             }}
           />
         )}

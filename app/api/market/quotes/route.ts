@@ -190,9 +190,9 @@ export async function GET(request: NextRequest) {
     if (uniqueSymbols.length === 0) {
       return NextResponse.json({ error: 'At least one symbol is required' }, { status: 400 });
     }
-    if (uniqueSymbols.length > 25) {
+    if (uniqueSymbols.length > 50) {
       return NextResponse.json(
-        { error: 'A maximum of 25 symbols is supported per request' },
+        { error: 'A maximum of 50 symbols is supported per request' },
         { status: 400 }
       );
     }

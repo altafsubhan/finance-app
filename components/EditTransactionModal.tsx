@@ -7,7 +7,7 @@ interface EditTransactionModalProps {
   transaction: Transaction;
   categories: Category[];
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (updated?: Transaction) => void;
 }
 
 export default function EditTransactionModal({
@@ -16,8 +16,8 @@ export default function EditTransactionModal({
   onClose,
   onSuccess,
 }: EditTransactionModalProps) {
-  const handleSuccess = () => {
-    onSuccess();
+  const handleSuccess = (updated?: Transaction) => {
+    onSuccess(updated);
     onClose();
   };
 
